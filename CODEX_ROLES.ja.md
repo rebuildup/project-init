@@ -2,7 +2,7 @@
 
 この文書は**2026年8月時点の暫定運用方針**です。
 
-Codexのmodel、pricing、availability、subagent routingが変わった場合は再調査し、必要ならADRを更新してください。
+Codexのmodel、pricing、availability、subagent behavior、model routingが変わった場合は再調査し、必要ならADRを更新してください。
 
 これはOpenAIが各modelに公式に割り当てた職務ではなく、現在のmodel特性を利用するproject policyです。
 
