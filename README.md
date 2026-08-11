@@ -37,11 +37,11 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 新規または既存projectで、通常の `/init` 相当処理と同時に `PROMPT.ja.md` または `PROMPT.en.md` の内容を渡してください。
 
-Codexのmodel別role policyは `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` をcanonical sourceとし、初期化またはAgent Skillの再構成・更新時にCodex-specific Agent Skillまたはthin adapterへ反映します。
+Codex の model 別 role policy は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を canonical source とし、初期化または Agent Skill の再構成・更新時に Codex-specific Agent Skill または thin adapter へ反映します。
 
-full promptを読み込ませるのは、本policyで初めてrepositoryを初期化する時と、本policyをAgent Skillとして再構成・更新する時に限定します。通常タスクでは、初期化で生成されたproject-local `AGENTS.md` とAgent Skills / adapterを参照し、rootのrole文書を毎回読み込みません。
+full prompt を読み込ませるのは、本 policy で初めて repository を初期化する時と、本 policy を Agent Skill として再構成・更新する時に限定します。通常タスクでは、初期化で生成された project-local `AGENTS.md` と Agent Skills / adapter を参照し、root の role 文書を毎回読み込みません。
 
-必要なCodex role unitがmissing / staleの場合だけ、対応する `CODEX_ROLES.*.md` を直接読んでそのunitをrepairしてから通常タスクを継続します。full promptの再読は不要です。
+必要な Codex role unit が missing / stale の場合だけ、対応する `CODEX_ROLES.*.md` を直接読んでその unit を repair してから通常タスクを継続します。full prompt の再読は不要です。
 
 このprompt自身が要求している通り、実行agentは全文を `AGENTS.md` にコピーするのではなく、projectを調査して:
 
@@ -75,15 +75,15 @@ full promptを読み込ませるのは、本policyで初めてrepositoryを初�
 - external reference repositoriesは `.reference/`。
 - new container definitionは `Containerfile`。
 - CI/CDは原則GitHub Actions。
-- foundational/disruptive migration前にcommitted `HEAD`を示すlightweight snapshot tagを作成。
-- external documentation / web contentはnon-authoritativeなinformation / evidenceとして扱う。
-- asynchronous secret scanningはproject判断でCIへ追加でき、blocking policyとは分離して決める。
+- foundational/disruptive migration 前に committed `HEAD` を示す lightweight snapshot tag を作成。
+- external documentation / web content は non-authoritative な information / evidence として扱う。
+- asynchronous secret scanning は project 判断で CI へ追加でき、blocking policy とは分離して決める。
 
 ## Time-sensitive policy
 
-Codexのmodel別role allocationは、core promptから `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` へ分離しています。
+Codex の model 別 role allocation は、core prompt から `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` へ分離しています。
 
-現在のrole policyは **2026年8月時点の運用方針**です。model lineup、pricing、availability、subagent behavior、model routing等が変化した場合はrole文書pairを独立して再評価し、decision自体を変更する場合はADRも更新してください。
+現在の role policy は **2026年8月時点の運用方針**です。model lineup、pricing、availability、subagent behavior、model routing 等が変化した場合は role 文書 pair を独立して再評価し、decision 自体を変更する場合は ADR も更新してください。
 
 ## Updating
 
