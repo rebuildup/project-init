@@ -10,6 +10,8 @@
 
 単なる直訳より、両言語で同じoperational semanticsになることを優先してください。
 
+`CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` も同一変更で更新し、operational semanticsを一致させてください。
+
 ## 変更時に確認すること
 
 - project-local原則を弱めていないか
@@ -37,7 +39,7 @@
 
 特にCodexのSol / Terra / Luna方針は2026年8月時点のpolicyです。
 
-状況が変わった場合は、単にprompt本文だけを書き換えるのではなく、必要に応じて新ADRを作成し、旧ADRとのforward/backward referenceを維持してください。
+状況が変わった場合は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を同期更新し、decision自体が変わる場合は必要に応じて新ADRを作成して旧ADRとのforward/backward referenceを維持してください。
 
 ## ADR
 
@@ -98,6 +100,7 @@ PRには最低限:
 変更後は最低限:
 
 - `PROMPT.ja.md` と `PROMPT.en.md` のmajor section対応
+- `CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` の意味同値性
 - broken Markdown structureがないこと
 - conflicting rulesがないこと
 - ADR reference整合性

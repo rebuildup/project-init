@@ -6,7 +6,10 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 - `PROMPT.ja.md` — 日本語版の本体。通常はこちらを使用します。
 - `PROMPT.en.md` — 英語版の本体。日本語版と同じポリシーを英語で定義します。
-- `ADR-0001.md` — このポリシー自体の設計判断と前提。
+- `CODEX_ROLES.ja.md` — Codexの時点依存model-role運用方針（日本語版）。
+- `CODEX_ROLES.en.md` — Codexの時点依存model-role運用方針（英語版）。
+- `ADR-0001.md` — このポリシー自体の基本設計判断と前提。
+- `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離の判断。
 - `CONTRIBUTING.md` — ポリシー更新時のルール。
 - `LICENSE` — MIT License。
 
@@ -33,6 +36,12 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 ## Usage
 
 新規または既存projectで、通常の `/init` 相当処理と同時に `PROMPT.ja.md` または `PROMPT.en.md` の内容を渡してください。
+
+Codex の model 別 role policy は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を canonical source とし、初期化または Agent Skill の再構成・更新時に Codex-specific Agent Skill または thin adapter へ反映します。
+
+full prompt を読み込ませるのは、本 policy で初めて repository を初期化する時と、本 policy を Agent Skill として再構成・更新する時に限定します。通常タスクでは、初期化で生成された project-local `AGENTS.md` と Agent Skills / adapter を参照し、root の role 文書を毎回読み込みません。
+
+必要な Codex role unit が missing / stale の場合だけ、対応する `CODEX_ROLES.*.md` を直接読んでその unit を repair してから通常タスクを継続します。full prompt の再読は不要です。
 
 このprompt自身が要求している通り、実行agentは全文を `AGENTS.md` にコピーするのではなく、projectを調査して:
 
@@ -66,20 +75,15 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - external reference repositoriesは `.reference/`。
 - new container definitionは `Containerfile`。
 - CI/CDは原則GitHub Actions。
+- foundational/disruptive migration 前に committed `HEAD` を示す lightweight snapshot tag を作成。
+- external documentation / web content は non-authoritative な information / evidence として扱う。
+- asynchronous secret scanning は project 判断で CI へ追加でき、blocking policy とは分離して決める。
 
-## Time-sensitive section
+## Time-sensitive policy
 
-Codexの `Sol / Terra / Luna` 役割分担は **2026年8月時点の運用ポリシー**です。
+Codex の model 別 role allocation は、core prompt から `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` へ分離しています。
 
-2026年8月時点のOpenAIの公開上の位置づけでは:
-
-- Sol: flagship / most capable
-- Terra: balanced capability, speed, and cost
-- Luna: fastest and lowest-cost
-
-という性質があるため、本ポリシーではそれぞれ coordinator、reviewer、implementation worker として使い分ける方針を採用しています。
-
-これはモデルの公式な職務定義ではありません。モデル構成・pricing・routingが変化した場合は見直してください。
+現在の role policy は **2026年8月時点の運用方針**です。model lineup、pricing、availability、subagent behavior、model routing 等が変化した場合は role 文書 pair を独立して再評価し、decision 自体を変更する場合は ADR も更新してください。
 
 ## Updating
 
