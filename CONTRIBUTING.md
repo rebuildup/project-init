@@ -26,12 +26,15 @@
 - `.env` / `.tmp/` / `.reference/` のpolicyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
 - GitHub Issues / Projectsをdurable work SoTとして維持しているか
+- `main`をreleased source stateとして維持しているか
+- sprintとtarget release versionが1:1で対応しているか
+- `release-x-y-z`をsprint integration branchとして維持しているか
+- ticket branchがIssue番号だけになっているか
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
-- Issue -> branch -> Draft PR -> Ready -> merge -> Done lifecycleを壊していないか
-- Issue番号付きbranch namingを維持しているか
+- ticket Draft PR -> release branch -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 
 ## Multi-agent policy invariants
@@ -42,19 +45,23 @@ canonical execution modelはADR-0003、delivery / cross-platform modelはADR-000
 
 - Git remote / canonical refがsource SoT
 - GitHub Issues / Projectsがdurable work SoT
+- `main` = released/integrated source state
+- 1 sprint = 1 target semantic version
+- sprint integration branch = `release-<major>-<minor>-<patch>`
+- 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
+- ticket branch canonical format = `<issue-number>`
+- ticket PR base = target release branch
+- meaningful initial commit後にDraft PRを早期作成
+- ticket PR merge + Issue close + Project Done = ticket Done boundary
+- release-wide validation後 `release-x-y-z -> main` をmerge = release completion
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree-only isolationは禁止
 - immutable/cacheable stateのみ共有し、mutable runtime stateは隔離
 - parent -> childはimmutable snapshot
 - child -> parentはimmutable commit/ref/diff
 - Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
-- workerが同じworking tree / Git index / integration branchを同時更新しない
-- durable top-level workはIssueで管理
-- 1 top-level Issue = 1 integration branch = 1 PRを基本とする
-- canonical branch formatは `issue/<issue-number>-<short-slug>`
-- meaningful initial commit後にDraft PRを早期作成
+- workerが同じworking tree / Git index / durable ticket branchを同時更新しない
 - nested workerはephemeral refs/commitsで統合可能
-- merge + Issue close + Project Doneを標準Done boundaryとする
 
 これらを変更する場合はADRを追加してください。
 
@@ -75,32 +82,76 @@ Skillは短いtriggerと主要責務を持ち、必要なworkflowだけをcontex
 
 このrepository自身も可能な限りpolicyをdogfoodします。
 
-### Issue
+### Release branch
 
-substantial policy changeはIssueを作成し、objective / acceptance criteria / scopeを明記してください。
-
-### Branch
+sprint開始時にtarget versionを決め、`main` からrelease branchを作成します。
 
 canonical format:
 
-`issue/<issue-number>-<short-slug>`
+`release-<major>-<minor>-<patch>`
 
-### Pull Request
+例:
 
-意味のある最初のcommit後、早期にDraft PRを開いてください。
+`release-0-1-0`
+
+### Issue
+
+substantial policy changeはIssueを作成し、目的 / acceptance criteria / scopeを日本語で明記してください。
+
+### Ticket branch
+
+canonical format:
+
+`<issue-number>`
+
+例:
+
+`2`
+
+`issue/` prefix、slug、title等は付けません。
+
+### Ticket Pull Request
+
+意味のある最初のcommit後、ticket branchからtarget release branchへ早期にDraft PRを開いてください。
+
+PR title/body/review discussionは日本語を標準とします。
 
 Draft PR本文には最低限:
 
 - linked Issue / `Closes #<id>`
-- change summary
-- motivation
+- 変更概要
+- 目的
 - affected ADRs
 - validation status
 - known blockers
+- target release
 
 を含めます。
 
-Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown構造、conflicting rulesを確認してください。
+Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown構造、conflicting rules、target release branchとのstalenessを確認してください。
+
+### Release Pull Request
+
+sprint対象ticketが統合されrelease-level verificationを通過したら:
+
+`release-x-y-z -> main`
+
+のPRを作成します。
+
+release PR title/bodyは日本語で、release goal、含まれるIssue/PR、validation、migration/breaking changeをまとめてください。
+
+## Language policy
+
+- source code: 英語
+- commit message: 英語
+- internal development docs: 日本語
+- GitHub Issue title/body: 日本語
+- PR title/body/review discussion: 日本語
+- branch: identifier/versionのみ
+
+commit format:
+
+`<prefix>: <very concise title>`
 
 ## Time-sensitive rules
 
@@ -128,9 +179,10 @@ Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown�
 - Supervisor architectureを変更
 - immutable snapshot/result protocolを変更
 - Issue/Project/PR delivery modelを変更
-- Draft PR / branch naming lifecycleを変更
+- release branch/sprint modelを変更
+- ticket branch namingを変更
 - cross-platform runtime strategyを変更
-- source/document language policyを変更
+- source/document/GitHub language policyを変更
 - Python script禁止を変更
 - standard quality gateを緩和
 - coverage thresholdを変更
@@ -144,14 +196,6 @@ Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown�
 - 変更されたdecision範囲を明示
 
 してください。
-
-## Git messages
-
-このrepository自体でもGit / GitHub messageは英語を使用してください。
-
-commit format:
-
-`<prefix>: <very concise title>`
 
 ## Validation
 
@@ -167,6 +211,7 @@ commit format:
 - old shared-main / worktree-only assumptionsがcanonical ruleとして残っていないこと
 - parent/child snapshot/result semanticsが一貫していること
 - macOS / WSL/Linux portability policyが一貫していること
-- Issue-numbered branch / Draft PR lifecycleが一貫していること
+- `release-x-y-z` / number-only ticket branch / Draft PR lifecycleが一貫していること
+- Issue/PR language policyが一貫していること
 
 を確認してください。
