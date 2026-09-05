@@ -4,13 +4,11 @@
 
 ## 基本方針
 
-変更時は `PROMPT.ja.md` と `PROMPT.en.md` の意味を一致させてください。
+変更時は `PROMPT.ja.md` と `PROMPT.en.md` のoperational semanticsを一致させてください。
 
 日本語版をprimary specificationとして扱って構いませんが、release/merge前に英語版へ同じ意味を反映してください。
 
-単なる直訳より、両言語で同じoperational semanticsになることを優先してください。
-
-`CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` も同一変更で更新し、operational semanticsを一致させてください。
+`CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` もrole policyを変更する場合は同一変更で同期してください。
 
 ## 変更時に確認すること
 
@@ -20,26 +18,50 @@
 - deterministic verificationを主観的判断へ置き換えていないか
 - official architecture guidance優先を弱めていないか
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
-- hidden state / global dependencyを増やしていないか
+- hidden state / unrecoverable local stateを増やしていないか
 - Windows/WSL ContainersとNixOSの前提を壊していないか
 - `.env` / `.tmp/` / `.reference/` のpolicyと矛盾しないか
-- Git main-only / no-worktree policyと矛盾しないか
-- subagent file ownership / serialized commit policyと矛盾しないか
+- canonical Git remote/refをSoTとして維持しているか
+- implementation workerごとのexecution isolationを弱めていないか
+- worktree単体をisolation boundaryとして再導入していないか
+- parent/child delegationがimmutable snapshot/resultで表現できるか
+- Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
+- top-level PR integrationとbranch ownershipが曖昧になっていないか
+- multi-agent parallelismがdependency graphとresource limitsに基づいているか
+
+## Multi-agent policy invariants
+
+現在のcanonical multi-agent modelはADR-0003です。
+
+主要不変条件:
+
+- Git remote / canonical refがproject SoT
+- 1 implementation worker = 1 isolated mutable runtime
+- worktree-only isolationは禁止
+- immutable/cacheable stateのみ共有し、mutable runtime stateは隔離
+- parent -> childはimmutable snapshot
+- child -> parentはimmutable commit/ref/diff
+- Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
+- workerが同じworking tree / Git index / branchを同時更新しない
+- top-level taskはindependent integration branch / PR
+- nested workerはephemeral refs/commitsで統合可能
+
+これらを変更する場合はADRを追加してください。
 
 ## Time-sensitive rules
 
-次のような内容は時点依存です。
+次は時点依存です。
 
 - Codex model lineup / pricing / role allocation
-- plugin / MCP / Agent Skills ecosystem
+- native subagent / sandbox behavior
+- plugin / MCP / ACP / Agent Skills ecosystem
+- sandbox/runtime/provider ecosystem
 - framework recommended architecture
 - testing / linting / dependency-analysis tools
 
-更新時は現在のofficial sourceを確認してください。
+更新時はcurrent official sourceを確認してください。
 
-特にCodexのSol / Terra / Luna方針は2026年8月時点のpolicyです。
-
-状況が変わった場合は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を同期更新し、decision自体が変わる場合は必要に応じて新ADRを作成して旧ADRとのforward/backward referenceを維持してください。
+Codex role policyの時点表記が古くなった場合は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を同期更新し、decision自体が変わる場合は必要に応じて新ADRを作成してください。
 
 ## ADR
 
@@ -47,20 +69,23 @@
 
 例:
 
-- project-local以外のscopeを許可する
-- worktree禁止を変更する
-- source/document language policyを変更する
-- Python script禁止を変更する
-- standard quality gateを緩和する
-- coverage thresholdを変更する
-- Codex model-role strategyを変更する
-- Agent Skills以外を主要なdetail-disclosure mechanismに変更する
+- project-local以外のscopeを標準化
+- canonical Git SoT modelを変更
+- worktree-only isolationを許可
+- Supervisor architectureを変更
+- immutable snapshot/result protocolを変更
+- source/document language policyを変更
+- Python script禁止を変更
+- standard quality gateを緩和
+- coverage thresholdを変更
+- Codex model-role strategyを変更
+- Agent Skills以外を主要detail-disclosure mechanismに変更
 
-既存ADRをsupersedeする場合:
+以前のADRをrevise / supersedeする場合:
 
 - 新ADRから旧ADRを参照
 - 旧ADRから新ADRを参照
-- 旧ADRのstatusを明示的に更新
+- 変更されたdecision範囲を明示
 
 してください。
 
@@ -73,15 +98,6 @@ commit format:
 `<prefix>: <very concise title>`
 
 空行の後に必要なsummary bulletを置いてください。
-
-例:
-
-```text
-docs: refine architecture policy
-
-- prioritize explicit first-party architecture guidance
-- clarify unopinionated framework handling
-```
 
 ## Pull Requests
 
@@ -100,10 +116,12 @@ PRには最低限:
 変更後は最低限:
 
 - `PROMPT.ja.md` と `PROMPT.en.md` のmajor section対応
-- `CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` の意味同値性
+- role policy変更時の `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` 意味同値性
 - broken Markdown structureがないこと
 - conflicting rulesがないこと
 - ADR reference整合性
 - READMEの説明とprompt本体の一致
+- old shared-main / worktree-only assumptionsが残っていないこと
+- parent/child snapshot/result semanticsが一貫していること
 
 を確認してください。
