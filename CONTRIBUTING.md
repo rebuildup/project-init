@@ -30,6 +30,13 @@
 - vulnerability priorityがseverityだけの機械判定に戻っていないか
 - onboarding knowledgeがchat/private memory依存になっていないか
 - documented commandがfresh environmentで再現可能か
+- session/thread resumeを唯一のrecovery mechanismにしていないか
+- unfinished workが会話履歴やSupervisor local DBだけに残らないか
+- fresh agentがIssue/PR/Git/checkpointからnext stepを再構成できるか
+- stale execution generationが復帰後に同じticketへ書き込めないか
+- parent agent failureでchild resultが失われないか
+- timeout後のexternal side effectを無条件retryしないか
+- recovery後に古いvalidation結果をcurrent codeへ流用していないか
 - official architecture guidance優先を弱めていないか
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
@@ -55,6 +62,7 @@
 - ADR-0004: release-version sprint / GitHub delivery / cross-platform runtime
 - ADR-0005: adaptive stack-aware quality gate compilation
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
+- ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 
@@ -107,19 +115,7 @@ userへ確認するのは、canonical source conflict、product semantics、publ
 
 変更surface/riskから必要test levelを選択します。
 
-例:
-
-- pure logic -> unit
-- API/service -> unit + integration
-- DB/schema/migration -> integration + schema/migration + smoke
-- runtime/env/network/DI -> smoke + relevant integration
-- user journey/auth/navigation -> integration/contract + E2E
-- build/package/container -> build/package + smoke
-- release -> full applicable integration + critical E2E/smoke + release checks
-
-worker / ticket integration / release gateを分離します。
-
-local deterministic entry pointとGitHub Actionsのsemanticsを揃え、CI YAMLだけのhidden validation logicを増やしすぎません。
+worker / ticket integration / release gateを分離し、local deterministic entry pointとGitHub Actionsのsemanticsを揃えます。
 
 coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
 
@@ -138,7 +134,21 @@ priorityはseverityだけでなく、exploitability、project reachability、ext
 
 meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てます。critical exposed vulnerabilityではpatch releaseを優先できます。
 
-projectに適切ならdependency review / code scanning / secret scanning / container scanning / SBOM等をinitialization時に導入・修復します。
+## Agent recovery invariants
+
+- native conversation/thread/subagent resumeはoptimizationでありcanonical SoTではない
+- fresh agentがchat historyなしでunfinished taskを再構成できる
+- durable recovery sourcesはIssue / PR / Git refs / committed docs / immutable results / structured checkpoint
+- checkpointへprivate chain-of-thoughtやsecretを保存しない
+- soft checkpointとprovider-lossに耐えるhard checkpointを区別する
+- checkpointはtask identity / snapshot / completed / next / validation / children / side effects / blockersを表現できる
+- parent model processではなくSupervisorがchild lifecycleを所有する
+- recovery時にchild stateをreconcileし、stale resultを盲目的に統合しない
+- taskにはexecution lease/generationまたは同等のfencingを持たせ、stale generationのwrite/integrationを拒否する
+- external side effectは可能ならidempotency keyとdurable intent/resultを使用し、timeout後はremote actual stateを確認してからretryする
+- partial validation successをfull gate passと扱わない
+- context limit接近時はstructured handoffを作成してplanned recoveryへ移る
+- project/runtimeが重要ならintentional recovery drillを実行できる
 
 ## Onboarding / documentation invariants
 
@@ -151,11 +161,9 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 - Issue選択 / ticket branch / Draft PR
 - ADR/design/Skills discovery
 - troubleshooting
-- release/security workflow
+- release/security/recovery workflow
 
 project規模に応じてREADME / CONTRIBUTING / docsへprogressive disclosureします。
-
-READMEだけへ全detailを詰め込まず、必要ならarchitecture/development/troubleshooting/release/security docsへ分離します。
 
 documented commandsは可能な限りfresh sandbox/CIで検証します。
 
@@ -170,6 +178,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/engineering-decisions/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
+- `skills/agent-recovery/SKILL.md`
 
 通常taskでは必要なSkillだけをcontextへ入れます。
 
@@ -179,11 +188,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 
 ### Release branch
 
-sprint開始時にtarget versionを決め、`main` から:
-
-`release-<major>-<minor>-<patch>`
-
-を作成します。
+sprint開始時にtarget versionを決め、`main` から `release-<major>-<minor>-<patch>` を作成します。
 
 ### Issue
 
@@ -191,9 +196,7 @@ substantial policy changeはIssueを作成し、目的 / acceptance criteria / s
 
 ### Ticket branch
 
-`<issue-number>`
-
-のみを使用します。prefix / slug / titleは付けません。
+`<issue-number>` のみを使用します。prefix / slug / titleは付けません。
 
 ### Ticket Pull Request
 
@@ -201,23 +204,11 @@ meaningful initial commit後、ticket branchからtarget release branchへDraft 
 
 PR title/body/review discussionは日本語です。
 
-Ready前に:
-
-- acceptance criteria
-- required verification level
-- JP/EN semantics
-- ADR/README/Skill consistency
-- target release branch staleness
-
-を確認します。
+Ready前にacceptance criteria、required verification level、JP/EN semantics、ADR/README/Skill consistency、target release branch stalenessを確認します。
 
 ### Release Pull Request
 
-release gate通過後:
-
-`release-x-y-z -> main`
-
-のPRを作成します。
+release gate通過後 `release-x-y-z -> main` のPRを作成します。
 
 ## Language policy
 
@@ -236,9 +227,9 @@ commit format:
 
 current official sourceを確認すべき対象:
 
-- model lineup / subagent behavior
+- model lineup / native session/subagent resume behavior
 - plugin / MCP / ACP / Agent Skills ecosystem
-- sandbox/runtime/provider ecosystem
+- sandbox/runtime/provider persistence behavior
 - macOS / WSL / Linux local runtime options
 - framework architecture guidance
 - framework/runtime quality/testing guidance
@@ -258,6 +249,7 @@ current official sourceを確認すべき対象:
 - verification taxonomy / quality compiler変更
 - security advisory prioritization model変更
 - onboarding/documentation strategy変更
+- recovery checkpoint / fencing / side-effect reconciliation model変更
 - cross-platform runtime strategy変更
 - source/document/GitHub language policy変更
 - Python script禁止変更
@@ -270,7 +262,7 @@ current official sourceを確認すべき対象:
 
 - `PROMPT.ja.md` / `PROMPT.en.md` のoperational semantics一致
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
-- full promptと7つの標準Skillの整合
+- full promptと8つの標準Skillの整合
 - README / CONTRIBUTING / ADR整合
 - broken Markdown structureがない
 - conflicting rulesがない
@@ -280,5 +272,7 @@ current official sourceを確認すべき対象:
 - unit/smoke/integration/contract/E2E責務が一貫
 - security source/priority policyが一貫
 - onboarding docs generation/verification policyが一貫
+- session loss / parent loss / sandbox lossからdurable recovery pathが存在する
+- execution fencing / side-effect retry policyが一貫
 
 を確認してください。
