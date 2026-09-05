@@ -1,67 +1,192 @@
 ---
 name: quality-gate
-description: project固有のstack・framework・runtimeに合わせてquality gateを設計・実行・更新する時に使用する。
+description: project固有のstack・framework・runtimeに合わせてquality gateと動作確認レベルを設計・実行・更新する時に使用する。
 ---
 
 # Quality Gate
 
 quality gateは固定bundleではない。
 
-実装ticketの完了はdeterministic checksで判定するが、**何をcheckするかはprojectの実stack、framework/runtimeのcurrent official guidance、既存architecture、release riskからcompileする**。
+**何をcheckするか、どのtest levelまで要求するかを、projectの実stack、framework/runtimeのcurrent official guidance、変更surface、release riskからcompileする。**
 
-このSkillは通常taskのvalidationだけでなく、**初期化時にquality infrastructureそのものを設計・導入・修復する責務**も持つ。
+このSkillは通常taskのvalidationだけでなく、初期化時にquality infrastructureそのものを設計・導入・修復する責務を持つ。
 
 ## 1. Initialization / recompile
 
-初回 `/init`、major framework/runtime upgrade、test architecture変更、CI/CD変更時はquality gateを再設計する。
+初回 `/init`、major framework/runtime upgrade、test architecture変更、CI/CD変更時はquality profileを再設計する。
 
-最初に実repoから検出する:
+実repoから検出:
 
-- languages / frameworks / SDKs
-- framework/runtime versions
+- languages / frameworks / SDKs / versions
 - package/workspace structure
-- official build/test/lint/type tooling
-- existing scripts / configs / CI
-- generated code boundaries
-- app types: web / API / CLI / desktop / mobile / library / IaC
-- persistence / external services
-- architecture-sensitive targets: browser / OS / CPU architecture / database
-- release/deploy targets
+- app type: web / API / CLI / desktop / mobile / library / IaC
+- architecture boundaries
+- persistence / queue / cache / external services
+- auth / network / filesystem boundaries
+- existing test/lint/type/build scripts
+- generated-code boundary
+- browser / OS / CPU architecture targets
+- release/deploy target
 
-次に**実versionに対応するcurrent official documentation**を調査する。
+次に実versionに対応するcurrent official documentationを調査する。
 
 優先順位:
 
 1. framework/runtime/SDK official quality/testing guidance
-2. framework/runtime official examples/templates/starters
+2. official examples/templates/starters
 3. official first-party Actions / CI examples
 4. official language/toolchain guidance
 5. coherent existing project configuration
 6. established maintained ecosystem tooling
 7. custom tooling
 
-存在しない「公式推奨」を捏造しない。official guidanceが複数候補を並列提示する場合はproject要件から選択し、理由を残す。
+存在しない「公式推奨」を捏造しない。
 
-## 2. Quality profileをproject-localにcompileする
+## 2. Verification taxonomy
 
-調査結果を通常taskで再調査しなくて済む形へ落とす。
+project固有profileへ最低限、必要なtest levelの意味を定義する。
 
-project-localに最低限、次を明確化する:
+名称はframework慣習に合わせて変更できるが、責務を混同しない。
 
+### Unit test
+
+**1つの小さいlogic/component/moduleのbehaviorを、外部boundaryを最小化して高速に検証する。**
+
+主な対象:
+
+- pure/domain logic
+- parser / validator / scheduler / algorithm
+- state transition
+- isolated component behavior
+- error handling branch
+
+目的:
+
+- logic regressionを局所的・高速に検出
+- failure locationを狭くする
+
+unit testだけでDB/API/runtime wiringの正しさを証明しない。
+
+### Smoke / connectivity test（疎通テスト）
+
+**systemまたは主要serviceが起動し、主要boundaryが最低限接続可能で、critical pathの入口が成立することを安価に検証する。**
+
+主な対象:
+
+- process/service startup
+- health/readiness endpoint
+- application -> DB connection
+- application -> cache/queue connection
+- frontend -> API basic request
+- required migration/schema availability
+- desktop/mobile app launch
+- packaged artifact startup
+
+疎通testはdeep behavior correctnessではなく「配線が成立しているか」を見る。
+
+unit/integration testがgreenでも、設定・DI・port・env・migration・packagingが壊れていればsmoke testで落とす。
+
+### Integration test（結合テスト）
+
+**2つ以上のreal boundary/componentを組み合わせ、interface・data flow・transaction等が実際に成立することを検証する。**
+
+主な対象:
+
+- API + service + database
+- repository + real/test DB
+- queue producer + consumer
+- auth middleware + endpoint
+- filesystem/network adapter + domain
+- frontend data layer + API contract
+- migration + application read/write
+
+mockだけでboundary contractを再現したtestをreal integration testと偽らない。
+
+外部SaaSはsandbox/test double/contract testを選択できるが、何をrealに検証しているか明示する。
+
+### Contract / schema test
+
+projectに意味がある場合は独立levelとして使う。
+
+対象:
+
+- OpenAPI / GraphQL / protobuf
+- DB schema compatibility
+- event/message schema
+- generated client/server compatibility
+- public SDK/API contract
+
+### E2E / system test
+
+**user-visibleまたはsystem-level critical flowを、productionに近い境界構成でend-to-endに検証する。**
+
+主な対象:
+
+- sign-in -> operation -> persistence -> rendered result
+- purchase/scheduling/upload等のcritical journey
+- browser/native interaction
+- cross-service workflow
+- release-like environment smoke + critical scenarios
+
+E2Eですべてのedge caseを網羅しない。slow/flakyなE2Eでunit/integrationの責務を代替しない。
+
+### Manual / visual verification
+
+UI/UX、native platform、hardware integration等でautomationが十分でない場合のみ明示的gateとして定義する。
+
+manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
+
+## 3. 動作確認ゲートを変更riskから決める
+
+全ticketに全test levelを機械的に要求しない。
+
+変更前に最低限判定する:
+
+- 変更したlogic
+- 変更したboundary
+- runtime/configuration変更
+- persistence/schema変更
+- user-visible flow変更
+- deployment/package変更
+- security-sensitive path変更
+- failure時のimpact
+
+代表的なdefault:
+
+| Change | Minimum verification candidate |
+| --- | --- |
+| pure/domain logic | unit |
+| API/service behavior | unit + integration |
+| DB query/schema/migration | integration + migration/schema check + smoke |
+| runtime/env/DI/network wiring | smoke + relevant integration |
+| frontend component local behavior | unit/component |
+| user journey/navigation/auth | integration/contract + E2E |
+| external API adapter | unit + contract/integration + failure-path test |
+| build/package/container | build/package + smoke |
+| release branch | full applicable integration + critical E2E/smoke + release-specific checks |
+| security fix | regression test + vulnerable-path verification + applicable integration/E2E |
+
+これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。
+
+## 4. Quality profileをproject-localにcompileする
+
+通常taskで毎回再調査しなくて済む形へ落とす。
+
+明確化する:
+
+- test taxonomyとproject内の具体例
 - fast worker gate
-- integration gate
+- ticket integration gate
 - release gate
-- canonical validation entry point(s)
+- canonical validation entry points
 - required CI checks
-- test types and ownership
+- change-type -> required verification mapping
 - coverage policy when meaningful
-- platform/browser/architecture matrix when required
+- browser/device/OS/architecture matrix
 - artifact/report paths
 - failure policy
 
-可能なら1つまたは少数のstable entry pointへ集約する。
-
-例:
+可能なら少数のstable entry pointへ集約する。
 
 ```text
 validate:fast
@@ -69,198 +194,156 @@ validate:integration
 validate:release
 ```
 
-実際のcommand名はproject conventionsに合わせる。
+実command名はproject conventionに合わせる。
 
-AGENTS.mdにはcommandや不変条件への短いpointerだけを置き、詳細はこのSkillまたはproject-specific quality Skillへ分離する。
-
-## 3. 調査だけで終わらず実装する
+## 5. 調査だけで終わらず実装する
 
 初期化完了とはrecommendation reportを書くことではない。
 
-projectに必要なら実際に追加・修復する:
+必要なら実際に追加・修復する:
 
 - formatter / linter / static-analysis config
 - compiler / type-check config
-- unit / component / integration / E2E test infrastructure
+- unit/component test infrastructure
+- smoke/connectivity test infrastructure
+- integration/contract/E2E infrastructure
 - framework/platform-specific validation
 - documentation tests
 - dependency/static analysis
 - coverage configuration
-- schema / migration validation
+- schema/migration validation
 - browser/device/OS/architecture matrices
 - production build/package checks
 - code/dependency/security checks
 - project-local specialized Agent Skills
-- `.github/workflows/*` quality workflows
+- `.github/workflows/*`
 - required CI check structure
 
-既存の高品質な構成がある場合は理由なく置換せず、missing/incomplete/staleな部分だけreconcileする。
+既存の高品質な構成を理由なく置換しない。
 
-## 4. Framework-native checksを優先する
+## 6. Framework-native checksを優先する
 
-一般的なlint/test toolを機械的に追加する前に、framework/runtimeが持つ推奨・標準checkを確認する。
-
-対象例:
-
-- compiler / type checker
-- formatter
-- framework lint/static analysis
-- unit/component/integration/E2E testing
-- documentation tests
-- platform-specific lint
-- API/schema validation
-- migration validation
-- build/package verification
-- accessibility checks
-- browser/device tests
-- native platform tests
-- IaC validation
+一般toolを機械的に追加する前にframework/runtimeの標準checkを確認する。
 
 同じ責務のtoolを重複導入しない。
 
-frameworkが特定領域をE2Eで検証することを推奨する等、test levelに公式制約がある場合はそれをgate設計へ反映する。
+frameworkが特定領域をE2E/real runtimeで検証することを推奨する等、test levelにofficial constraintがある場合はgateへ反映する。
 
-## 5. Agent Skills / toolingもstack-awareにする
+## 7. Agent Skills / toolingもstack-awareにする
 
-quality gateに必要なspecialized workflowがある場合、現在利用可能なofficial / maintained Agent Skills、plugin、CLI、LSP、MCP等を調査する。
+必要なspecialized workflowについてofficial / maintained Agent Skills、CLI、LSP、plugin、MCP等を調査する。
 
-導入判断:
+優先:
 
-1. native agent capabilityで十分か
-2. project既存CLIで十分か
-3. framework official CLIで十分か
-4. short project-local Skillで再現する方がよいか
-5. plugin/MCPに明確な優位があるか
+1. native agent capability
+2. project既存CLI
+3. framework official CLI
+4. short project-local Skill
+5. 明確な優位があるplugin/MCP
 
-frameworkごとの操作・検証手順を巨大なroot instructionへ埋め込まず、必要なSkillへprogressive disclosureする。
+## 8. GitHub Actions
 
-## 6. GitHub Actionsをquality gateの実行基盤として設計する
+GitHub Actionsを使用するprojectではlocal gateとCI gateを同じsemanticsへ揃える。
 
-GitHub Actionsを使用するprojectでは、local gateとCI gateを同じsemanticsへ揃える。
+初期化時にcurrent official GitHub Actions guidanceとframework/runtime公式CI exampleを確認する。
 
-初期化時にcurrent official GitHub Actions guidanceと、framework/runtimeのofficial CI examplesを調査する。
-
-検討対象:
+検討:
 
 - first-party setup actions
-- framework/runtime official actions or workflows
-- dependency/toolchain cache
+- cache
 - matrix testing
 - service containers
 - browser/device dependencies
-- artifact / test report upload
-- coverage reporting
-- code scanning / dependency review when applicable
-- concurrency / cancellation
-- permissions minimization
-- secrets handling
-- action version/pinning policy
+- artifacts / reports
+- dependency/security checks
+- concurrency/cancellation
+- least-privilege permissions
+- secrets
+- action version/pinning
 - trusted/untrusted PR behavior
 
-cacheにはsecretを入れず、untrusted PRからのwriteやexecutable cache poisoning等のsecurity riskを考慮する。
+Actionsを増やすこと自体を目的にしない。CIだけのhidden test logicを増やさずproject-local validation entry pointを呼ぶ。
 
-Actionsを増やすこと自体を目的にしない。local deterministic commandを薄くCIから呼ぶ構成を優先し、CIだけに存在するhidden test logicを増やしすぎない。
+## 9. Worker gate
 
-## 7. Worker gate
+workerは担当scopeの高速feedbackを得る。
 
-workerは担当scopeで高速にfeedbackを得られるfocused validationを実行する。
-
-project profileから必要なものだけ選ぶ。
-
-例:
-
-- formatter/check
-- compiler/type-check
-- framework lint/static analysis
-- focused unit/component/integration tests
-- changed package build
-- schema/migration validation
+変更risk mappingからfocused test/checkを選択する。
 
 Worker gateはIntegration gateの代替ではない。
 
-## 8. Integration gate
+## 10. Ticket integration gate
 
-Coordinatorまたは専用verification agentがclean integration candidateから、project profileで定義されたfull applicable suiteを実行する。
+`<issue-number> -> release-x-y-z` のcandidateをclean environmentで検証する。
 
-例候補:
+最低限:
 
-- formatter/check
-- lint/static analysis
-- compiler/type-check
-- dependency analysis
-- unit/component/integration/E2E tests
-- documentation tests
-- coverage
-- build/package
-- container/IaC validation
-- schema/migration compatibility
-- security/dependency audit
-- browser/device/OS matrix
+- acceptance criteriaに対応するverification
+- changed boundaryに必要なunit/smoke/integration/contract/E2E
+- formatter/lint/type/static/build等のapplicable checks
+- required CI checks
 
-「一般に良さそうだから全部」ではなく、project riskとofficial guidanceで適用範囲を決める。
+「all unit tests green」だけをintegration completionにしない。
 
-## 9. Release gate
+## 11. Release gate
 
-`release-x-y-z -> main` の前にはticket単位より広いrelease-level verificationを行う。
+`release-x-y-z -> main` 前にticketより広いrelease-level verificationを行う。
 
 必要に応じて:
 
 - full integration suite
 - clean production build/package
+- release artifact smoke test
+- critical user-journey E2E
 - supported browser/device/OS matrix
 - migration rehearsal
-- packaging/signing/notarization verification
-- deployment/IaC plan validation
-- upgrade/backward-compatibility tests
-- smoke/E2E against release-like environment
+- packaging/signing/notarization
+- deployment/IaC validation
+- upgrade/backward-compatibility
+- release-like environment smoke
 
-を実行する。
+## 12. PR Done gate
 
-release gateはproject typeに合わせてcompileし、不要な項目を形式的に要求しない。
+- Issue acceptance criteriaを満たす
+- required verification levelを満たす
+- required CI/checks成功
+- blocking review解消
+- known limitationを隠さない
+- target releaseとのstaleness確認
 
-## 10. PR Done gate
+## 13. False green禁止
 
-- Issue acceptance criteriaを満たす。
-- project-specific required CI/checksが成功する。
-- Reviewerのblocking指摘が解消される。
-- known limitationを隠さない。
-- target `release-x-y-z` branchとのstalenessを確認する。
+禁止:
 
-## 11. False green禁止
-
-- skipped test
-- `.only`
+- skipped test / `.only`
 - blanket ignore/suppression
-- ignored exit code
-- `|| true`
+- ignored exit code / `|| true`
 - no-fail option
 - CI check disabling
 - broad generated-code excuse
-- coverage threshold低下や不当なexclude
+- mock-only testをreal integrationと報告
+- manual check未実施を「動作確認済み」と報告
+- coverage threshold低下や不当exclude
 
-projectから修正不能なupstream warningが残る場合は明示し、完全cleanと表現しない。
+## 14. Coverageは固定万能指標にしない
 
-## 12. Coverageは固定万能指標にしない
+coverageは有用なtestable sourceでproject-specific policyとして利用する。
 
-coverageは意味のあるtestable sourceに対して有用な場合にenforceする。
+framework guidance、risk、code type、existing baselineを優先する。
 
-既定候補として80%を使用できるが、framework/runtimeのofficial guidance、code type、risk、existing baselineを優先してproject-specific thresholdを決める。
+coverageが適切でない領域では別のdeterministic signalへ置き換える。
 
-coverageを高く見せるためだけのtest、threshold低下、広範囲excludeは禁止する。
-
-coverageが適切な品質指標でない領域では、別のdeterministic verificationへ置き換える。
-
-## 13. Re-evaluation triggers
+## 15. Re-evaluation triggers
 
 次の場合はquality profileを再compileする:
 
-- framework/runtime major upgrade
-- official recommended testing/tooling change
-- new app target / platform追加
+- framework/runtime upgrade
+- official testing guidance変更
 - architecture boundary変更
-- CI provider/workflow変更
+- new app/platform target
+- CI workflow変更
 - flaky/slow gateが開発速度を阻害
-- escaped regressionが既存gateの穴を示した
+- escaped regressionがgateの穴を示した
 - release process変更
 
-quality gate自体もstatic policyではなく、projectとframeworkの進化に追従するversioned project configurationとして扱う。
+quality gate自体をversioned project configurationとして扱う。
