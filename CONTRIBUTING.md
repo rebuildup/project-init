@@ -10,7 +10,7 @@
 
 `CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` もrole policyを変更する場合は同一変更で同期してください。
 
-通常task向けSkillを変更する場合は、full prompt / README / ADRと意味が矛盾しないようにしてください。
+通常task向けSkillを変更する場合はfull prompt / README / ADRと意味が矛盾しないようにしてください。
 
 ## 変更時に確認すること
 
@@ -18,15 +18,24 @@
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
 - deterministic verificationを主観的判断へ置き換えていないか
+- unit / smoke / integration / contract / E2Eの責務が混同されていないか
+- change riskからrequired verification levelを決めるmodelが維持されているか
 - quality gateを固定bundleへ戻していないか
 - framework/runtimeのcurrent official quality/testing guidanceを無視していないか
 - local validationとGitHub Actionsのsemanticsが乖離していないか
+- project-wide policy > design/spec/instruction > existing implementation majority のdecision precedenceを壊していないか
+- project evidenceで解ける自明な判断をuserへ返す方向へ戻していないか
+- user escalation boundaryを曖昧にしていないか
+- framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
+- vulnerability priorityがseverityだけの機械判定に戻っていないか
+- onboarding knowledgeがchat/private memory依存になっていないか
+- documented commandがfresh environmentで再現可能か
 - official architecture guidance優先を弱めていないか
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
 - macOS / Apple Silicon、Windows+WSL、Linux/NixOSのportabilityを壊していないか
 - WSL自体をworker isolationとして扱っていないか
-- `.env` / `.tmp/` / `.reference/` のpolicyと矛盾しないか
+- `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
 - GitHub Issues / Projectsをdurable work SoTとして維持しているか
 - `main`をreleased source stateとして維持しているか
@@ -40,41 +49,117 @@
 - ticket Draft PR -> release branch -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 
-## Multi-agent policy invariants
+## Canonical ADRs
 
-canonical execution modelはADR-0003、delivery / cross-platform modelはADR-0004、adaptive quality modelはADR-0005です。
+- ADR-0003: isolated multi-agent execution
+- ADR-0004: release-version sprint / GitHub delivery / cross-platform runtime
+- ADR-0005: adaptive stack-aware quality gate compilation
+- ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 
-主要不変条件:
+これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 
-- Git remote / canonical refがsource SoT
-- GitHub Issues / Projectsがdurable work SoT
+## Multi-agent / delivery invariants
+
+- Git remote / canonical ref = source SoT
+- GitHub Issues / Projects = durable work SoT
 - `main` = released/integrated source state
 - 1 sprint = 1 target semantic version
 - sprint integration branch = `release-<major>-<minor>-<patch>`
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
-- ticket branch canonical format = `<issue-number>`
+- ticket branch = `<issue-number>`
 - ticket PR base = target release branch
 - meaningful initial commit後にDraft PRを早期作成
-- ticket PR merge + Issue close + Project Done = ticket Done boundary
-- release-wide validation後 `release-x-y-z -> main` をmerge = release completion
+- ticket PR merge + Issue close + Project Done = ticket Done
+- release-wide verification後 `release-x-y-z -> main` merge = release completion
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree-only isolationは禁止
-- immutable/cacheable stateのみ共有し、mutable runtime stateは隔離
-- parent -> childはimmutable snapshot
-- child -> parentはimmutable commit/ref/diff
+- parent -> child = immutable snapshot
+- child -> parent = immutable commit/ref/diff
 - Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
-- workerが同じworking tree / Git index / durable ticket branchを同時更新しない
-- nested workerはephemeral refs/commitsで統合可能
-- quality gateはprojectの実stackとcurrent official guidanceからcompileする
-- worker / integration / release gateを分離する
-- GitHub Actionsはproject-local deterministic commandsと同じsemanticsを持つ
-- coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しない
 
-これらを変更する場合はADRを追加してください。
+## Engineering decision invariants
+
+開発判断の標準precedence:
+
+1. project-wide policy / canonical architecture / invariant
+2. design / specification / explicit task instruction
+3. coherent existing implementation majority
+4. current official framework/runtime/SDK guidance
+5. ecosystem convention
+6. local best judgment
+
+project evidenceで実質一意に決まる、可逆・局所的なimplementation choiceはagent自身で決めて進めます。
+
+userへ確認するのは、canonical source conflict、product semantics、public API、security/privacy risk acceptance、meaningful cost、release scope/date、irreversible operation、explicit design approval等、本物の意思決定が残る場合に限定します。
+
+## Verification / quality invariants
+
+`quality-gate` Skillは固定check listではなくproject-specific quality profile compilerです。
+
+最低限のverification taxonomy:
+
+- unit: local logic/component behavior
+- smoke/connectivity: startup/wiring/basic connectivity/critical-path entry
+- integration: multiple real components/boundaries
+- contract/schema: API/event/DB/interface compatibility when meaningful
+- E2E/system: user/system critical flow
+- manual/visual: automation不足領域のみ明示的に使用
+
+変更surface/riskから必要test levelを選択します。
+
+例:
+
+- pure logic -> unit
+- API/service -> unit + integration
+- DB/schema/migration -> integration + schema/migration + smoke
+- runtime/env/network/DI -> smoke + relevant integration
+- user journey/auth/navigation -> integration/contract + E2E
+- build/package/container -> build/package + smoke
+- release -> full applicable integration + critical E2E/smoke + release checks
+
+worker / ticket integration / release gateを分離します。
+
+local deterministic entry pointとGitHub Actionsのsemanticsを揃え、CI YAMLだけのhidden validation logicを増やしすぎません。
+
+coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
+
+## Security maintenance invariants
+
+security source priority:
+
+1. framework/runtime/SDK official security advisories
+2. official release/security announcements
+3. ecosystem official advisory source
+4. GitHub Security Advisories / dependency alerts
+5. maintainer patch information
+6. trusted secondary source
+
+priorityはseverityだけでなく、exploitability、project reachability、external exposure、required privilege、impact、fix availability、workaround quality、regression risk、release timingを評価します。
+
+meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てます。critical exposed vulnerabilityではpatch releaseを優先できます。
+
+projectに適切ならdependency review / code scanning / secret scanning / container scanning / SBOM等をinitialization時に導入・修復します。
+
+## Onboarding / documentation invariants
+
+fresh contributor / new agentがchat historyやprivate memoryなしで次を実行できる状態を維持します。
+
+- project purpose/scope理解
+- architecture/boundary理解
+- bootstrap / run / migrate / seed
+- worker/integration/release validation
+- Issue選択 / ticket branch / Draft PR
+- ADR/design/Skills discovery
+- troubleshooting
+- release/security workflow
+
+project規模に応じてREADME / CONTRIBUTING / docsへprogressive disclosureします。
+
+READMEだけへ全detailを詰め込まず、必要ならarchitecture/development/troubleshooting/release/security docsへ分離します。
+
+documented commandsは可能な限りfresh sandbox/CIで検証します。
 
 ## Progressive disclosure
-
-初期化promptは包括的で構いませんが、通常taskで毎回全文を読ませる構成へ戻してはいけません。
 
 標準Skill:
 
@@ -82,25 +167,11 @@ canonical execution modelはADR-0003、delivery / cross-platform modelはADR-000
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
 - `skills/quality-gate/SKILL.md`
+- `skills/engineering-decisions/SKILL.md`
+- `skills/security-maintenance/SKILL.md`
+- `skills/onboarding/SKILL.md`
 
-Skillは短いtriggerと主要責務を持ち、必要なworkflowだけをcontextへ入れる構成にしてください。
-
-### Quality Skill
-
-`quality-gate` Skillは固定check listではなく、初期化時にproject-specific quality profileをcompileする責務も持ちます。
-
-stack/framework/runtimeの変更に追従して、必要なら以下を追加・修復します。
-
-- formatter / lint / static analysis
-- compiler / type-check
-- unit/component/integration/E2E testing
-- framework/platform-specific validation
-- project-local validation commands
-- GitHub Actions
-- CI matrix / artifact / report
-- specialized quality Agent Skills
-
-公式documentationやfirst-party examplesを優先し、existing projectと重複するtoolを理由なく増やさないでください。
+通常taskでは必要なSkillだけをcontextへ入れます。
 
 ## GitHub workflow for this repository
 
@@ -108,61 +179,45 @@ stack/framework/runtimeの変更に追従して、必要なら以下を追加・
 
 ### Release branch
 
-sprint開始時にtarget versionを決め、`main` からrelease branchを作成します。
-
-canonical format:
+sprint開始時にtarget versionを決め、`main` から:
 
 `release-<major>-<minor>-<patch>`
 
-例:
-
-`release-0-1-0`
+を作成します。
 
 ### Issue
 
-substantial policy changeはIssueを作成し、目的 / acceptance criteria / scopeを日本語で明記してください。
+substantial policy changeはIssueを作成し、目的 / acceptance criteria / scopeを日本語で明記します。
 
 ### Ticket branch
 
-canonical format:
-
 `<issue-number>`
 
-例:
-
-`2`
-
-`issue/` prefix、slug、title等は付けません。
+のみを使用します。prefix / slug / titleは付けません。
 
 ### Ticket Pull Request
 
-意味のある最初のcommit後、ticket branchからtarget release branchへ早期にDraft PRを開いてください。
+meaningful initial commit後、ticket branchからtarget release branchへDraft PRを開きます。
 
-PR title/body/review discussionは日本語を標準とします。
+PR title/body/review discussionは日本語です。
 
-Draft PR本文には最低限:
+Ready前に:
 
-- linked Issue / `Closes #<id>`
-- 変更概要
-- 目的
-- affected ADRs
-- validation status
-- known blockers
-- target release
+- acceptance criteria
+- required verification level
+- JP/EN semantics
+- ADR/README/Skill consistency
+- target release branch staleness
 
-を含めます。
-
-Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown構造、conflicting rules、target release branchとのstalenessを確認してください。
+を確認します。
 
 ### Release Pull Request
 
-sprint対象ticketが統合されrelease-level verificationを通過したら:
+release gate通過後:
 
 `release-x-y-z -> main`
 
 のPRを作成します。
-
-release PR title/bodyは日本語で、release goal、含まれるIssue/PR、validation、migration/breaking changeをまとめてください。
 
 ## Language policy
 
@@ -179,69 +234,51 @@ commit format:
 
 ## Time-sensitive rules
 
-次は時点依存です。
+current official sourceを確認すべき対象:
 
-- Codex model lineup / pricing / role allocation
-- native subagent / sandbox behavior
+- model lineup / subagent behavior
 - plugin / MCP / ACP / Agent Skills ecosystem
 - sandbox/runtime/provider ecosystem
 - macOS / WSL / Linux local runtime options
-- framework recommended architecture
-- framework/runtime official quality/testing guidance
-- testing / linting / dependency-analysis tools
-- GitHub Actions official guidance / first-party actions / security practices
+- framework architecture guidance
+- framework/runtime quality/testing guidance
+- framework/runtime security advisories
+- testing/linting/dependency-analysis tools
+- GitHub Actions guidance / first-party actions / security practices
 
-更新時はcurrent official sourceを確認してください。
-
-## ADR
-
-長期的な設計思想を変える変更はADR対象です。
+## ADR対象
 
 例:
 
-- project-local以外のscopeを標準化
-- canonical Git/GitHub SoT modelを変更
-- worktree-only isolationを許可
-- Supervisor architectureを変更
-- immutable snapshot/result protocolを変更
-- Issue/Project/PR delivery modelを変更
-- release branch/sprint modelを変更
-- ticket branch namingを変更
-- cross-platform runtime strategyを変更
-- source/document/GitHub language policyを変更
-- Python script禁止を変更
-- adaptive quality-gate compiler modelを変更
-- local/CI quality semanticsを変更
-- coverage policyを固定universal thresholdへ戻す
-- Codex model-role strategyを変更
-- Agent Skills以外を主要detail-disclosure mechanismに変更
-
-以前のADRをrevise / supersedeする場合:
-
-- 新ADRから旧ADRを参照
-- 旧ADRから新ADRを参照
-- 変更されたdecision範囲を明示
-
-してください。
+- canonical Git/GitHub SoT変更
+- Supervisor/sandbox model変更
+- release branch/sprint model変更
+- ticket branch naming変更
+- decision precedence / user escalation model変更
+- verification taxonomy / quality compiler変更
+- security advisory prioritization model変更
+- onboarding/documentation strategy変更
+- cross-platform runtime strategy変更
+- source/document/GitHub language policy変更
+- Python script禁止変更
+- Codex model-role strategy変更
+- progressive disclosure mechanism変更
 
 ## Validation
 
 変更後は最低限:
 
-- `PROMPT.ja.md` と `PROMPT.en.md` のmajor section対応
-- role policy変更時の `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` 意味同値性
-- full promptと4つの標準Skillのoperational semantics整合
-- broken Markdown structureがないこと
-- conflicting rulesがないこと
-- ADR reference整合性
-- READMEの説明とprompt/Skill本体の一致
-- old shared-main / worktree-only assumptionsがcanonical ruleとして残っていないこと
-- parent/child snapshot/result semanticsが一貫していること
-- macOS / WSL/Linux portability policyが一貫していること
-- `release-x-y-z` / number-only ticket branch / Draft PR lifecycleが一貫していること
-- Issue/PR language policyが一貫していること
-- quality gateがframework/runtime固有にcompileされること
-- worker/integration/release gateが区別されていること
-- GitHub Actionsがcurrent official guidanceとproject-local commandsに整合すること
+- `PROMPT.ja.md` / `PROMPT.en.md` のoperational semantics一致
+- role policy変更時の `CODEX_ROLES.*` 意味同値性
+- full promptと7つの標準Skillの整合
+- README / CONTRIBUTING / ADR整合
+- broken Markdown structureがない
+- conflicting rulesがない
+- old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
+- release/ticket branch lifecycleが一貫
+- decision precedence / escalation boundaryが一貫
+- unit/smoke/integration/contract/E2E責務が一貫
+- security source/priority policyが一貫
+- onboarding docs generation/verification policyが一貫
 
 を確認してください。
