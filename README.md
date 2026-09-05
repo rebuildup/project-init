@@ -8,13 +8,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/github-delivery/SKILL.md` — Issues / Projects / Sprint / branch / Draft PR / merge運用。
+- `skills/github-delivery/SKILL.md` — Issues / Projects / release sprint / branch / Draft PR / release integration。
 - `skills/quality-gate/SKILL.md` — deterministic completion gate。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
 - `ADR-0003.md` — isolated multi-agent execution / Supervisor / snapshot-result integration。
-- `ADR-0004.md` — GitHub ticket-driven agile deliveryとcross-platform local runtime。
+- `ADR-0004.md` — GitHub ticket-driven release sprint deliveryとcross-platform local runtime。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -30,13 +30,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - isolated multi-agent execution
 - Supervisor / subagent integration
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- GitHub Issues / Projects / Pull Requestsによるticket-driven agile workflow
+- GitHub Issues / Projects / Pull Requestsによるticket-driven release sprint workflow
 - deterministic quality gates
 - architecture / ADR / CI/CD / release rules
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + Issue/PR単位で統合する + deterministic verification + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + release branchをsprint integration lineとする + deterministic verification + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -62,7 +62,7 @@ Agent Supervisor
 - DB / Redis / queue / runtime stateをworker間で共有しない
 - parent -> child はimmutable snapshot
 - child -> parent はimmutable commit/ref/diff
-- 複数agentが同じworking tree / Git index / integration branchを同時更新しない
+- 複数agentが同じworking tree / Git index / ticket branchを同時更新しない
 - Supervisorはworker sandbox外でlifecycle / budget / credentialを管理
 
 ## Local development targets
@@ -84,18 +84,36 @@ Docker Desktopは必須前提にしません。
 
 ## GitHub agile delivery
 
+標準構造:
+
+```text
+main
+└─ release-0-2-0
+   ├─ 123
+   ├─ 124
+   └─ 125
+```
+
+意味:
+
+- `main`: リリース済み・統合済みsource state
+- `release-x-y-z`: そのversionを目標とするsprint integration branch
+- `<issue-number>`: 1 ticketのdurable branch
+
 標準ライフサイクル:
 
 ```text
-Sprint / Release Goal
+Version / Release Goal
+        ↓
+release-x-y-z
         ↓
 GitHub Issue
         ↓
 Project: Ready
         ↓
-issue/<number>-<slug>
+<issue-number>
         ↓
-Draft PR
+Draft PR -> release-x-y-z
         ↓
 Isolated parallel workers
         ↓
@@ -103,9 +121,15 @@ Integration + CI + Review
         ↓
 Ready for review
         ↓
-Merge
+Ticket merge
         ↓
 Issue close + Project: Done
+        ↓
+Release-wide validation
+        ↓
+release-x-y-z -> main PR
+        ↓
+Release complete
 ```
 
 原則:
@@ -113,12 +137,26 @@ Issue close + Project: Done
 - durable planning unitはGitHub Issue
 - short-lived nested subtaskはSupervisor taskでよい
 - GitHub Project/Kanbanは `Backlog -> Ready -> In Progress -> In Review -> Done`
-- 1 top-level Issue = 1 integration branch = 1 PRを基本とする
-- canonical branch format: `issue/<issue-number>-<short-slug>`
+- sprintはtarget semantic versionで識別する
+- release branch formatは `release-<major>-<minor>-<patch>`
+- ticket branch formatはIssue番号だけ: `123`
+- branch名へ `issue/` prefixやslug/titleを入れない
+- 1 top-level Issue = 1 ticket branch = 1 ticket PRを基本とする
+- ticket PRのbaseは該当release branch
 - meaningfulな最初のcommit後、可能な限り早くDraft PRを開く
-- Draft PRをCI / progress / reviewer context / discussionのdurable integration surfaceとして使う
-- acceptance criteriaとintegration gateを満たしてからReady for reviewへ移す
-- merge + Issue close + board updateをDone boundaryとする
+- acceptance criteriaとticket quality gateを満たしてからReady for reviewへ移す
+- ticket PR merge + Issue close + board updateをticket Done boundaryとする
+- sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+
+## Language policy
+
+branch名はidentifier/versionだけを持ち、説明責務を持たせません。
+
+- source code: 英語
+- commit message: 英語
+- internal development docs: 日本語
+- GitHub Issue title/body: 日本語
+- Pull Request title/body/review discussion: 日本語
 
 ## Progressive disclosure
 
@@ -140,10 +178,13 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
 - GitHub Issues / Projectsをdurable work SoTとする。
+- `main`をreleased source stateとする。
+- sprintごとに `release-x-y-z` integration branchを使用する。
+- ticket branchはIssue番号だけを使用する。
 - implementation workerごとにisolated mutable runtimeを使用。
 - worktree-only isolationは禁止。sandbox内部実装としてのworktreeは許可。
 - nested delegationはimmutable snapshot/resultを使用。
-- source codeは英語、内部開発文書は日本語、Git/GitHub messageは英語。
+- source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
 - formatter / lint / type-check / static analysis / build / test / coverage等をcompletion gateにする。
