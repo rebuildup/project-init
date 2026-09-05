@@ -13,6 +13,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
+- `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
@@ -20,6 +21,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0004.md` — GitHub ticket-driven release sprint deliveryとcross-platform local runtime。
 - `ADR-0005.md` — framework/runtime固有のadaptive quality gate compilation。
 - `ADR-0006.md` — decision hierarchy / verification taxonomy / security maintenance / onboarding。
+- `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -34,6 +36,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - short Agent Skills
 - isolated multi-agent execution
 - Supervisor / subagent integration
+- interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
 - GitHub Issues / Projects / Pull Requestsによるticket-driven release sprint workflow
 - framework/runtime固有のadaptive deterministic quality gates
@@ -46,7 +49,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + release branchをsprint integration lineとする + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + release branchをsprint integration lineとする + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -68,12 +71,12 @@ Agent Supervisor
 
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree単体をexecution isolationとみなさない
-- 同じ内部portを各sandboxで使用可能
 - DB / Redis / queue / runtime stateをworker間で共有しない
 - parent -> child はimmutable snapshot
 - child -> parent はimmutable commit/ref/diff
 - 複数agentが同じworking tree / Git index / ticket branchを同時更新しない
-- Supervisorはworker sandbox外でlifecycle / budget / credentialを管理
+- Supervisorはworker sandbox外でlifecycle / budget / credential / execution generationを管理
+- native session resumeが失敗してもfresh agentがdurable stateから復旧可能
 
 ## Local development targets
 
@@ -181,11 +184,9 @@ user escalationは、product semantics、public contract、security/privacy、me
 
 quality gateは全project共通の固定bundleではありません。
 
-初期化時に実repoのlanguage / framework / runtime / SDK / app target / persistence / release targetを検出し、**実versionに対応するcurrent official guidanceを調査してproject-local quality profileへcompile**します。
+初期化時に実repoのlanguage / framework / runtime / SDK / app target / persistence / release targetを検出し、実versionに対応するcurrent official guidanceを調査してproject-local quality profileへcompileします。
 
 ### Verification taxonomy
-
-projectの具体toolingは異なっても、責務を最低限分けます。
 
 - **Unit**: 局所logic/component behavior
 - **Smoke / connectivity（疎通）**: startup / wiring / DB/API接続 / critical-path入口
@@ -194,7 +195,7 @@ projectの具体toolingは異なっても、責務を最低限分けます。
 - **E2E/system**: user/system critical flow
 - **Manual/visual**: automationが不足するUI/native/hardware領域のみ明示的に使用
 
-変更surfaceから必要なverification levelを決めます。
+変更surfaceからrequired verificationを決めます。
 
 例:
 
@@ -206,33 +207,21 @@ projectの具体toolingは異なっても、責務を最低限分けます。
 - build/package/container -> build/package + smoke
 - release -> full applicable integration + critical E2E/smoke + release checks
 
-必要であれば初期化agentが実際に追加・修復します。
+必要であれば初期化agentがtest/lint/static-analysis、GitHub Actions、required checksまで実際に追加・修復します。
 
-- formatter / lint / static analysis
-- compiler / type-check
-- unit / smoke / integration / contract / E2E infrastructure
-- framework/platform-specific validation
-- coverage policy
-- schema / migration validation
-- browser / device / OS / architecture matrix
-- build / package verification
-- project-local quality Agent Skills
-- GitHub Actions workflows
-- required CI checks
-
-標準的に次の3段階を分離します。
+標準的に次を分離します。
 
 - worker gate: 高速なfocused feedback
 - integration gate: ticket PRのfull applicable validation
 - release gate: `release-x-y-z -> main` 前のrelease-wide verification
 
-local commandとGitHub Actionsは可能な限り同じdeterministic entry pointを呼び、CI YAMLだけにhidden validation logicを持たせすぎません。
+local commandとGitHub Actionsは可能な限り同じdeterministic entry pointを呼びます。
 
 coverageは有効なprojectでは利用しますが、一律thresholdを盲目的に全projectへ強制しません。
 
 ## Security maintenance
 
-framework/runtime/SDK/dependencyのsecurity情報は、projectで実際に使用しているversionに紐付けて継続的に扱います。
+framework/runtime/SDK/dependencyのsecurity情報はprojectで実際に使用しているversionに紐付けて継続的に扱います。
 
 source priority:
 
@@ -243,45 +232,61 @@ source priority:
 5. maintainer patch information
 6. trusted secondary source
 
-priorityはseverityだけでなく:
-
-- exploitability
-- project reachability
-- internet/external exposure
-- privilege requirement
-- confidentiality/integrity/availability impact
-- fix availability
-- workaround quality
-- regression risk
-- target release timing
-
-から決定します。
+priorityはseverityだけでなくexploitability、project reachability、external exposure、impact、fix availability、regression risk、target release timingで決定します。
 
 meaningful advisoryはGitHub Issueへ変換し、target releaseを割り当てます。critical exposed vulnerabilityではcurrent sprintを中断してpatch releaseを切ることも許可します。
 
 projectに適切ならdependency review、code scanning、secret scanning、container scanning、SBOM等も初期化時に導入・修復します。
 
+## Agent interruption recovery
+
+AI agentの作業継続はconversation historyへ依存させません。
+
+native thread/session/subagent resumeは高速経路として利用できますが、canonical recoveryは次からfresh agentが再構成できることです。
+
+- Issue / Project
+- target release branch
+- ticket branch / commit graph
+- Draft/Ready PR / review / CI
+- design / ADR / Skills / docs
+- immutable child results
+- structured recovery checkpoint
+
+long-running taskはmeaningful boundaryでcheckpointを作ります。保存するのはprivate chain-of-thoughtではなく、task identity、base/checkpoint snapshot、completed/next steps、pending validation、active children、external side effects、blockers、decision/artifact refsなどのoperational stateです。
+
+### Recovery levels
+
+- **native resume**: session/thread/agent IDが残っていれば利用
+- **soft recovery**: same host/sandboxでlocal immutable ref/snapshot/journalから再開
+- **hard recovery**: sandbox/provider消失後もremote durable stateから再構成
+
+### Split-brain防止
+
+Supervisorはtaskごとにexecution lease/generationまたは同等のfencingを持ちます。recovery後に旧agentが戻ってもstale generationのresult/外部writeを通常統合しません。
+
+### Parent/child recovery
+
+child lifecycleはparent model processではなくSupervisorが所有します。parentが落ちてもsafeならchildを残し、recovered parentがrunning/completed/failed/orphanedを再発見してimmutable resultを回収します。
+
+### External side effects
+
+migration、deploy、publish、release、cloud mutation、notification等はtimeout後の状態が曖昧になり得ます。可能ならidempotency keyを使い、intent/result/remote identifierをdurableに記録し、recovery時はremote actual stateを確認してからretryします。
+
+### Context exhaustion
+
+context limit接近はplanned handoff eventです。objective、accepted decisions、relevant refs、current checkpoint、completed/pending work、validation、blockerをstructured stateへ外部化してfresh agentへ引き継ぎます。
+
 ## Onboarding / project knowledge
 
 fresh contributorや新しいagentが会話履歴・private memoryなしで開発開始できることを初期化完了条件に含めます。
 
-最低限、repository-controlled docsから次へ到達できるようにします。
-
-- project purpose / scope
-- architecture / dependency direction / data flow
-- bootstrap / run / migrate / seed
-- validation commands
-- GitHub Issue / release branch workflow
-- decision precedence
-- ADR / design / Agent Skills
-- troubleshooting
-- release/security workflow
+repository-controlled docsから最低限、project purpose / architecture / bootstrap / run / migrate / validation / GitHub workflow / decision precedence / ADR / troubleshooting / release/security/recovery workflowへ到達できるようにします。
 
 project規模に応じて `README.md`、`CONTRIBUTING.md`、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md` 等へprogressive disclosureします。
 
 必要ならMermaid等でarchitecture / data flow / trust boundariesを可視化します。
 
-documented commandも可能な限りfresh sandbox/CIで検証し、「READMEには書いてあるがfresh cloneでは動かない」状態を避けます。
+documented commandも可能な限りfresh sandbox/CIで検証します。
 
 ## Language policy
 
@@ -308,6 +313,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `engineering-decisions`
 - `security-maintenance`
 - `onboarding`
+- `agent-recovery`
 
 project固有のarchitecture / UI / release / debugging等は必要に応じて追加します。
 
@@ -322,6 +328,8 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - implementation workerごとにisolated mutable runtimeを使用。
 - worktree-only isolationは禁止。sandbox内部実装としてのworktreeは許可。
 - nested delegationはimmutable snapshot/resultを使用。
+- session/context消失時もdurable checkpointからfresh agentが復旧できるようにする。
+- execution generation/fencingでduplicate continuationを防ぐ。
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - project-wide policy > design/spec/instruction > existing implementation majority の判断順序を標準化する。
 - project evidenceで解ける自明な判断をuserへ返さない。
@@ -331,8 +339,8 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - unit/smoke/integration/contract/E2Eの責務を区別し、変更riskからrequired verificationを決める。
 - GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
 - framework/runtime security advisoryをproject reachability込みでpriority化する。
-- fresh contributorがhidden contextなしで開発開始できるdocumentationを維持する。
-- significant architecture/tooling/runtime/workflow/quality/security decisionsはADRへ永続化。
+- fresh contributor/new agentがhidden contextなしで開発開始・復旧できるdocumentationを維持する。
+- significant architecture/tooling/runtime/workflow/quality/security/recovery decisionsはADRへ永続化。
 - temporary verification filesは `.tmp/`、external reference repositoriesは `.reference/`。
 - new container definitionは `Containerfile`。
 - CI/CDは原則GitHub Actions。
@@ -348,7 +356,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - long-lived decisions -> ADR
 - reproducible runtime/tools -> project-local configuration
 - adaptive quality profile -> project-local commands / Skills / CI workflows
-- engineering decision/security policy -> dedicated Skills / config / Issues
+- engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / Projects / PR configuration
 
