@@ -2,15 +2,15 @@
 
 このリポジトリ向けのAIコーディングエージェント環境を初期化・再整備してください。
 
-これは一般的な `/init` の代替または補強として渡すメタプロンプトです。実際のrepository、技術stack、architecture、runtime、test、quality、security、CI/CD、GitHub workflow、documentationを調査したうえで、**複数AIエージェントが独立環境で安全に並行作業し、version-oriented release sprintへ決定論的に統合できるproject-local開発環境**を構築してください。
+これは一般的な `/init` の代替または補強として渡すメタプロンプトです。実際のrepository、技術stack、architecture、runtime、test、quality、security、CI/CD、GitHub workflow、documentationを調査したうえで、**複数AIエージェントが独立環境で安全に並行作業し、中断・context消失・sandbox消失からも復旧しながらversion-oriented release sprintへ決定論的に統合できるproject-local開発環境**を構築してください。
 
-この全文を通常taskのたびに読ませてはいけません。全文を読むのは初回初期化、またはproject-local Agent Skills / adapters / runtime / quality / governance policyを再構成する時だけです。
+この全文を通常taskのたびに読ませてはいけません。全文を読むのは初回初期化、またはproject-local Agent Skills / adapters / runtime / quality / governance / recovery policyを再構成する時だけです。
 
 全文を `AGENTS.md` や `CLAUDE.md` へコピーしてはいけません。
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + sprintをtarget release versionとして表現 + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + sprintをtarget release versionとして表現 + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
 
 ---
 
@@ -30,6 +30,8 @@
 - framework/runtime security情報を継続的にpriority化する。
 - project knowledgeをchat/private memoryではなくrepository-controlled docsへ残す。
 - project evidenceで解ける自明な判断をuserへ返さない。
+- native session/thread resumeを唯一のrecovery mechanismにしない。
+- fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
 
 Git worktree自体は禁止ではありません。既にisolatedなsandbox内部のGit実装詳細として使用できますが、worktreeだけでport/process/database等が分離されたとは扱いません。
 
@@ -47,7 +49,8 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - Agent Skills / adapters
 - plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
-- Supervisor integration
+- Supervisor integration / execution state model
+- recovery checkpoint / lease / fencing model
 - language/framework/runtime/SDK versions
 - manifest / lockfile / workspace structure
 - architecture / design / ADR
@@ -80,6 +83,7 @@ canonical stateは最低限次で表現してください。
 5. GitHub Issue / Project work state
 6. project-wide policy / architecture / design / specification / ADR
 7. repository-controlled operational documentation / Agent Skills
+8. durable recovery checkpoint / immutable worker results
 
 source/work state:
 
@@ -91,13 +95,13 @@ source/work state:
 
 各ticket / workerは `base_sha` またはimmutable input snapshotを追跡可能にしてください。
 
-local directoryやSupervisorの復旧不能なhidden DBだけを唯一のSoTにしてはいけません。
+local directory、会話履歴、native session ID、Supervisorの復旧不能なhidden DBだけを唯一のSoTにしてはいけません。
 
 ---
 
 ## 4. Engineering decision precedence
 
-開発判断では、原則として次の順で確認してください。
+開発判断では原則として次の順で確認してください。
 
 1. **project-wide policy / canonical architecture / invariant**
 2. **design / specification / explicit task instruction**
@@ -108,9 +112,9 @@ local directoryやSupervisorの復旧不能なhidden DBだけを唯一のSoTに�
 
 同一levelで矛盾する場合は、よりspecificかつ新しいcanonical sourceを優先します。
 
-existing implementationは重要なevidenceですが、古い実装やmigration途中の多数派が新しいcanonical design/policyを上書きしてはいけません。
+existing implementationは重要なevidenceですが、old implementationやmigration途中の多数派が新しいcanonical design/policyを上書きしてはいけません。
 
-conventionを確認する時は同じ責務の複数実装を見て、generated/vendor/example codeやmigration途中のold patternを除外してください。最初に見つけた1 fileだけをproject conventionとして扱わないでください。
+convention確認時は同じ責務の複数実装を見て、generated/vendor/example codeやmigration途中のold patternを除外してください。最初に見つけた1 fileだけをproject conventionとして扱わないでください。
 
 ### 自明な判断をuserへ返さない
 
@@ -122,19 +126,9 @@ conventionを確認する時は同じ責務の複数実装を見て、generated/
 - public/external contractを新規確定しない
 - security/privacy/cost/release scopeを重大に変えない
 
-例:
-
-- project conventionに沿う命名/file placement
-- official architectureに沿うmodule placement
-- formatterが決めるformat
-- 既存test structureに沿うtest location
-- obvious lint/type error fix
-
 project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ返してはいけません。
 
 ### User escalationが必要な条件
-
-userへ確認するのは本物の意思決定が残る場合に限定してください。
 
 - canonical sources同士が矛盾しproduct semanticsが変わる
 - acceptance criteriaが複数解釈できuser-visible behaviorが変わる
@@ -150,8 +144,6 @@ userへ確認するのは本物の意思決定が残る場合に限定してく�
 ---
 
 ## 5. Agent architecture
-
-基本構成:
 
 ```text
 Human / caller
@@ -184,12 +176,14 @@ Agent Supervisor / Control Plane
 
 責務:
 
-- sandbox create / destroy / suspend
-- workspace snapshot
-- agent spawn / wait / cancel
+- sandbox create / destroy / suspend / recreate
+- workspace snapshot / recovery checkpoint
+- agent spawn / wait / cancel / resume / replace
 - agent/model adapter selection
 - resource / cost / WIP / recursion budget
 - credential injection
+- execution lease / generation / fencing
+- child discovery / orphan reconciliation
 - Git result collection / integration
 - logs / status / preview routing
 
@@ -208,12 +202,15 @@ get_agent_status
 get_agent_result
 send_agent_message
 cancel_agent
+resume_or_replace_agent
 integrate_agent_result
+checkpoint_agent
+recover_task
 ```
 
 transportはnative agent API、MCP、ACP、CLI wrapper、project-local Supervisor client等から選べます。
 
-モデルにDocker/VM/provider commandそのものを覚えさせるのではなく、agent creationを高水準toolとして公開してください。
+モデルにDocker/VM/provider commandそのものを覚えさせるのではなく、agent creation/recoveryを高水準toolとして公開してください。
 
 spawn request候補:
 
@@ -225,6 +222,7 @@ spawn request候補:
 - filesystem/network policy
 - budget / timeout / maximum depth
 - expected result format
+- parent execution generation
 
 fork bombやunbounded costを防止してください。
 
@@ -274,6 +272,7 @@ result候補:
 agent_id
 issue_or_task_id
 base_snapshot
+execution_generation
 result_commit_or_ref
 summary
 validation_results
@@ -341,25 +340,7 @@ WSL自体をworker isolationとみなしてはいけません。Linux-oriented r
 
 Docker Desktopを必須前提にしないでください。
 
-候補provider:
-
-- local container sandbox
-- Dagger系execution
-- devcontainer-compatible runtime
-- lightweight VM
-- SSH/devbox provider
-- on-demand remote sandbox
-- native cloud-agent machine
-
-理想:
-
-```text
-same repository + same environment specification
-    -> macOS local sandbox
-    -> WSL/Linux local sandbox
-    -> CI
-    -> remote sandbox
-```
+runtime/provider選定時はcreate/destroy costだけでなく、snapshot persistence、suspend/resume、provider-loss recovery、remote artifact durabilityも評価してください。
 
 ---
 
@@ -383,7 +364,7 @@ rootに置くもの:
 - active release rule
 - decision precedence pointer
 - environment bootstrap
-- Supervisor/subagent entry point
+- Supervisor/subagent/recovery entry point
 - validation entry point
 - language policy
 - Skill discovery
@@ -397,6 +378,7 @@ rootに置くもの:
 - `engineering-decisions`
 - `security-maintenance`
 - `onboarding`
+- `agent-recovery`
 
 通常taskでは必要なSkillだけを読み、このfull promptを再読しない構成にしてください。
 
@@ -405,8 +387,6 @@ rootに置くもの:
 ## 11. Release sprint / GitHub workflow
 
 開発はtarget versionを持つrelease sprint + GitHub Issue中心で進めます。
-
-標準branch hierarchy:
 
 ```text
 main
@@ -432,17 +412,7 @@ sprint開始時に `main` からrelease branchを作成してください。
 
 Issue title/bodyは日本語です。
 
-必要に応じて:
-
-- 目的 / outcome
-- acceptance criteria
-- scope / non-scope
-- dependency / blocked-by
-- priority / size
-- area/component
-- target version / release date
-
-を持たせてください。
+必要に応じて目的、acceptance criteria、scope/non-scope、dependency、priority、size、area/component、target version、release dateを持たせてください。
 
 短命なnested subtaskはSupervisor taskで構いません。
 
@@ -464,7 +434,7 @@ WIPを実capacityに合わせて制限してください。
 
 ---
 
-## 12. Ticket branch / Draft PR / release integration
+## 12. Ticket branch / Draft PR
 
 1 top-level Issueにつき1 durable ticket branchを作ります。
 
@@ -481,10 +451,11 @@ PR title/body/review discussionは日本語です。
 Draft -> Ready条件:
 
 - acceptance criteria実装済み
-- required ticket verification成功
+- ticket integration gate成功
 - blocking issue解消またはscope外明示
 - PR descriptionが現状と一致
 - release branchとのstaleness/conflict処理済み
+- latest durable checkpointとbranch stateが矛盾しない
 
 Ticket Done:
 
@@ -494,19 +465,46 @@ Ticket Done:
 - Issue closed
 - Project status = Done
 
-release branchのfull release gate通過後:
+---
+
+## 13. Release integration
+
+sprint対象ticketをrelease branchへ統合後、release gateを実行してください。
+
+release PR:
 
 `release-x-y-z -> main`
 
-のrelease PRを作成してください。
+release PR title/bodyは日本語です。
 
-release PRにはrelease goal、included Issues/PRs、breaking changes、migration、full validation result、known limitations、version metadataを含めてください。
+最低限:
+
+- release goal
+- included Issues / PRs
+- breaking changes
+- migration notes
+- full validation result
+- known limitations
+- version/release metadata
+
+merge後 `main` がそのversionのreleased stateです。
 
 ---
 
-## 13. Task graphと最大安全並列化
+## 14. Task graphと最大安全並列化
 
 非自明なIssueをdependency graphへ分解してください。
+
+各node候補:
+
+- objective / acceptance criteria
+- prerequisites
+- input snapshot
+- output contract
+- owner role
+- target release
+- integration target
+- recovery/checkpoint policy
 
 Readyかつdependency解消済みnodeはresource / rate / quota / WIP / cost内で最大限並行化してください。
 
@@ -516,172 +514,339 @@ Readyかつdependency解消済みnodeはresource / rate / quota / WIP / cost内�
 
 ---
 
-## 14. Architecture / design / ADR
+## 15. 自律実行ループ
 
-既存コードを調査したうえで、architectureを決定・変更する時は対象platform/framework/SDKのcurrent official guidanceを確認してください。
+非自明taskでは:
 
-優先:
+`inspect -> plan release -> ticketize -> decompose -> snapshot -> delegate/implement -> checkpoint -> verify worker -> integrate ticket -> verify integration -> review -> update board -> verify release -> replan -> continue`
 
-1. current official recommended architecture
-2. official reference implementation / convention
-3. project-wide canonical architecture/design
-4. coherent existing architecture
-5. ecosystem convention
-6. custom architecture
+を自律的に回してください。
 
-officialがunopinionatedな領域で存在しない推奨を捏造しないでください。
+compile成功、focused test 1件成功、first implementationがもっともらしい、というだけで完了扱いしないでください。
 
-### Design-first
-
-design/specificationが存在する変更では:
-
-1. current designを読む
-2. necessary design changeを整理
-3. user approvalがpolicy上必要なら取得
-4. design更新
-5. implementation
-
-の順を守ってください。
-
-significant decisionはADRへ残し、historical diaryをdesign docへ混ぜないでください。
+要求scopeを独自にMVPへ縮小してはいけません。
 
 ---
 
-## 15. Adaptive quality profile compiler
+## 16. Agent interruption recovery
 
-quality gateは固定check listではありません。
+AI agent recoveryは「同じconversationをresumeできること」に依存させてはいけません。
 
-初期化時に実repoから次を検出してください。
+native session/thread/subagent resumeが利用できる場合は高速経路として利用できますが、canonical pathは**fresh agentがdurable project stateからreconstructすること**です。
 
-- languages / frameworks / SDKs / versions
-- app type / workspace structure
-- architecture boundaries
-- persistence / queue / cache / external service
-- auth/network/filesystem boundary
-- existing test/lint/type/build config
-- browser / OS / CPU architecture target
-- release/deploy target
+### Failure model
 
-次に実versionに対応するcurrent official documentationを調査します。
+最低限次を想定してください。
 
-優先:
+- model/session context loss
+- agent process crash / cancellation
+- IDE/terminal restart
+- parent agent crash while child continues
+- child/subagent crash
+- sandbox/container/VM recreation
+- Supervisor restart
+- transient network/provider failure
+- host reboot
+- context-window exhaustion
+
+project/provider要件に応じてmachine/provider lossまでのRPO/RTOも定義してください。
+
+### Durable recovery sources
+
+優先するevidence:
+
+1. GitHub Issue / Project
+2. target release branch
+3. ticket branch / commit graph
+4. Draft/Ready PR / review / CI state
+5. committed design / ADR / Skills / docs
+6. immutable worker/subagent results
+7. structured recovery checkpoint
+
+native conversation ID、agent ID、Supervisor local DB、shell history、IDE stateはtransient optimizationです。
+
+### Structured recovery checkpoint
+
+private chain-of-thoughtを保存してはいけません。復旧に必要な外部化可能stateだけを保存してください。
+
+最低限候補:
+
+```text
+schema_version
+issue_id
+target_release
+ticket_branch
+pr_number
+base_sha
+checkpoint_sha_or_snapshot
+execution_generation
+status
+completed_steps
+next_steps
+pending_validation
+active_children
+integrated_child_results
+external_side_effects
+blockers
+decision_refs
+artifact_refs
+updated_at
+```
+
+secret、machine-specific absolute path、private reasoningへ依存させないでください。
+
+### Soft checkpoint / Hard checkpoint
+
+- soft checkpoint: same host/sandbox recovery向け。local immutable ref、filesystem snapshot、Supervisor journal、native session state等。
+- hard checkpoint: sandbox/providerを失っても復旧する境界。meaningful code/work stateがdurable remote infrastructureから到達可能であること。
+
+すべての小editをremote commitしてhistoryを汚す必要はありません。projectのRPO、task length、provider TTLからcheckpoint頻度を設計してください。
+
+### Checkpoint trigger
+
+最低限、次の前後で検討してください。
+
+- meaningful implementation milestone
+- risky refactor/migration
+- child spawn
+- child result integration
+- long validation
+- external side effect
+- user/external input待ち
+- provider TTL/shutdown接近
+- graceful cancellation/shutdown signal
+- context limit接近
+
+### Recovery algorithm
+
+fresh agentはprevious conversationを推測しないでください。
+
+1. Issue / PR / target releaseを特定。
+2. ticket branch / remote commit graphをfetch。
+3. latest valid checkpointを読む。
+4. canonical policy/design/decision refsを確認。
+5. active childrenをSupervisorから再発見。
+6. checkpointからworkspaceをrecreate。
+7. completed/pending validationを再評価。
+8. external side effectのactual remote stateを確認。
+9. stale base / conflicting integrationを確認。
+10. remaining planを再構成。
+11. safeな最小verificationでreconstructed stateを確認。
+12. execution generation/leaseを更新して続行。
+
+native resumeに成功してもbranch/PR/checkpointとの整合を確認してから続行してください。
+
+---
+
+## 17. Parent / child recovery と split-brain防止
+
+child lifecycleはparent model processではなくSupervisor/control planeが所有してください。
+
+parentが死亡してもsafeならchildを即cancelしないでください。
+
+recovered parent/coordinatorは:
+
+- child一覧を再発見
+- input snapshot / execution generationを確認
+- running / completed / failed / orphanedを分類
+- completed resultをimmutable resultとして回収
+- stale child resultは自動統合しない
+- 必要ならretry/resume/re-spawn
+
+を行います。
+
+network partitionやtimeout後に旧agentと新agentが同時実行される可能性を前提にしてください。
+
+Supervisorはtaskごとにleaseまたはgeneration/fencing tokenを持たせてください。
+
+- recovery時に `execution_generation` を進める
+- worker resultへgenerationを付与
+- stale generationからのbranch integration / external writeを拒否
+- heartbeat消失だけで即同一side effectを再実行しない
+
+同じticket branchへ複数generationが同時pushすることを通常運用にしないでください。
+
+---
+
+## 18. External side effects / idempotency
+
+Git外の操作は中断復旧で特に危険です。
+
+例:
+
+- production/staging deploy
+- DB migration
+- package publish
+- release/tag creation
+- cloud resource mutation
+- notification/email/comment creation
+- billing/cost-producing operation
+
+可能ならidempotency keyを使用してください。
+
+side effect前にintent、後にresult/remote identifierをdurable journalへ記録し、recovery時はremote actual stateを確認してからretryしてください。
+
+`command returned no response = operation did not happen` と推測してはいけません。
+
+irreversible/destructive operationはengineering-decisionsのuser escalation policyも適用してください。
+
+---
+
+## 19. Tool / Skill / pluginはゼロベースで選定する
+
+初期化時点で調査:
+
+- native agent capability / resume behavior
+- official / maintained Agent Skills
+- deterministic project CLI
+- framework/runtime/SDK official tooling
+- first-party integration
+- LSP / MCP / ACP / plugin
+- recovery/snapshot/provider persistence capability
+
+優先順位:
+
+1. project既存のdeterministic tool
+2. project-local CLI / Skill
+3. native agent capability
+4. project-local adapter / protocol integration
+5. 明確な利点がある場合のみplugin / MCP
+
+必要性、再現性、maintenance、security、license、context cost、cross-platform、version pinningを確認してください。
+
+---
+
+## 20. Architecture / design / ADR
+
+architectureを決定・変更する場合は対象platform/framework/SDKのcurrent official guidanceを確認してください。
+
+優先順位:
+
+1. current official recommended architecture
+2. official reference implementation / conventions
+3. coherent existing architecture
+4. established ecosystem convention
+5. custom architecture
+
+公式がunopinionatedな領域で存在しない推奨を捏造してはいけません。
+
+Design-first gateが存在する変更はdesign合意後にimplementationへ進んでください。
+
+長期的decisionはADRへ残してください。
+
+特にADR対象:
+
+- Agent Supervisor
+- sandbox runtime/provider
+- Git integration / recovery checkpoint model
+- execution fencing / side-effect reconciliation
+- release/sprint branching model
+- environment reproducibility
+- architecture migration
+- package/toolchain migration
+- CI/CD / quality model
+- security priority model
+- onboarding strategy
+
+---
+
+## 21. Adaptive quality profile
+
+quality gateは全project共通の固定bundleではありません。
+
+初期化時に実repoのlanguage / framework / runtime / SDK / app target / persistence / release targetを検出し、**実versionに対応するcurrent official guidance**を調査してください。
+
+優先順位:
 
 1. framework/runtime/SDK official quality/testing guidance
 2. official examples/templates/starters
-3. official first-party Actions / CI examples
+3. official first-party CI / GitHub Actions guidance
 4. official language/toolchain guidance
 5. coherent existing configuration
 6. maintained ecosystem tooling
 7. custom tooling
 
-調査だけで終わらず、必要なら実際に追加・修復してください。
+調査だけで終わらず、必要ならformatter/lint/static analysis、compiler/type-check、test infrastructure、GitHub Actions、required checks、specialized Skillまで実装・修復してください。
 
-- formatter / lint / static analysis
-- compiler / type-check
-- test infrastructure
-- framework/platform-specific checks
-- schema/migration validation
-- browser/device/OS matrix
-- build/package checks
-- project-local specialized Skills
-- `.github/workflows/*`
-- required CI checks
+local gateとCI gateは可能な限り同じdeterministic entry pointを使ってください。
 
-project-localに少数のstable validation entry pointを用意してください。
+---
+
+## 22. Verification taxonomy と動作確認gate
+
+最低限次を区別してください。
+
+### Unit
+
+局所logic/component behavior。外部boundaryをreal integrationとして証明するものではありません。
+
+### Smoke / connectivity（疎通）
+
+startup、wiring、DI、DB/API接続、critical path入口が最低限成立することを安価に確認します。
+
+### Integration（結合）
+
+複数real component/boundary間のdata flow、transaction、persistence、service integrationを確認します。
+
+### Contract / schema
+
+API/event/DB/generated interface等のcompatibilityを確認します。
+
+### E2E / system
+
+user/system critical flowをrelease-like boundaryで確認します。
+
+### Manual / visual
+
+automationが不足するUI/native/hardware領域だけ明示的に使用します。
+
+変更surface/riskからrequired verification levelをproject-specificに決めてください。
 
 例:
 
-```text
-validate:fast
-validate:integration
-validate:release
-```
+- pure logic -> unit
+- API/service -> unit + integration
+- DB/schema/migration -> integration + schema/migration + smoke
+- runtime/env/network/DI -> smoke + relevant integration
+- user journey/auth/navigation -> integration/contract + E2E
+- build/package/container -> build/package + smoke
+- release -> full applicable integration + critical E2E/smoke + release checks
 
-実command名はproject conventionに合わせてください。
-
----
-
-## 16. Verification taxonomy
-
-project内で最低限次の責務を区別してください。
-
-### Unit test
-
-1つの小さいlogic/component/moduleのbehaviorを外部boundaryを最小化して高速に検証します。
-
-### Smoke / connectivity test（疎通テスト）
-
-system/serviceが起動し、主要boundaryが最低限接続可能で、critical pathの入口が成立することを安価に検証します。
-
-対象例:
-
-- startup
-- health/readiness
-- app -> DB/cache/queue
-- frontend -> API basic request
-- required migration/schema
-- desktop/mobile/package launch
-
-### Integration test（結合テスト）
-
-複数のreal component/boundaryを組み合わせ、interface/data flow/transactionが成立することを検証します。
-
-mockだけでboundary contractを再現したtestをreal integration testと報告してはいけません。
-
-### Contract / schema test
-
-OpenAPI / GraphQL / protobuf / DB schema / event schema / generated client/server等、interface compatibilityが重要なprojectで使用します。
-
-### E2E / system test
-
-user-visibleまたはsystem-level critical flowをproductionに近いboundary構成でend-to-endに検証します。
-
-### Manual / visual verification
-
-UI/UX、native platform、hardware等でautomationが不十分な場合のみ明示的gateとして定義します。手順・期待結果・artifactを残してください。
+unit testだけでsmoke/integration correctnessを証明した扱いにしてはいけません。
 
 ---
 
-## 17. 動作確認gateを変更riskから決める
+## 23. Worker / integration / release gate
 
-全ticketに全test levelを機械的に要求しないでください。
+### Worker gate
 
-代表default:
+担当scopeで高速なfocused validationを行います。
 
-| Change | Minimum verification candidate |
-| --- | --- |
-| pure/domain logic | unit |
-| API/service behavior | unit + integration |
-| DB/schema/migration | integration + schema/migration + smoke |
-| runtime/env/DI/network | smoke + relevant integration |
-| frontend local component | unit/component |
-| user journey/auth/navigation | integration/contract + E2E |
-| external API adapter | unit + contract/integration + failure path |
-| build/package/container | build/package + smoke |
-| security fix | regression + vulnerable-path verification + applicable integration/E2E |
-| release | full applicable integration + critical E2E/smoke + release checks |
+### Ticket integration gate
 
-framework official guidanceとproject architectureでprofileをcompileしてください。
+clean integration candidateからticketに必要なfull applicable validationを実行します。
 
-### Gate layers
+### Release gate
 
-- worker gate: focused fast feedback
-- ticket integration gate: `<issue-number> -> release-x-y-z` candidateのfull applicable validation
-- release gate: `release-x-y-z -> main` 前のrelease-wide verification
+`release-x-y-z -> main` 前にrelease-wide verificationを実行します。
 
-coverageは有用な領域でproject-specific signalとして利用し、一律thresholdを万能hard ruleにしないでください。
+必要に応じてfull integration、critical E2E/smoke、production build/package、browser/device/OS matrix、migration rehearsal、signing/notarization、deployment/IaC plan等を含めます。
 
-False greenは禁止です。skip、`.only`、blanket suppression、ignored exit code、`|| true`、mock-only testをreal integrationと報告、未実施manual checkを動作確認済みと報告、coverage偽装等を行ってはいけません。
+validation途中で中断した場合、途中までのgreenをfull passとみなさないでください。check resultはcode snapshotに結び付け、stale successを再利用しないでください。
+
+coverageは有用なprojectでproject-specific signalとして扱い、一律thresholdを盲目的に適用しないでください。
+
+False greenは禁止です。skipped test、`.only`、ignored exit code、`|| true`、blanket suppression、CI disabling等でgreenを偽装してはいけません。
 
 ---
 
-## 18. GitHub Actions / CI
+## 24. GitHub Actions / CI
 
-GitHub Actionsを使用するprojectではlocal gateとCI gateを同じsemanticsへ揃えてください。
+CI/CDは原則GitHub Actionsを使用してください。
 
-初期化時にcurrent official GitHub Actions guidanceとframework/runtime公式CI exampleを確認してください。
+initialization時にcurrent official GitHub Actions guidanceとframework/runtimeのofficial CI examplesを確認してください。
 
-検討:
+検討対象:
 
 - first-party setup actions
 - dependency/toolchain cache
@@ -689,341 +854,194 @@ GitHub Actionsを使用するprojectではlocal gateとCI gateを同じsemantics
 - service containers
 - browser/device dependencies
 - artifact/report upload
-- code/dependency/security checks
-- concurrency/cancellation
-- least-privilege permissions
+- code scanning / dependency review
+- concurrency / cancellation
+- permissions minimization
 - secrets handling
-- action version/pinning
+- action pinning policy
 - trusted/untrusted PR behavior
 
-Actionsを増やすこと自体を目的にせず、project-local deterministic validation commandを薄くCIから呼ぶ構成を優先してください。
+CI YAMLだけにhidden validation logicを増やしすぎず、project-local deterministic commandを薄く呼ぶ構成を優先してください。
 
 ---
 
-## 19. Security maintenance
+## 25. Security maintenance
 
-framework/runtime/SDK/dependencyのsecurity情報を継続的に収集し、projectへの実影響でpriority化してください。
+framework/runtime/SDK/dependencyのsecurity情報はprojectで実際に使用しているversionに紐付けて継続的に扱ってください。
 
 source priority:
 
-1. framework/runtime/SDK official security advisory
+1. official framework/runtime/SDK security advisory
 2. official release/security announcement
 3. ecosystem official advisory source
 4. GitHub Security Advisories / dependency alerts
 5. maintainer patch information
 6. trusted secondary source
 
-security inventory:
+priorityはseverityだけでなくexploitability、project reachability、external exposure、required privilege、impact、fix availability、workaround quality、regression risk、release timingで決めてください。
 
-- direct dependencies
-- security-sensitive transitive dependencies
-- framework/runtime/SDK versions
-- container/base image
-- relevant OS/runtime packages
-- build/deploy toolchain
-- externally exposed services/endpoints
-- auth/session/crypto/storage/network boundaries
+meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てます。critical exposed vulnerabilityではcurrent sprintを中断してpatch releaseを優先できます。
 
-priorityはseverityだけでなく次を評価します。
-
-- exploitability / exploit maturity
-- project reachability
-- external exposure
-- auth前到達可能性
-- confidentiality/integrity/availability impact
-- required privilege
-- affected scope
-- fix availability
-- workaround quality
-- regression/migration risk
-- release timing
-
-概念priority:
-
-- P0/Critical: active exploitationまたは直接exposed。即時対応/patch release候補
-- P1/High: reachableで重大impact、fix available。current release blocking候補
-- P2/Medium: 条件付きreachable/impact限定。近いreleaseへ計画
-- P3/Low: non-reachable/defense-in-depth。maintenanceとして処理
-
-meaningful advisoryはGitHub Issueへ変換し、target releaseを割り当ててください。
-
-projectに適切ならdependency vulnerability scan、dependency review、code scanning/SAST、secret scanning、container scanning、SBOM等も初期化時に導入・修復してください。
-
-大量false positiveをそのままblockingにしないでください。
+projectに適切ならdependency review、code scanning、secret scanning、container scanning、SBOM等を初期化時に導入・修復してください。
 
 ---
 
-## 20. Onboarding / project knowledge
+## 26. Reviewer separation
 
-fresh contributor / new agentがchat history・private memory・既存memberの口頭説明なしで次を行える状態を初期化完了条件に含めてください。
+可能な場合implementer自身のself-reviewだけで完了させないでください。
 
-1. project purpose/scope理解
-2. architecture / major boundary理解
-3. local environment bootstrap
-4. app/service起動
-5. validation実行
-6. Issue選択 / ticket branch作成
-7. Draft PRをtarget releaseへ作成
-8. policy/design/ADR/Skills発見
-9. common failure切り分け
-10. release/security workflow理解
+Reviewerはclean integration candidateから最低限次を確認してください。
 
-project規模に応じて:
-
-- `README.md`
-- `CONTRIBUTING.md`
-- `docs/architecture.md`
-- `docs/development.md`
-- `docs/troubleshooting.md`
-- `docs/release.md`
-- `docs/security.md`
-- ADR / design / Skill directories
-
-等へprogressive disclosureしてください。
-
-architecture guideでは必要ならMermaid等でmajor components、dependency direction、data flow、external systems、persistence、trust/security boundaries、runtime/deploy boundariesを可視化してください。
-
-documented commandは可能な限りfresh sandbox/CIで実行して検証してください。
-
-「READMEには書いてあるがfresh cloneでは動かない」を許容しないでください。
-
-bootstrap/run/validation command、architecture、framework/runtime、host support、release/security workflowが変わったら同じticketでdocsを更新してください。
+- requested scope completeness
+- decision precedenceとの整合
+- correctness / architecture consistency
+- regression risk
+- test adequacy / required verification level
+- validation evidence
+- hidden coupling
+- sandbox/runtime reproducibility
+- target releaseとの整合
+- recovery/checkpoint consistency when relevant
 
 ---
 
-## 21. Tool / Skill / plugin selection
+## 27. Onboarding / repository-controlled knowledge
 
-初期化時点でcurrent ecosystemを調査してください。
+fresh contributorやfresh agentがchat history/private memoryなしで開発開始・復旧できることを初期化完了条件に含めてください。
 
-優先:
+repository-controlled docsから最低限次へ到達できるようにします。
 
-1. project existing deterministic CLI
-2. framework/runtime official tooling
-3. project-local Skill
-4. native agent capability
-5. first-party integration
-6. 明確な優位があるplugin/MCP等
+- project purpose / scope
+- architecture / dependency direction / data flow / trust boundary
+- bootstrap / run / migrate / seed
+- worker/integration/release validation
+- Issue / release branch / ticket branch / Draft PR workflow
+- decision precedence
+- ADR / design / Agent Skills
+- troubleshooting
+- release/security/recovery workflow
 
-選定時に必要性、再現性、maintenance、security、license、context cost、cross-platform、version pinningを確認してください。
+project規模に応じてREADME、CONTRIBUTING、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md`、`docs/security.md` 等へprogressive disclosureしてください。
 
-同じ責務のtoolを理由なく重複導入しないでください。
+必要ならMermaid等でarchitecture/data flow/trust boundariesを可視化してください。
+
+documented commandsは可能な限りfresh sandbox/CIで実際に検証してください。
+
+architecture/runtime/workflow変更時は同じticketで関連documentationも更新してください。
 
 ---
 
-## 22. Package / search / script policy
+## 28. Source / documentation / GitHub language
 
-JavaScript / TypeScriptでは具体的非互換性がなければBunを標準package managerとしてください。
+### Source code
+
+英語のみを使用してください。filename、identifier、comment、developer-facing log、config identifier等を含みます。localization resourceは例外です。
+
+### Commit
+
+commit messageは英語を使用してください。
+
+`<work-prefix>: <extremely concise title>`
+
+### Internal documentation
+
+日本語を使用してください。
+
+### GitHub Issue / Pull Request
+
+Issue title/body、PR title/body、review discussionは日本語を標準とします。
+
+branch名はIssue番号またはrelease versionだけを表し、説明責務を持たせません。
+
+---
+
+## 29. Package / search / scripts / secret / temporary policy
+
+JavaScript / TypeScriptでは具体的な非互換性がなければBunを標準package managerとしてください。
 
 text searchは `rg` / `rg --files` を標準とします。
 
-新規 `.py` scriptをautomation、generation、migration、validation、build/test support、temporary analysis目的で追加してはいけません。
+新規 `.py` scriptをautomation、generation、migration、validation、build/test support、temporary analysis目的で追加してはいけません。project本来の適切な言語、TypeScript/JavaScript、shell、PowerShell等を使用してください。
 
-原則TypeScript/JavaScript、shell、PowerShell、またはproject本来の適切な非Python言語を使用してください。
-
-既存projectが別package manager/toolchainを一貫して使用している場合は、変更の実利益を調査し、理由なくmigrationしないでください。
-
----
-
-## 23. Dependency / naming policy
-
-依存関係は最小限にしlatest stable compatible versionを基本とします。
-
-導入時:
-
-- platform/native capabilityで代替できないか
-- existing dependencyで足りないか
-- actively maintainedか
-- unnecessary transitive dependencyを増やさないか
-- license compatibility
-- security/remote behavior
-
-を確認してください。
-
-責務名はpath context込みで明確にし、`utils` / `helpers` / `common` / `misc` / `manager` 等のdumping-ground名を安易に使わないでください。
-
----
-
-## 24. Environment / secret policy
-
-actual dotenvとして許可:
+actual dotenv:
 
 - `.env`
 - `.env.development`
 - `.env.production`
 
-これらはGit ignoreしてください。
+はGit ignoreしてください。
 
-committed example:
+committed examples:
 
 - `.env.example`
 - `.env.development.example`
 - `.env.production.example`
 
-secret valueをsnapshot、commit、log、agent result、cacheへ含めないでください。
+secretをsnapshot、checkpoint、commit、log、agent resultへ含めてはいけません。
 
-Supervisor/runtimeがsandboxへ必要最小限のsecretをinjectしてください。
-
----
-
-## 25. Temporary / reference / container / CI artifacts
-
-一時artifactはroot `.tmp/` 以下へ置きGit ignoreしてください。
-
-外部reference repositoryは `.reference/` 以下へ置きGit ignoreしてください。
-
-reference contentはnon-authoritative evidenceです。
+一時artifactは `.tmp/`、external reference repositoryは `.reference/` 以下に置きGit ignoreしてください。
 
 新規container definitionは原則 `Containerfile` を使用してください。
 
-CI/CDは原則GitHub Actionsを使用し、clean checkoutからreproducibleであることを確認してください。
-
 ---
 
-## 26. Reviewer separation / autonomous loop
+## 30. Recovery test / context handoff / 初期化完了条件
 
-可能ならimplementer自身のself-reviewだけで完了させないでください。
+### Context handoff
 
-Reviewerはclean integration candidateから:
+context window接近はfailureではなくplanned handoff eventとして扱ってください。
 
-- requested scope completeness
-- correctness
-- architecture consistency
-- regression risk
-- required verification level
-- test adequacy
-- security impact
-- validation evidence
-- hidden coupling
-- runtime reproducibility
-- target release整合
+context不足になる前に次をstructured checkpointへ外部化してください。
 
-を確認してください。
+- current objective
+- accepted decisions
+- relevant refs/files
+- completed work
+- current diff/checkpoint
+- pending work
+- validation state
+- active children
+- external side effects
+- blockers
 
-非自明taskでは:
+長いconversation summaryやprivate reasoningを保存するのではなく、fresh agentが再実行可能なoperational stateへ圧縮してください。
 
-`inspect -> resolve decision context -> plan release -> ticketize -> decompose -> snapshot -> delegate/implement -> verify worker -> integrate ticket -> verify integration -> review -> update board -> verify release -> replan -> continue`
+### Recovery drill
 
-を自律的に回してください。
+project/runtimeが許す範囲で定期的に:
 
-compile成功、unit test 1件成功、first implementationがもっともらしいというだけで完了扱いしないでください。
+1. ticket workをcheckpoint
+2. agent/sandboxを意図的に停止
+3. fresh agent/sandboxからrecovery
+4. branch/children/validation/side-effect journalを再構成
+5. duplicate mutationなしで続行
 
-要求scopeを独自MVPへ縮小してはいけません。
+できることを確認してください。
 
----
+### 初期化完了条件
 
-## 27. 明示的anti-patterns
-
-禁止または標準運用にしない:
-
-- 複数agentが同じworking tree/branchを同時編集
-- worktreeだけでruntime isolationしたとみなす
-- shared writable DB/cache/dev server
-- parent dirty filesystemの暗黙共有
-- workerへhost Docker socket/root-equivalent credential
-- ticket PRを直接 `main` へ向ける
-- branch名へ長いslug/titleを詰め込む
-- project evidenceで解ける実装判断を毎回userへ質問
-- first found implementationをconventionと決める
-- unit testだけでintegration/smokeを証明したと報告
-- mock-only testをreal integration testと呼ぶ
-- manual check未実施を動作確認済みと報告
-- CVSS/severityだけでsecurity priorityを決める
-- generic security alertをproject reachability確認なしでblocking
-- README/setupを検証せず生成
-- hidden chat memoryをproject knowledgeの唯一のsourceにする
-- stale official guidanceをcurrentとして扱う
-- blanket ignore/suppressionでquality gateをgreenにする
-
----
-
-## 28. 初期化時に生成・整備するもの
-
-実projectに必要な範囲で構成してください。
-
-### Always-on contract
-
-- concise root `AGENTS.md` 等
-- source/work SoT
-- active release rule
-- decision precedence pointer
-- bootstrap / Supervisor / validation / Skill discovery
-
-### Standard operational Skills
-
-- parallel orchestration
-- sandbox runtime
-- GitHub delivery
-- quality gate
-- engineering decisions
-- security maintenance
-- onboarding
-
-agent固有形式へはcanonical sourceからthin adapterを作ってください。
-
-### Quality / CI
-
-- project-specific verification taxonomy
-- change-risk -> required verification mapping
-- worker / integration / release commands
-- test/lint/type/build/security tooling
-- GitHub Actions / required checks
-
-### Runtime
-
-- declarative environment definition
-- dependency/tool versions
-- sandbox bootstrap
-- service/migration/seed/bootstrap
-- preview routing
-
-### Documentation
-
-- README entry point
-- contribution/development workflow
-- architecture/data-flow/trust-boundary guide when useful
-- troubleshooting
-- release/security docs when applicable
-- ADR/design index
-
-### Durable decisions/workflow
-
-- relevant ADR
-- GitHub Issue/Project fields
-- release branch convention
-- number-only ticket branch
-- Draft PR workflow
-- vulnerability issue/release policy
-
-不要なframework/plugin/custom orchestratorを形式だけのために導入しないでください。
-
----
-
-## 29. 初期化完了条件
-
-完了報告前に最低限確認してください。
+少なくとも次を確認してください。
 
 - fresh cloneからproject-local instructionsを発見できる
-- fresh contributorがhidden contextなしでbootstrap/run/validateできる
-- decision precedenceがroot/Skill/docsから発見できる
-- project evidenceで解ける自明なdecisionがuser escalation対象になっていない
-- environmentがmacOS/Apple SiliconとWindows+WSL/Linuxで再現可能な設計
-- 2つ以上のimplementation workerがruntime/port/state競合なしで並行可能
-- parent -> child immutable snapshot / child -> parent immutable result
-- `main` = released state
-- sprint = target semantic version
-- release branch = `release-x-y-z`
-- ticket branch = Issue番号のみ
-- ticket PR -> release branch / release PR -> main
-- project固有quality profileが実versionのcurrent official guidanceを反映
-- unit/smoke/integration/contract/E2Eの責務とrequired verification mappingが定義済み
-- local validationとCI semanticsが整合
--必要なGitHub Actions/Skills/toolingをrecommendationだけでなく実装済み
-- security advisory source/priority/Issue化workflowが定義済み
-- relevant security automationがproject riskに応じて構成済み
-- onboarding/architecture/development docsがfresh environmentと整合
+- environmentを再現できる
+- macOS/Apple SiliconとWindows+WSL/Linuxでhidden host stateを最小化
+- 2つ以上のimplementation workerを同時に起動してruntime/port/stateが競合しない設計
+- parent -> childをimmutable snapshotで委譲可能
+- child resultをimmutable commit/ref/diffとして回収可能
+- `main` = released state、`release-x-y-z` = sprint integration、ticket branch = Issue番号のみ
 - Issue/PRは日本語、commit/source codeは英語
-- secretがrepository/log/cache/resultへ漏れない
-- README / root instructions / Skills / ADR / designに矛盾がない
-- providerが失われてもcanonical Git/GitHub/docsから復旧可能
+- engineering decision precedenceとuser escalation boundaryが明示
+- unit/smoke/integration/contract/E2E責務とrequired verification policyが明示
+- stack-aware quality profileとdeterministic validation entry pointが存在
+- framework/runtime security advisory intake/priority workflowが存在
+- fresh contributor/new agent向けdocsが存在
+- session/context消失後にfresh agentがIssue/PR/Git/checkpointからtaskを復旧可能
+- provider/sandbox消失に対するhard checkpoint boundaryが定義
+- execution generation/fencingでduplicate continuationを防止可能
+- parent loss後にchild state/resultを再発見可能
+- external side effectのambiguous retryを防ぐjournal/idempotency policyが存在
+- partial/stale validationをfull passとして再利用しない
+- secretがrepository/checkpoint/resultへ漏れない
+- README / AGENTS / Skills / ADRに矛盾がない
 
-最後に、生成・変更した構成、選択したruntime/Supervisor、release workflow、verification profile、security profile、onboarding docs、validation結果、残る制約を簡潔に報告してください。
+最後に、生成・変更したproject-local構成、選択したSupervisor/runtime、release workflow、parallelization model、quality/security/recovery profile、validation結果、残る制約を簡潔に報告してください。
