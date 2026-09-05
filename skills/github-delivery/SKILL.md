@@ -1,32 +1,66 @@
 ---
 name: github-delivery
-description: GitHub Issues / Projects / Pull Requestsを使ってticket-drivenなsprint/Kanban開発を進める時に使用する。
+description: GitHub Issues / Projects / Pull Requestsを使い、release branchをsprint integration lineとしてticket-drivenなアジャイル開発を進める時に使用する。
 ---
 
 # GitHub Delivery
 
-## Work state
+## Source of Truth
 
-- source state SoT: canonical Git remote/ref
-- work state SoT: GitHub Issues / Projects
-- review/integration: Pull Requests
+- released source state: `main`
+- active sprint/release integration state: `release-x-y-z`
+- durable work state: GitHub Issues / Projects
+- ticket review/integration: Pull Requests
 - transient execution state: Supervisor
+
+`main` はリリース済み・統合済みの安定状態を表す。
+通常のticket PRを直接 `main` へ向けない。
+
+## Release branch = sprint branch
+
+各sprintは、目標とするversionに対応した1本のrelease branchを持つ。
+
+canonical format:
+
+`release-<major>-<minor>-<patch>`
+
+例:
+
+- `release-0-1-0`
+- `release-0-2-0`
+- `release-1-0-0`
+
+Git ref上の可読性とshell/URLでの扱いやすさのため、version separatorには `.` ではなく `-` を使用する。
+
+そのsprintに含まれるticket PRはすべて対応するrelease branchをbaseにする。
+
+```text
+main
+└─ release-0-2-0
+   ├─ 123
+   ├─ 124
+   └─ 125
+```
+
+release branchはsprint開始時に `main` のrelease基準commitから作成する。
 
 ## Issue
 
-durable planning unitは原則Issueにする。
+durable planning unitは原則GitHub Issueにする。
+
+Issueのtitle/bodyは日本語を標準とする。
 
 含める候補:
 
-- objective / user-visible outcome
+- 目的 / user-visible outcome
 - acceptance criteria
 - scope / non-scope
 - dependency / blocked-by
 - priority
 - size
 - area/component
-- iteration/sprint
-- target release/milestone
+- target version
+- release date
 
 短命なresearch/worker subtaskまでIssue化する必要はない。
 
@@ -40,43 +74,60 @@ durable planning unitは原則Issueにする。
 
 - Priority
 - Size
-- Iteration / Sprint
+- Target Version
 - Area / Component
-- Target Release
+- Blocked / dependency
 
-WIPを無制限に増やさない。Readyかつdependency解消済みticketからcapacity内で起動する。
+WIPを無制限に増やさない。
+Readyかつdependency解消済みticketからcapacity内で起動する。
 
-## Sprint
+## Sprint / release cycle
 
-1. sprint goalを定義。
-2. Ready ticketを選択。
-3. dependencyとcapacityを確認。
-4. parallel workerを起動。
-5. PR / review / CIをDone gateにする。
-6. unfinished ticketは再計画する。
+1. 次versionとrelease dateを決める。
+2. `release-x-y-z` branchを作成する。
+3. sprint goalを定義する。
+4. Ready ticketを選択する。
+5. dependencyとcapacityを確認する。
+6. ticketごとにnumber-only branchを作る。
+7. isolated workerを並行起動する。
+8. ticket PRをrelease branchへ統合する。
+9. release branch全体を検証する。
+10. release PRを `main` へmergeする。
+11. version/release処理を完了する。
+12. 未完了ticketは次releaseへ明示的に再計画する。
 
-## Branch
+## Ticket branch
 
-原則、1 top-level Issueにつき1 integration branchを作る。
+原則、1 top-level Issueにつき1 durable ticket branchを作る。
 
 canonical format:
 
-`issue/<issue-number>-<short-slug>`
+`<issue-number>`
 
 例:
 
-- `issue/123-add-oauth`
-- `issue/418-fix-calendar-race`
+- `123`
+- `418`
+- `1024`
 
-通常のticket workではIssue番号を省略しない。
+branch名に `issue/` prefix、slug、title、type等を追加しない。
+
+理由:
+
+- Issue番号だけでticket identityを一意に表せる
+- 説明責務はIssue/PRへ置く
+- branch一覧を短く保つ
+- 自動化でbranch <-> Issue対応を機械的に解決できる
 
 nested workerが返すephemeral ref/commitはこの命名規則の対象外でよい。
 
 ## Draft PR first
 
-Issueの実装を開始し、integration branchに意味のある最初のcommitができた段階で、可能な限り早くDraft PRを作成する。
+Issueの実装を開始し、ticket branchに意味のある最初のcommitができた段階で、可能な限り早くDraft PRを作成する。
 
-Draft PRは完成報告ではなく、durable integration surfaceとして使用する。
+PRのbaseは、そのticketが所属する `release-x-y-z` branchとする。
+
+Draft PRは完成報告ではなくdurable integration surfaceとして使用する。
 
 用途:
 
@@ -87,13 +138,16 @@ Draft PRは完成報告ではなく、durable integration surfaceとして使用
 - agent/human discussion
 - scope inspection
 
+PR title/bodyは日本語を標準とする。
+
 PR本文には最低限:
 
-- `Closes #<issue-number>` または明示的なIssue link
+- linked Issue (`Closes #<issue-number>` 等)
 - acceptance criteria
 - implementation summary
 - validation results
 - known limitations / blockers
+- target release branch
 
 を含める。
 
@@ -102,29 +156,68 @@ PR本文には最低限:
 DraftからReady for reviewへ移す条件:
 
 - Issue acceptance criteriaを実装済み
-- integration quality gateを実行済み
+- ticket-level integration quality gateを実行済み
 - blocking known issueが解消済み、または明示的にscope外
 - PR descriptionが現在の実装と一致
-- integration branchがreview可能な状態
+- target release branchとのstaleness/conflictを処理済み
 
-## Merge / Done
+## Ticket merge / Done
 
-Doneの標準条件:
+IssueのDone条件:
 
 - acceptance criteria satisfied
 - required CI/checks green
 - blocking review resolved
-- base staleness handled
-- PR merged
+- release branchとのstaleness handled
+- ticket PR merged into target `release-x-y-z`
 - linked Issue closed
 - GitHub Project status moved to Done
 
+`main`へのmergeをIssue単位のDone条件にはしない。
+Issueはrelease branchへの統合時点でDoneになり得る。
+
+## Release integration
+
+release branchは複数ticketの統合結果を保持するsprint integration lineである。
+
+release完了前にrelease branch上でfull applicable quality gateを実行する。
+
+release PR:
+
+`release-x-y-z -> main`
+
+を作成し、最低限次を含める。
+
+- release goal
+- included Issues/PRs
+- breaking changes
+- migration notes
+- full validation result
+- known limitations
+- release/version metadata
+
+release PR title/bodyは日本語を標準とする。
+
+release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
+
 ## Multi-agent integration
 
-- 1 top-level Issue = 1 integration branch = 1 PRを基本とする。
-- implementation workerはintegration branchを複数agentで直接共有しない。
+- 1 top-level Issue = 1 ticket branch = 1 ticket PRを基本とする。
+- ticket branchのbase/PR targetは該当 `release-x-y-z`。
+- implementation workerはticket branchを複数agentで直接共有しない。
 - nested workerはimmutable commit/refを返す。
-- Coordinator/Supervisorだけがintegration branchへ順序立てて統合する。
-- merge前にcanonical baseとのstalenessを確認する。
+- Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
+- release branchへはReadyなticket PRを通して統合する。
+- merge前にtarget release branchとのstalenessを確認する。
 
-Git / GitHub messageは英語を使用する。
+## Language policy
+
+- Issue title/body: 日本語
+- PR title/body/review discussion: 日本語
+- internal planning docs: 日本語
+- commit message: 英語
+- source code: 英語
+
+commit format:
+
+`<work-prefix>: <extremely concise title>`
