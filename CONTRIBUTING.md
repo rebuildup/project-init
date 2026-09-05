@@ -18,6 +18,9 @@
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
 - deterministic verificationを主観的判断へ置き換えていないか
+- quality gateを固定bundleへ戻していないか
+- framework/runtimeのcurrent official quality/testing guidanceを無視していないか
+- local validationとGitHub Actionsのsemanticsが乖離していないか
 - official architecture guidance優先を弱めていないか
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
@@ -39,7 +42,7 @@
 
 ## Multi-agent policy invariants
 
-canonical execution modelはADR-0003、delivery / cross-platform modelはADR-0004です。
+canonical execution modelはADR-0003、delivery / cross-platform modelはADR-0004、adaptive quality modelはADR-0005です。
 
 主要不変条件:
 
@@ -62,6 +65,10 @@ canonical execution modelはADR-0003、delivery / cross-platform modelはADR-000
 - Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
 - workerが同じworking tree / Git index / durable ticket branchを同時更新しない
 - nested workerはephemeral refs/commitsで統合可能
+- quality gateはprojectの実stackとcurrent official guidanceからcompileする
+- worker / integration / release gateを分離する
+- GitHub Actionsはproject-local deterministic commandsと同じsemanticsを持つ
+- coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しない
 
 これらを変更する場合はADRを追加してください。
 
@@ -77,6 +84,23 @@ canonical execution modelはADR-0003、delivery / cross-platform modelはADR-000
 - `skills/quality-gate/SKILL.md`
 
 Skillは短いtriggerと主要責務を持ち、必要なworkflowだけをcontextへ入れる構成にしてください。
+
+### Quality Skill
+
+`quality-gate` Skillは固定check listではなく、初期化時にproject-specific quality profileをcompileする責務も持ちます。
+
+stack/framework/runtimeの変更に追従して、必要なら以下を追加・修復します。
+
+- formatter / lint / static analysis
+- compiler / type-check
+- unit/component/integration/E2E testing
+- framework/platform-specific validation
+- project-local validation commands
+- GitHub Actions
+- CI matrix / artifact / report
+- specialized quality Agent Skills
+
+公式documentationやfirst-party examplesを優先し、existing projectと重複するtoolを理由なく増やさないでください。
 
 ## GitHub workflow for this repository
 
@@ -163,7 +187,9 @@ commit format:
 - sandbox/runtime/provider ecosystem
 - macOS / WSL / Linux local runtime options
 - framework recommended architecture
+- framework/runtime official quality/testing guidance
 - testing / linting / dependency-analysis tools
+- GitHub Actions official guidance / first-party actions / security practices
 
 更新時はcurrent official sourceを確認してください。
 
@@ -184,8 +210,9 @@ commit format:
 - cross-platform runtime strategyを変更
 - source/document/GitHub language policyを変更
 - Python script禁止を変更
-- standard quality gateを緩和
-- coverage thresholdを変更
+- adaptive quality-gate compiler modelを変更
+- local/CI quality semanticsを変更
+- coverage policyを固定universal thresholdへ戻す
 - Codex model-role strategyを変更
 - Agent Skills以外を主要detail-disclosure mechanismに変更
 
@@ -213,5 +240,8 @@ commit format:
 - macOS / WSL/Linux portability policyが一貫していること
 - `release-x-y-z` / number-only ticket branch / Draft PR lifecycleが一貫していること
 - Issue/PR language policyが一貫していること
+- quality gateがframework/runtime固有にcompileされること
+- worker/integration/release gateが区別されていること
+- GitHub Actionsがcurrent official guidanceとproject-local commandsに整合すること
 
 を確認してください。
