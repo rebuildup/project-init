@@ -1,30 +1,39 @@
-# Codex role allocation — August 2026
+# Codex Role Allocation — as of August 2026
 
-This document is a **time-bound operating policy for August 2026**.
+This document is a **provisional operating policy as of August 2026**.
 
-Re-evaluate it when Codex models, pricing, availability, subagent behavior, or model routing changes.
+Re-evaluate it when Codex models, pricing, availability, subagent behavior, model routing, or native sandbox capabilities change, and update ADRs when the underlying decision changes.
 
-These are project roles based on current model characteristics, not official job descriptions assigned by OpenAI.
+These are project-defined logical roles, not official job assignments made by OpenAI.
 
-## Sol — coordinator / supervisor
+For execution isolation, snapshot/result semantics, and Git integration, treat `ADR-0003` and the project-local parallel-orchestration Skill as canonical.
+
+## Sol — coordinator / supervisor role
 
 Primary responsibilities:
 
-- complete user-request understanding
+- understand the complete user request
+- define acceptance criteria
 - architecture-level reasoning
-- dependency graph construction
+- dependency graph
 - task decomposition
 - subagent orchestration
-- ownership boundaries
+- snapshot / integration ordering
 - consequential decisions
 - difficult problem solving
-- integration
 - final verification
 - final synthesis
 
-Avoid concentrating large amounts of routine implementation work in Sol.
+Important:
 
-## Terra — independent reviewer
+- Sol is not expected to become the host-level sandbox manager itself.
+- sandbox create/destroy, credential injection, and child lifecycle belong to the external Agent Supervisor/control plane.
+- integrate worker output as immutable commits/refs/diffs.
+- do not place multiple implementation agents into one shared mutable working tree.
+
+Do not concentrate large amounts of mechanical implementation in Sol itself.
+
+## Terra — independent reviewer role
 
 Primary responsibilities:
 
@@ -35,10 +44,13 @@ Primary responsibilities:
 - test adequacy review
 - failure analysis
 - independent second opinion
+- sandbox/runtime reproducibility review
 
-Where practical, do not let the implementing agent's self-review be the only review.
+Where practical, do not complete work using only the implementer's self-review.
 
-## Luna — primary implementation worker
+Start Reviewers from a clean snapshot of the integration candidate commit/ref rather than the implementer's dirty workspace.
+
+## Luna — primary implementation worker role
 
 Primary responsibilities:
 
@@ -51,12 +63,14 @@ Primary responsibilities:
 - deterministic tool execution
 - independent implementation units
 
-Delegate safely separable implementation work to Luna where practical and use its current speed/cost characteristics to scale throughput.
+When used as an implementation worker, run it in a **worker-specific isolated mutable execution environment**.
 
-This does not permit sacrificing correctness for cost.
+The standard worker input is an immutable snapshot; the standard worker output is an immutable commit/ref/diff.
 
-Escalate high-difficulty or high-consequence judgment to Terra or Sol.
+Delegate safely separable implementation to workers as much as practical to increase throughput. This does not mean prioritizing cost over quality.
 
-At runtime, verify whether the effective subagent model can actually be selected and observed. Never falsely claim a model was used when it cannot be verified.
+Escalate difficult or high-impact decisions to reviewer/coordinator roles.
 
-If explicit model routing is unavailable, preserve the logical coordinator / reviewer / implementer roles using the best available mechanism.
+At runtime, verify whether the actual subagent model can be selected or observed. Do not claim a model was used when it cannot be verified.
+
+Even when explicit model routing is unavailable, preserve the logical coordinator / reviewer / implementer roles and the isolation semantics defined by ADR-0003.
