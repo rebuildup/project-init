@@ -2,15 +2,15 @@
 
 Initialize or reconcile the AI coding-agent environment for this repository.
 
-This is a meta-prompt intended to replace or strengthen a generic `/init`. Its purpose is to inspect the actual repository, technology stack, architecture, runtime, quality assurance, CI/CD, and GitHub workflow, then build a **project-local development environment where multiple AI agents can work safely in isolated environments and integrate deterministically into version-oriented release sprints**.
+This meta-prompt is intended to replace or strengthen a generic `/init`. Inspect the actual repository, technology stack, architecture, runtime, testing, quality, security, CI/CD, GitHub workflow, and documentation, then build a **project-local development environment where multiple AI agents can work safely in isolated environments and integrate deterministically into version-oriented release sprints**.
 
-Do not load this entire document for every normal task. Read it only during first initialization or when reconstructing project-local Agent Skills, adapters, runtime, or quality policy.
+Do not load this entire document for every normal task. Read it only during first initialization or when reconstructing project-local Agent Skills, adapters, runtime, quality, or governance policy.
 
 Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Git is the canonical source-state SoT + GitHub Issues / Projects are the work-state SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + each sprint is a target release version + a project-specific quality profile is compiled from current official guidance + progressive disclosure + maximum logically safe parallelism**
+> **Git is the canonical source-state SoT + GitHub Issues / Projects are the work-state SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + each sprint is a target release version + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
 
 ---
 
@@ -19,16 +19,19 @@ Core model:
 - Do not treat a Git working tree as the execution-isolation boundary.
 - Give every implementation worker an independent mutable runtime.
 - Do not share mutable DB/cache/queue/process/generated state between workers.
-- Connect parent -> child through immutable snapshots and child -> parent through immutable results.
-- Keep sandbox lifecycle under a Supervisor outside worker sandboxes.
-- Treat `main` as released/integrated source state.
-- Represent the active sprint with a `release-<major>-<minor>-<patch>` branch.
-- Use GitHub Issues for durable tickets and GitHub Projects for durable work state.
-- Name ticket branches using only the Issue number.
-- Compile quality gates per project instead of applying a universal fixed bundle.
-- Prefer deterministic verification over subjective “it works” completion.
+- Parent -> child uses an immutable snapshot; child -> parent uses an immutable result.
+- The Supervisor outside workers manages sandbox lifecycle.
+- `main` represents released/integrated source state.
+- The active sprint is represented by `release-<major>-<minor>-<patch>`.
+- Durable tickets are GitHub Issues; durable work state is GitHub Projects.
+- Ticket branch names contain only the Issue number.
+- Quality gates are compiled per project rather than using one fixed bundle.
+- Required verification levels are selected from change surface/risk.
+- Continuously triage framework/runtime security information.
+- Persist project knowledge in repository-controlled docs rather than chat/private memory.
+- Do not escalate self-evident decisions that project evidence already resolves.
 
-Git worktrees are not globally forbidden. They may be used as an implementation detail inside an already isolated sandbox, but a worktree alone does not isolate ports, processes, databases, or other runtime state.
+Git worktrees are not forbidden. They may be an implementation detail inside an already isolated sandbox, but a worktree alone does not isolate ports, processes, databases, or other runtime state.
 
 ---
 
@@ -36,20 +39,23 @@ Git worktrees are not globally forbidden. They may be used as an implementation 
 
 Do not assume initialization runs only once.
 
-Inspect current state first and change only the delta toward the desired state.
+Inspect current state first and change only the delta to the desired state.
 
-At minimum inspect:
+Inspect at least:
 
 - root agent instructions
 - Agent Skills / adapters
-- plugin / MCP / protocol settings
+- plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
 - Supervisor integration
 - language/framework/runtime/SDK versions
 - manifests / lockfiles / workspace structure
 - architecture / design / ADRs
 - test / lint / type / build / coverage configuration
-- GitHub Actions / CI/CD
+- smoke/integration/E2E infrastructure
+- GitHub Actions / CI/CD / required checks
+- dependency/security tooling
+- README / CONTRIBUTING / docs
 - env examples / `.gitignore`
 - GitHub Issues / Projects / PR / release workflow
 - current errors / warnings
@@ -59,22 +65,23 @@ Behavior:
 
 `initialize if missing -> repair if incomplete -> update if stale -> verify if already correct`
 
-Do not regenerate correct state without reason. No changes can be a successful result.
+No change is a valid successful result when the project is already correct.
 
 ---
 
-## 3. Make the Source of Truth explicit
+## 3. Make Sources of Truth explicit
 
-Canonical state should be expressible through at least:
+Canonical state should include at least:
 
 1. canonical Git remote
-2. released ref: `main` or an explicitly equivalent project branch
+2. released ref: `main` or project-defined equivalent
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
 5. GitHub Issue / Project work state
-6. ADR / design / specification
+6. project-wide policy / architecture / design / specification / ADR
+7. repository-controlled operational documentation / Agent Skills
 
-Source/work state:
+State model:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
@@ -82,13 +89,61 @@ Source/work state:
 - ticket review/integration: Pull Requests
 - transient execution: Supervisor
 
-Each ticket/worker must have a traceable `base_sha` or immutable input snapshot.
+Each ticket/worker must be able to track a `base_sha` or immutable input snapshot.
 
-Do not make a local directory or an unrecoverable hidden Supervisor database the sole SoT.
+Do not make a local directory or unrecoverable Supervisor-local DB the only SoT.
 
 ---
 
-## 4. Agent architecture
+## 4. Engineering decision precedence
+
+Use this order for engineering decisions:
+
+1. **project-wide policy / canonical architecture / invariants**
+2. **design / specification / explicit task instruction**
+3. **coherent existing implementation majority**
+4. **current official framework/runtime/SDK guidance**
+5. established ecosystem convention
+6. local best judgment
+
+Within the same level, prefer the more specific and newer canonical source.
+
+Existing implementation is important evidence, but legacy or migration-in-progress code must not override newer canonical policy/design.
+
+When inferring conventions, inspect multiple implementations with the same responsibility and exclude generated/vendor/example code and obsolete migration patterns. Do not treat the first file found as the project convention.
+
+### Do not escalate self-evident decisions
+
+Decide and continue when:
+
+- precedence yields a unique or practically unique answer
+- the choice is local and reversible
+- acceptance criteria do not change
+- no new public/external contract is established
+- security/privacy/cost/release scope is not materially changed
+
+Examples include naming/placement dictated by project convention, module placement dictated by canonical architecture, formatter output, test location matching the project test structure, and obvious lint/type fixes.
+
+Do not ask the user “A or B?” when project evidence already answers it.
+
+### Escalate only genuine decisions
+
+Ask the user only when a real decision remains, such as:
+
+- canonical sources conflict and product semantics change
+- acceptance criteria have multiple user-visible interpretations
+- irreversible/destructive operation
+- public/external API contract decision
+- security/privacy/compliance risk acceptance
+- meaningful cost increase
+- release scope/date change
+- explicit design-first approval gate
+
+Research all resolvable facts first; then present options, impact, and a recommendation.
+
+---
+
+## 5. Agent architecture
 
 Default structure:
 
@@ -117,28 +172,28 @@ Responsibilities:
 - consequential decisions
 - final verification / synthesis
 
-Do not concentrate large volumes of mechanical implementation in the Coordinator.
+Do not concentrate bulk mechanical implementation in the Coordinator.
 
 ### Agent Supervisor
 
 Responsibilities:
 
-- sandbox create / destroy / suspend
-- workspace snapshot
-- agent spawn / wait / cancel
+- sandbox create/destroy/suspend
+- workspace snapshots
+- agent spawn/wait/cancel
 - agent/model adapter selection
-- resource / cost / WIP / recursion budgets
+- resource/cost/WIP/recursion budgets
 - credential injection
-- Git result collection / integration
-- logs / status / preview routing
+- Git result collection/integration
+- logs/status/preview routing
 
-Do not give workers unrestricted host Docker sockets, root-equivalent capability, or cloud master credentials merely so they can create child sandboxes.
+Do not give workers host Docker sockets, root-equivalent capability, or master cloud credentials merely to create child sandboxes.
 
 ---
 
-## 5. Make subagent spawning a first-class tool
+## 6. Make subagent spawning a first-class capability
 
-Where possible, expose logical capabilities such as:
+Where possible, expose logical operations such as:
 
 ```text
 spawn_agent
@@ -150,9 +205,9 @@ cancel_agent
 integrate_agent_result
 ```
 
-The transport may be a native agent API, MCP, ACP, CLI wrapper, or project-local Supervisor client.
+Transport may be native agent APIs, MCP, ACP, CLI wrappers, or a project-local Supervisor client.
 
-Expose agent creation as a high-level operation rather than requiring the model to know Docker/VM/provider commands.
+Models should not need provider-specific Docker/VM commands.
 
 Spawn requests may include:
 
@@ -165,55 +220,44 @@ Spawn requests may include:
 - budget / timeout / maximum depth
 - expected result format
 
-Prevent agent fork bombs and unbounded cost.
+Prevent fork bombs and unbounded cost.
 
 ---
 
-## 6. Subagent modes
+## 7. Subagent modes and immutable transfer
 
-At minimum distinguish:
+Distinguish at least:
 
 ### Research
 
-Repository exploration, external research, architecture investigation, bounded analysis. Normally read-only.
+Repository exploration, external research, architecture investigation. Read-only by default.
 
 ### Worker
 
-Implementation, refactor, tests, migration, generation, runtime verification. Must use an isolated mutable environment.
+Implementation, refactoring, tests, migrations, generation, runtime verification. Must use an independent mutable environment.
 
 ### Reviewer
 
-Code, architecture, correctness, test-adequacy, and integration review. Start from a clean snapshot and do not share the implementer’s dirty workspace.
+Code, architecture, correctness, test adequacy, and integration review. Start from a clean snapshot, not the implementer's dirty workspace.
 
----
+### Parent -> Child
 
-## 7. Parent -> Child uses immutable snapshots
+When a parent has unintegrated changes, create an immutable checkpoint before spawning a child.
 
-When a parent with unintegrated work spawns a child, create an immutable checkpoint.
-
-Candidates:
+Possible mechanisms:
 
 - ephemeral Git commit
 - immutable Git ref
 - filesystem/container snapshot
 - content-addressed workspace snapshot
 
-Requirements:
+It must be identifiable, reproducible, stable after spawn, and related to the returned result.
 
-- traceable snapshot identity
-- child input does not change when parent continues editing
-- reproducible in a clean environment
-- base relationship to result can be determined
+### Child -> Parent
 
-Do not implicitly share the parent’s dirty working tree.
+Children must not directly edit the parent workspace.
 
----
-
-## 8. Child -> Parent uses immutable results
-
-A child must not directly edit the parent workspace as its result channel.
-
-A result should be able to represent at least:
+Result shape may include:
 
 ```text
 agent_id
@@ -226,66 +270,69 @@ artifacts
 known_issues
 ```
 
-The standard result is a Git commit/ref or equivalent immutable diff.
-
 The Coordinator/Supervisor inspects, integrates, rejects, or requests revision.
-
-Do not make concurrent pushes from several agents to the same durable ticket branch the normal design.
 
 ---
 
-## 9. Execution-environment isolation
+## 8. Execution-environment isolation
 
-At minimum isolate for each implementation worker:
+Isolate at least:
 
 - checkout / writable workspace
 - process boundary
 - network namespace or port mapping
 - database state
 - Redis/cache/queue state
-- application local state
+- application-local state
 - test artifacts
 - mutable build output
 
-The same internal ports may be reused by every sandbox.
+Internal ports may be reused across sandboxes.
 
-Shareable candidates:
+Good candidates for sharing:
 
 - read-only base images
 - immutable Nix store
-- package download caches
+- package-download caches
 - Cargo registry cache
-- OCI layer cache
+- OCI layers
 - read-only toolchain cache
 
 Do not share:
 
-- writable application DB
-- concurrently-mutated dependency/build directories
+- writable application DBs
+- concurrently mutated dependency/build directories
 - generated runtime files
 - Git index / working tree
 - host Docker socket
 - shared dev-server process
 
-Rule: **share immutable/cacheable state; isolate mutable state**.
+Share immutable/cacheable state; isolate mutable state.
 
 ---
 
-## 10. Runtime/provider must be replaceable
+## 9. Runtime / host / provider portability
 
-Do not require a particular vendor.
+Do not mandate a specific vendor.
 
-Candidate categories:
+First-class local targets:
 
-- local container sandbox
-- Dagger-style execution
-- devcontainer-compatible runtime
-- lightweight VM
-- SSH/devbox provider
-- on-demand remote sandbox
-- native cloud-agent machine
+- macOS / Apple Silicon
+- Windows 11 + WSL2 / WSL Containers
+- Linux / NixOS
+- remote Linux sandboxes
 
-Ideal:
+For portable web/backend work, reuse the same Linux-oriented sandbox definition where practical and hide host differences behind the Supervisor/runtime adapter.
+
+Treat Apple Silicon `arm64` as first-class and validate relevant differences from x86_64 CI/remote environments.
+
+WSL itself is not worker isolation. For high-frequency Linux builds/watchers, prefer the WSL Linux filesystem over Windows-mounted paths.
+
+Do not require Docker Desktop.
+
+Provider categories may include local containers, Dagger-like runtimes, devcontainer-compatible runtimes, lightweight VMs, SSH/devboxes, on-demand remote sandboxes, or native cloud-agent machines.
+
+Target:
 
 ```text
 same repository + same environment specification
@@ -295,35 +342,27 @@ same repository + same environment specification
     -> remote sandbox
 ```
 
-Keep provider-specific differences behind Supervisor adapters.
-
 ---
 
-## 11. Project-local configuration and progressive disclosure
+## 10. Project-local progressive disclosure
 
-Agent configuration should be project-local by default.
+AI-agent configuration is project-local by default.
 
-Do not:
+Do not make global plugin/config, home-directory project rules, implicit persistent memory, or undocumented machine state the project truth.
 
-- use global plugin/config as project truth
-- depend on project-specific hidden rules in the home directory
-- use implicit persistent memory as canonical truth
-- depend on undocumented machine-specific state
+Keep root agent instructions as a dispatcher.
 
-Keep the root agent file as a dispatcher.
-
-Root content should include only:
+Root should contain only:
 
 - project identity / boundaries
 - source/work SoT
 - active release rule
+- decision-precedence pointer
 - environment bootstrap
 - Supervisor/subagent entry point
 - validation entry point
 - language policy
 - Skill discovery
-
-Move details into Agent Skills.
 
 Default Skill candidates:
 
@@ -331,14 +370,17 @@ Default Skill candidates:
 - `sandbox-runtime`
 - `github-delivery`
 - `quality-gate`
+- `engineering-decisions`
+- `security-maintenance`
+- `onboarding`
 
-Add architecture/design/ADR, debugging, UI/browser, dependency hygiene, release, external-docs Skills only when needed.
+Normal tasks should read only the Skills they need, not this full prompt.
 
 ---
 
-## 12. Release sprint / GitHub workflow
+## 11. Release sprint / GitHub workflow
 
-Development is organized around a target-version release sprint plus GitHub Issues.
+Development uses target-version release sprints centered on GitHub Issues.
 
 Default branch hierarchy:
 
@@ -352,35 +394,21 @@ main
 
 ### Sprint = target release version
 
-One sprint equals one target semantic version.
+One sprint maps to one target semantic version.
 
 Release branch:
 
 `release-<major>-<minor>-<patch>`
 
-Examples:
+Create it from `main` when the sprint starts.
 
-- `release-0-1-0`
-- `release-0-2-0`
-- `release-1-0-0`
+### GitHub Issues
 
-Create the release branch from `main` at sprint start.
+Substantial independently plan-able/reviewable work should normally be an Issue.
 
-### GitHub Issue
+Issue title/body are Japanese by default.
 
-Substantial durable work that can be planned, implemented, and reviewed independently should normally be an Issue.
-
-Issue title/body are Japanese.
-
-Where relevant include:
-
-- objective / outcome
-- acceptance criteria
-- scope / non-scope
-- dependency / blocked-by
-- priority / size
-- area/component
-- target version / release date
+Where useful include objective/outcome, acceptance criteria, scope/non-scope, dependencies, priority/size, area/component, target version, and release date.
 
 Short-lived nested subtasks may remain Supervisor tasks.
 
@@ -390,7 +418,7 @@ Minimum status model:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
-Recommended fields:
+Suggested fields:
 
 - Priority
 - Size
@@ -402,405 +430,118 @@ Bound WIP by real capacity.
 
 ---
 
-## 13. Ticket branch / Draft PR
+## 12. Ticket branch / Draft PR / release integration
 
-Create one durable ticket branch for each top-level Issue.
+Use one durable ticket branch per top-level Issue.
 
 Branch name:
 
 `<issue-number>`
 
-Example: `123`
+Do not add `issue/`, slugs, titles, or work types. Descriptions belong in Issues/PRs.
 
-Do not add `issue/`, slug, title, or work-type text. Put explanatory responsibility in the Issue/PR.
+After a meaningful first commit, open a Draft PR from the ticket branch to its target `release-x-y-z` branch as early as practical.
 
-After the first meaningful commit, open an early Draft PR from the ticket branch to the target `release-x-y-z` branch.
+PR title/body/review discussion are Japanese by default.
 
-PR title/body/review discussion are Japanese.
-
-PR body candidates:
-
-- linked Issue / `Closes #<id>`
-- acceptance criteria
-- change summary
-- validation status
-- blockers / known limitations
-- target release
-
-Draft -> Ready conditions:
+Draft -> Ready requires:
 
 - acceptance criteria implemented
-- ticket integration gate passes
-- blocking issues resolved or explicitly out of scope
+- required ticket verification passed
+- blockers resolved or explicitly out of scope
 - PR description matches current implementation
 - staleness/conflicts against release branch handled
 
-Ticket Done:
+Ticket Done requires required checks green, blocking review resolved, PR merged into target release branch, Issue closed, and Project status Done.
 
-- required CI/checks green
-- blocking review resolved
-- PR merged into target release branch
-- Issue closed
-- Project status = Done
-
----
-
-## 14. Release integration
-
-After sprint tickets are integrated into the release branch, run the release gate.
-
-Release PR:
+After the release branch passes its full release gate, create:
 
 `release-x-y-z -> main`
 
-Release PR title/body are Japanese.
-
-Include at least:
-
-- release goal
-- included Issues / PRs
-- breaking changes
-- migration notes
-- full validation result
-- known limitations
-- version/release metadata
-
-After merge, `main` is the released state for that version.
+The release PR should summarize release goal, included Issues/PRs, breaking changes, migrations, full validation result, known limitations, and version metadata.
 
 ---
 
-## 15. Task graph and maximum safe parallelism
+## 13. Task graph and maximum safe parallelism
 
 Decompose non-trivial Issues into a dependency graph.
 
-Node candidates:
+Run Ready dependency-cleared nodes concurrently within real resource/rate/quota/WIP/cost limits.
 
-- objective / acceptance criteria
-- prerequisites
-- input snapshot
-- output contract
-- owner role
-- target release
-- integration target
-
-Run Ready, dependency-cleared nodes concurrently within actual resource/rate/quota/WIP/cost constraints.
-
-Do not serialize merely because two isolated tasks may touch the same file.
-
-Explicit ordering or additional isolation is required for incompatible changes to the same interface, generation of the same artifact, or writes to the same external mutable resource.
+Do not serialize work merely because isolated tasks touch the same file. However, incompatible changes to the same interface, the same generated artifact, or the same external mutable resource require dependency ordering or stronger isolation.
 
 ---
 
-## 16. Autonomous execution loop
+## 14. Architecture / design / ADR
 
-For non-trivial work, run:
-
-`inspect -> plan release -> ticketize -> decompose -> snapshot -> delegate/implement -> verify worker -> integrate ticket -> verify integration -> review -> update board -> verify release -> replan -> continue`
-
-Do not stop merely because compilation succeeds, one focused test passes, or the first implementation looks plausible.
-
-Do not silently reduce requested scope to an MVP.
-
----
-
-## 17. Select tools / Skills / plugins from zero
-
-At initialization time inspect:
-
-- native agent capability
-- official / maintained Agent Skills
-- deterministic project CLI
-- framework/runtime/SDK official tooling
-- first-party integrations
-- LSP / MCP / ACP / plugins
-
-Preference order:
-
-1. existing deterministic project tool
-2. framework/runtime official CLI
-3. project-local CLI / short Skill
-4. native agent capability
-5. project-local adapter / protocol
-6. plugin/MCP only with a clear advantage
-
-Evaluate necessity, reproducibility, maintenance, security, license, context cost, cross-platform support, and version pinning.
-
-Record consequential decisions in ADRs.
-
----
-
-## 18. Development environment and reproducibility
-
-First-class targets:
-
-- macOS / Apple Silicon
-- Windows 11 + WSL2 / WSL Containers
-- Linux / NixOS
-- remote Linux sandbox
-
-### macOS / Apple Silicon
-
-- treat `arm64` as first-class
-- for portable Web/backend work prefer Linux sandboxes when practical to reduce CI/remote drift
-- allow macOS-native workers for Xcode/iOS/macOS-native tasks
-
-### Windows + WSL2
-
-- for Linux-oriented repositories prefer the WSL Linux filesystem for high-frequency build/watch workloads
-- do not treat WSL itself as worker isolation
-- give multiple workers separate sandbox boundaries
-
-Do not make Docker Desktop mandatory.
-
-Prefer declarative environments such as Nix flake/dev shell, Containerfile, or devcontainer when useful.
-
-Make this reproducible from a fresh clone:
-
-`clone -> bootstrap -> sandbox -> install -> migrate/seed -> app/test -> validation`
-
----
-
-## 19. Architecture / design / ADR
-
-Inspect the existing codebase first.
-
-When deciding or changing architecture, inspect current official guidance for the relevant platform/framework/SDK.
+Inspect existing code first. When deciding or changing architecture, verify current official guidance for the relevant platform/framework/SDK.
 
 Priority:
 
 1. current official recommended architecture
-2. official reference implementation / conventions
-3. coherent existing architecture
-4. established ecosystem convention
-5. custom architecture
+2. official reference implementation/convention
+3. project-wide canonical architecture/design
+4. coherent existing architecture
+5. ecosystem convention
+6. custom architecture
 
-Do not invent an official recommendation in intentionally unopinionated areas.
+Do not invent official guidance in intentionally unopinionated areas.
 
 ### Design-first
 
-When a design/specification exists:
+When a design/spec exists:
 
 1. read current design
-2. identify required change
-3. agree with the user
+2. identify required design changes
+3. obtain user approval if project policy explicitly requires it
 4. update design
 5. implement
 
-Persist long-lived decisions in ADRs.
+Persist significant decisions in ADRs. Do not use design docs as chronological diaries.
 
 ---
 
-## 20. Source / documentation / GitHub language
+## 15. Adaptive quality-profile compiler
 
-- source code / identifiers / comments: English
-- commit messages: English
-- internal development docs / ADRs / Skills: Japanese
-- GitHub Issue title/body: Japanese
-- Pull Request title/body/review discussion: Japanese
-- branches: Issue number or release version only
+Quality is not one fixed check list.
 
-Commit format:
+During initialization detect:
 
-`<work-prefix>: <extremely concise title>`
+- languages / frameworks / SDKs / versions
+- app type / workspace structure
+- architecture boundaries
+- persistence / queue / cache / external services
+- auth/network/filesystem boundaries
+- existing test/lint/type/build config
+- browser / OS / CPU architecture targets
+- release/deploy target
 
----
-
-## 21. Package / dependency / scripts
-
-For JavaScript / TypeScript, use Bun as the default package manager unless there is a concrete incompatibility.
-
-Use `rg` / `rg --files` for text search by default.
-
-Do not add new `.py` scripts for automation, generation, migration, validation, build/test support, or temporary analysis.
-
-Keep dependencies minimal and prefer the latest stable compatible version.
-
-For each dependency consider:
-
-- can native/platform capability replace it?
-- can an existing dependency handle it?
-- is it actively maintained?
-- transitive dependency cost
-- license compatibility
-- security / remote behavior
-
----
-
-## 22. Compile an adaptive quality profile
-
-**The quality gate is not a fixed universal bundle.**
-
-At first `/init`, major framework/runtime upgrades, test-architecture changes, or CI/CD changes, compile a quality profile from the actual repository.
-
-### Stack detection
-
-Detect at least:
-
-- languages / frameworks / SDKs
-- exact framework/runtime versions
-- package/workspace structure
-- app type: web / API / CLI / desktop / mobile / library / IaC
-- persistence / external services
-- generated-code boundaries
-- browser / device / OS / CPU architecture targets
-- package/sign/deploy/release targets
-- existing validation / CI / known failures
-
-### Research current official guidance
-
-Use documentation corresponding to the actual installed version.
+Then review current official documentation matching the actual versions.
 
 Priority:
 
 1. framework/runtime/SDK official quality/testing guidance
 2. official examples/templates/starters
-3. official first-party CI / GitHub Actions examples
+3. official first-party Actions / CI examples
 4. official language/toolchain guidance
-5. coherent existing project configuration
-6. established maintained ecosystem tooling
+5. coherent existing configuration
+6. maintained ecosystem tooling
 7. custom tooling
 
-Do not invent “official recommendations.” When official guidance offers several valid options, choose based on project requirements.
-
-### Implement, do not only research
-
-When justified by the project, actually add or repair:
-
-- formatter / linter / static analysis
-- compiler / type-check
-- unit / component / integration / E2E test infrastructure
-- framework/platform-specific validation
-- documentation tests
-- dependency analysis
-- coverage configuration
-- schema / migration validation
-- browser/device/OS/architecture matrix
-- build / package verification
-- security/dependency checks
-- specialized project-local quality Agent Skills
-- GitHub Actions workflows
-- required CI checks
-
-Do not install every tool merely because it is officially mentioned. Select checks that deterministically detect the project’s real failure modes.
-
-### Prefer framework-native semantics
-
-Before adding generic tools, inspect official framework/runtime tooling and test-level guidance.
-
-If a framework recommends E2E verification for a certain class of behavior, reflect that test level in the gate instead of forcing a generic unit-test model.
-
-Do not duplicate tools that serve the same responsibility without evidence.
-
----
-
-## 23. Separate Worker / Integration / Release gates
-
-The compiled quality profile must distinguish at least three levels.
-
-### Worker gate
-
-Fast focused feedback for an isolated worker.
-
-Candidates:
-
-- formatter/check
-- compiler/type-check
-- framework lint/static analysis
-- focused unit/component/integration tests
-- changed package build
-- schema/migration validation
-
-### Integration gate
-
-Validate a clean ticket PR candidate for `<issue-number> -> release-x-y-z`.
-
-Run the project profile’s full applicable suite.
-
-Candidates:
+Do not stop at recommendations. Add/repair when needed:
 
 - formatter / lint / static analysis
-- compiler/type-check
-- dependency analysis
-- unit/component/integration/E2E
-- documentation tests
-- coverage
-- production build/package
-- container/IaC validation
-- schema/migration checks
-- security/dependency audit
-- relevant browser/device/OS matrix
+- compiler / type check
+- test infrastructure
+- framework/platform-specific checks
+- schema/migration validation
+- browser/device/OS matrices
+- build/package checks
+- specialized project-local Skills
+- `.github/workflows/*`
+- required CI checks
 
-### Release gate
-
-Release-wide verification before `release-x-y-z -> main`.
-
-Where applicable:
-
-- full integration suite
-- clean production build/package
-- supported browser/device/OS/architecture matrix
-- migration rehearsal
-- packaging/signing/notarization verification
-- deployment/IaC plan validation
-- upgrade/backward-compatibility tests
-- release-like smoke/E2E
-
-Do not force irrelevant categories merely for completeness.
-
-### No false green
-
-Do not use:
-
-- skipped tests / `.only`
-- blanket ignores/suppressions
-- ignored exit codes / `|| true`
-- no-fail options
-- disabling CI checks
-- broad unjustified exclusions
-- low-value tests created only to make metrics green
-
-If an upstream/toolchain warning cannot be fixed in the project, report it and do not claim a completely clean state.
-
-### Coverage
-
-Coverage may be a blocking metric where meaningful.
-
-80% may be used as a starting default where appropriate, but it is not a universal hard rule.
-
-Choose project-specific policy from framework guidance, code type, risk, and existing baseline. Where coverage is not the right quality signal, replace it with better deterministic verification.
-
----
-
-## 24. Design GitHub Actions / CI per project
-
-When using GitHub Actions, align local and CI gate semantics.
-
-During initialization, inspect current official GitHub Actions guidance and official framework/runtime CI examples.
-
-Consider where applicable:
-
-- first-party setup actions
-- framework/runtime official actions/workflows
-- dependency/toolchain caching
-- matrix testing
-- service containers
-- browser/device dependencies
-- artifact / test report upload
-- coverage reporting
-- code scanning / dependency review
-- concurrency / cancellation
-- least-privilege permissions
-- secrets handling
-- action version/pinning policy
-- trusted/untrusted PR behavior
-
-Do not place secrets in caches. Consider security risks around untrusted PRs, cache writes, and executable cache poisoning.
-
-Do not add Actions for their own sake.
-
-Where practical, avoid CI-only hidden validation logic and have CI call project-local deterministic entry points.
-
-Example shape:
+Expose a small stable set of project-local validation entry points where practical, such as:
 
 ```text
 validate:fast
@@ -808,36 +549,235 @@ validate:integration
 validate:release
 ```
 
-Use project-appropriate command names.
-
-Recompile the quality profile on major framework/runtime upgrades, official-guidance changes, new platforms, escaped regressions, or material gate flakiness/slowdown.
+Use project conventions for actual command names.
 
 ---
 
-## 25. Reviewer separation
+## 16. Verification taxonomy
 
-Where practical, do not complete work using only implementer self-review.
+Distinguish at least these responsibilities.
 
-A Reviewer starts from a clean integration candidate and checks:
+### Unit test
 
-- requested scope completeness
-- correctness
-- architecture consistency
-- regression risk
-- test adequacy
-- consistency with the framework-specific quality profile
-- validation evidence
-- hidden coupling
-- sandbox/runtime reproducibility
-- target-release consistency
+Fast local behavior of a small logic/component/module with external boundaries minimized.
 
-Return revision to the original worker or create a new task when needed.
+### Smoke / connectivity test
+
+Cheaply verifies that the system/service starts, major boundaries connect, and the entry to a critical path works.
+
+Examples:
+
+- startup
+- health/readiness
+- app -> DB/cache/queue
+- frontend -> basic API request
+- required migration/schema availability
+- desktop/mobile/package launch
+
+### Integration test
+
+Combines multiple real components/boundaries and verifies interface/data-flow/transaction behavior.
+
+Do not report a mock-only boundary test as a real integration test.
+
+### Contract / schema test
+
+Use when API/event/DB/generated interface compatibility matters: OpenAPI, GraphQL, protobuf, DB schema, event schema, generated clients/servers, etc.
+
+### E2E / system test
+
+Verifies user-visible or system-level critical flows through production-like boundaries.
+
+### Manual / visual verification
+
+Use only as an explicit gate where automation is insufficient, such as UI/UX, native platforms, or hardware. Record procedure, expected result, and artifacts.
 
 ---
 
-## 26. Environment / secrets / temporary files
+## 17. Select verification gates from change risk
 
-Allowed actual dotenv names:
+Do not run every test level for every ticket mechanically.
+
+Typical defaults:
+
+| Change | Minimum verification candidate |
+| --- | --- |
+| pure/domain logic | unit |
+| API/service behavior | unit + integration |
+| DB/schema/migration | integration + schema/migration + smoke |
+| runtime/env/DI/network | smoke + relevant integration |
+| frontend local component | unit/component |
+| user journey/auth/navigation | integration/contract + E2E |
+| external API adapter | unit + contract/integration + failure path |
+| build/package/container | build/package + smoke |
+| security fix | regression + vulnerable-path verification + applicable integration/E2E |
+| release | full applicable integration + critical E2E/smoke + release checks |
+
+Compile the actual profile from framework official guidance and project architecture.
+
+Gate layers:
+
+- worker gate: focused fast feedback
+- ticket integration gate: full applicable validation for `<issue-number> -> release-x-y-z`
+- release gate: release-wide verification before `release-x-y-z -> main`
+
+Use coverage where meaningful as a project-specific signal; do not treat one universal threshold as a universal quality rule.
+
+False green is prohibited: skipped tests, `.only`, blanket suppression, ignored exit codes, `|| true`, reporting mock-only tests as real integration, claiming unperformed manual checks, or manipulating coverage.
+
+---
+
+## 18. GitHub Actions / CI
+
+For projects using GitHub Actions, align local and CI gate semantics.
+
+During initialization inspect current official GitHub Actions guidance and framework/runtime official CI examples.
+
+Consider:
+
+- first-party setup actions
+- dependency/toolchain cache
+- matrix testing
+- service containers
+- browser/device dependencies
+- artifact/report upload
+- code/dependency/security checks
+- concurrency/cancellation
+- least-privilege permissions
+- secrets handling
+- action version/pinning
+- trusted/untrusted PR behavior
+
+Do not add Actions for their own sake. Prefer CI that invokes project-local deterministic validation commands instead of hiding validation logic only in YAML.
+
+---
+
+## 19. Security maintenance
+
+Continuously collect security information for the actual framework/runtime/SDK/dependency versions and prioritize it by project impact.
+
+Source priority:
+
+1. official framework/runtime/SDK security advisories
+2. official release/security announcements
+3. ecosystem official advisory sources
+4. GitHub Security Advisories / dependency alerts
+5. maintainer patch information
+6. trusted secondary sources
+
+Security inventory should cover direct dependencies, security-sensitive transitive dependencies, framework/runtime/SDK versions, container/base images, relevant OS/runtime packages, build/deploy toolchain, externally exposed services/endpoints, and auth/session/crypto/storage/network boundaries.
+
+Priority considers:
+
+- exploitability / exploit maturity
+- project reachability
+- external exposure
+- pre-auth reachability
+- confidentiality/integrity/availability impact
+- required privilege
+- affected scope
+- fix availability
+- workaround quality
+- regression/migration risk
+- release timing
+
+Conceptual priority:
+
+- P0/Critical: active exploitation or directly exposed; immediate response / patch-release candidate
+- P1/High: reachable with major impact and a fix; current-release blocking candidate
+- P2/Medium: conditional reachability or limited impact; plan into a near release
+- P3/Low: non-reachable/defense-in-depth; maintenance work
+
+Turn meaningful advisories into GitHub Issues and assign target releases.
+
+Where useful, add/repair dependency vulnerability scans, dependency review, code scanning/SAST, secret scanning, container scanning, SBOM generation, etc.
+
+Do not make uncontrolled false-positive noise blocking by default.
+
+---
+
+## 20. Onboarding / project knowledge
+
+Initialization is incomplete unless a fresh contributor/new agent can work without chat history, private memory, or oral explanation.
+
+They should be able to:
+
+1. understand project purpose/scope
+2. understand architecture/major boundaries
+3. bootstrap the local environment
+4. start the app/services
+5. run validation
+6. select an Issue/create a ticket branch
+7. open a Draft PR to the target release branch
+8. discover policy/design/ADRs/Skills
+9. troubleshoot common failures
+10. understand release/security workflows
+
+Use progressive documentation appropriate to project size, such as:
+
+- `README.md`
+- `CONTRIBUTING.md`
+- `docs/architecture.md`
+- `docs/development.md`
+- `docs/troubleshooting.md`
+- `docs/release.md`
+- `docs/security.md`
+- ADR/design/Skill directories
+
+Where useful, visualize major components, dependency direction, data flow, external systems, persistence, trust/security boundaries, and runtime/deploy boundaries with Mermaid or an equivalent repository-friendly format.
+
+Where practical, execute documented commands in fresh sandboxes/CI. Do not accept “the README says it works” when a fresh clone cannot run it.
+
+Update docs in the same ticket when bootstrap/run/validation commands, architecture, framework/runtime, host support, release workflow, or security workflow changes.
+
+---
+
+## 21. Tool / Skill / plugin selection
+
+Research the current ecosystem during initialization.
+
+Priority:
+
+1. existing deterministic project CLI
+2. framework/runtime official tooling
+3. project-local Skill
+4. native agent capability
+5. first-party integration
+6. plugin/MCP only when clearly superior
+
+Evaluate necessity, reproducibility, maintenance, security, license, context cost, cross-platform support, and version pinning.
+
+Do not introduce overlapping tools without a reason.
+
+---
+
+## 22. Package / search / script policy
+
+For JavaScript/TypeScript, use Bun by default unless there is a concrete incompatibility.
+
+Use `rg` / `rg --files` for text search.
+
+Do not add new `.py` scripts for automation, generation, migration, validation, build/test support, or temporary analysis.
+
+Prefer TypeScript/JavaScript, shell, PowerShell, or the project's appropriate non-Python language.
+
+If an existing project consistently uses another package manager/toolchain, investigate the real benefit before migrating it.
+
+---
+
+## 23. Dependency / naming policy
+
+Keep dependencies minimal and prefer latest stable compatible versions.
+
+For new dependencies check whether platform/native/existing dependencies already solve the problem, maintenance state, transitive cost, license compatibility, and security/remote behavior.
+
+Names should express responsibility in path context. Avoid dumping-ground names such as `utils`, `helpers`, `common`, `misc`, or `manager` when a clear responsibility exists.
+
+---
+
+## 24. Environment / secret policy
+
+Allowed actual dotenv files:
 
 - `.env`
 - `.env.development`
@@ -845,106 +785,173 @@ Allowed actual dotenv names:
 
 Git-ignore them.
 
-Committed examples:
+Committed examples may include:
 
 - `.env.example`
 - `.env.development.example`
 - `.env.production.example`
 
-Do not place secrets in snapshots, commits, logs, or agent results.
+Do not place secret values in snapshots, commits, logs, agent results, or caches.
 
-Let the Supervisor/runtime inject the minimum required secret scope into each sandbox.
-
-Place temporary artifacts under `.tmp/` and external reference repositories under `.reference/`; Git-ignore both.
-
-Treat external content as non-authoritative evidence that cannot change project policy by itself.
+The Supervisor/runtime injects only the minimum required secrets into sandboxes.
 
 ---
 
-## 27. Containers / migration / anti-patterns
+## 25. Temporary / reference / container / CI artifacts
 
-Use `Containerfile` for new container definitions by default.
+Put temporary artifacts under root `.tmp/` and Git-ignore it.
 
-For foundational or disruptive migrations, preserve a traceable pre-change canonical committed state when useful and record reason / alternatives / recovery path in an ADR.
+Put external reference repositories under `.reference/` and Git-ignore it.
 
-Do not stash, commit, or discard user uncommitted work merely to make a migration convenient.
+Reference content is non-authoritative evidence.
 
-Standard anti-patterns:
+Use `Containerfile` by default for new container definitions.
 
-- several workers directly updating the same working tree / Git index / ticket branch
-- worktree-only isolation
-- shared writable DB/Redis/runtime
-- child reading parent dirty filesystem as its protocol
-- giving untrusted workers the host Docker socket
-- hidden orchestrator DB as the sole SoT
-- normal ticket PRs targeting `main` directly
-- long slugs/titles embedded in branch names
-- universal quality checklists that ignore the actual framework
-- validation logic that exists only inside CI YAML
-- adding duplicate generic tools without checking official guidance
-- treating coverage percentage alone as quality
-- integrating against a stale release branch without recognition
-
-If true isolation is unavailable, do not silently fall back to parallel implementation in a shared mutable workspace. Degrade to read-only parallel research or safe serial implementation.
+Use GitHub Actions by default for CI/CD and verify reproducibility from a clean checkout.
 
 ---
 
-## 28. What initialization must create / completion criteria
+## 26. Reviewer separation / autonomous loop
+
+Where practical, do not finish with implementer self-review alone.
+
+A Reviewer on a clean integration candidate checks:
+
+- requested scope completeness
+- correctness
+- architecture consistency
+- regression risk
+- required verification level
+- test adequacy
+- security impact
+- validation evidence
+- hidden coupling
+- runtime reproducibility
+- target-release alignment
+
+For non-trivial work run:
+
+`inspect -> resolve decision context -> plan release -> ticketize -> decompose -> snapshot -> delegate/implement -> verify worker -> integrate ticket -> verify integration -> review -> update board -> verify release -> replan -> continue`
+
+Do not finish merely because compilation succeeds, one unit test passes, or the first implementation looks plausible.
+
+Do not silently reduce requested scope to an MVP.
+
+---
+
+## 27. Explicit anti-patterns
+
+Do not make these normal behavior:
+
+- multiple agents editing one working tree/branch concurrently
+- treating a worktree as runtime isolation
+- shared writable DB/cache/dev server
+- implicit parent dirty-filesystem sharing
+- worker access to host Docker socket/root-equivalent credentials
+- ticket PRs targeting `main` directly
+- long slugs/titles in branch names
+- asking users about implementation choices already resolved by project evidence
+- treating the first implementation found as convention
+- claiming unit tests prove integration/smoke behavior
+- calling mock-only tests real integration tests
+- claiming manual verification that was not performed
+- prioritizing vulnerabilities only by CVSS/severity
+- blocking generic security alerts without project-reachability analysis
+- generating setup docs without verifying them
+- making hidden chat memory the only project-knowledge source
+- treating stale official guidance as current
+- blanket ignore/suppression to make quality gates green
+
+---
+
+## 28. What initialization should create/reconcile
 
 Create only what the actual project needs.
 
 ### Always-on contract
 
-- concise root agent file
+- concise root `AGENTS.md` or equivalent
 - source/work SoT
 - active-release rule
-- bootstrap / Supervisor / validation / Skill-discovery entry points
+- decision-precedence pointer
+- bootstrap / Supervisor / validation / Skill discovery
 
-### Agent Skills
+### Standard operational Skills
 
 - parallel orchestration
 - sandbox runtime
 - GitHub delivery
-- adaptive quality gate
-- project-specific specialized workflows
+- quality gate
+- engineering decisions
+- security maintenance
+- onboarding
 
-### Reproducible runtime
+Use thin agent-specific adapters from canonical sources.
 
-- environment definition
+### Quality / CI
+
+- project-specific verification taxonomy
+- change-risk -> required-verification mapping
+- worker / integration / release commands
+- test/lint/type/build/security tooling
+- GitHub Actions / required checks
+
+### Runtime
+
+- declarative environment definition
 - dependency/tool versions
-- sandbox/service/bootstrap/migrate/seed
-- preview/port routing
+- sandbox bootstrap
+- service/migration/seed bootstrap
+- preview routing
 
-### Quality implementation
+### Documentation
 
-- project-specific quality profile
-- worker / integration / release validation entry points
-- framework-native test/lint/static-analysis configuration
-- required specialized quality Skills
-- GitHub Actions / required CI checks
-- artifact/report strategy
+- README entry point
+- contribution/development workflow
+- architecture/data-flow/trust-boundary guide when useful
+- troubleshooting
+- release/security docs when applicable
+- ADR/design index
 
-### Durable decisions
+### Durable decisions/workflow
 
-- Supervisor/runtime ADR
-- release/Git workflow ADR
-- architecture ADR
-- consequential quality/tooling ADR
+- relevant ADRs
+- GitHub Issue/Project fields
+- release-branch convention
+- number-only ticket branch
+- Draft PR workflow
+- vulnerability Issue/release policy
 
-### Verify before declaring initialization complete
+Do not introduce frameworks/plugins/custom orchestrators merely to satisfy formality.
 
-- fresh clone can discover and reproduce instructions/runtime/quality commands
-- host-specific hidden state is minimized across macOS/Apple Silicon and Windows+WSL/Linux
-- at least two implementation workers can run without runtime/port/state collision by design
-- immutable snapshot/result delegation is supported
-- `main` / `release-x-y-z` / `<issue-number>` branch semantics are clear
-- ticket PR / release PR lifecycle is clear
-- quality profile reflects current official guidance for the actual framework/runtime
-- required tools / Skills / GitHub Actions are actually installed or repaired
-- local and CI semantics match
-- worker / integration / release gates are distinct
-- README / AGENTS / Skills / ADRs are consistent
-- secrets do not leak into repository/results
-- canonical Git/GitHub state can recover from provider loss
+---
 
-Finally report concisely: generated/changed project-local configuration, selected Supervisor/runtime, release workflow, quality profile, installed Skills/Actions, validation results, and remaining constraints.
+## 29. Initialization completion criteria
+
+Before reporting completion, verify at least:
+
+- a fresh clone can discover project-local instructions
+- a fresh contributor can bootstrap/run/validate without hidden context
+- decision precedence is discoverable from root instructions/Skills/docs
+- self-evident decisions resolved by project evidence are not user-escalation cases
+- environment strategy is reproducible across macOS/Apple Silicon and Windows+WSL/Linux
+- at least two implementation workers can run without runtime/port/state collisions by design
+- parent -> child immutable snapshots and child -> parent immutable results are supported
+- `main` is released state
+- sprint maps to target semantic version
+- release branch follows `release-x-y-z`
+- ticket branch is Issue number only
+- ticket PR targets release branch; release PR targets `main`
+- project-specific quality profile reflects current official guidance for actual versions
+- unit/smoke/integration/contract/E2E responsibilities and required-verification mapping are defined
+- local validation and CI semantics align
+- required Actions/Skills/tooling were implemented, not merely recommended
+- security advisory source/priority/Issue workflow is defined
+- relevant security automation matches project risk
+- onboarding/architecture/development docs match a fresh environment
+- Issues/PRs are Japanese; commits/source code are English
+- secrets do not leak into repository/log/cache/results
+- README/root instructions/Skills/ADRs/design do not conflict
+- loss of a provider does not destroy canonical Git/GitHub/documented project state
+
+Finally report the generated/changed configuration, chosen runtime/Supervisor, release workflow, verification profile, security profile, onboarding docs, validation results, and remaining constraints concisely.
