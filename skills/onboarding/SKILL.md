@@ -1,11 +1,11 @@
 ---
 name: onboarding
-description: 新規参入者が会話履歴や個人環境に依存せずprojectを理解・起動・検証・開発開始できるdocumentationを初期化・更新する時に使用する。
+description: 新規参入者が会話履歴や個人環境に依存せずprojectを理解・起動・検証・開発開始・作業復旧できるdocumentationを初期化・更新する時に使用する。
 ---
 
 # Onboarding
 
-onboarding documentationは「READMEがある」ことではなく、fresh contributorがproject truthへ自力で到達できることを目的とする。
+onboarding documentationは「READMEがある」ことではなく、fresh contributor / fresh agentがproject truthへ自力で到達できることを目的とする。
 
 ## 1. Onboarding completion target
 
@@ -20,6 +20,7 @@ onboarding documentationは「READMEがある」ことではなく、fresh contr
 7. Draft PRをtarget release branchへ作成
 8. decision / design / ADR / Skillの参照先を発見
 9. common failureを切り分け
+10. 中断されたticketをIssue / PR / Git / checkpointから復旧
 
 ## 2. Document structure
 
@@ -34,6 +35,7 @@ project規模に合わせて最小限に構成する。
 - `docs/troubleshooting.md`: recurring failure / diagnosis
 - `docs/release.md`: release sprint / version / deployment
 - `docs/security.md`: security maintenance / reporting when appropriate
+- `docs/recovery.md`: checkpoint / recovery / external side-effect workflow when complexity justifies it
 - ADR directory
 - design/specification directory
 - project-local Agent Skills
@@ -53,6 +55,7 @@ READMEにはprojectに応じて最低限:
 - canonical validation entry point
 - internal docs index
 - contribution entry point
+- recovery entry point / `agent-recovery` Skillへの導線
 
 を置く。
 
@@ -88,6 +91,7 @@ visual/structuralに把握できるよう、必要ならMermaid等で次を示�
 - persistence boundaries
 - trust/security boundaries
 - build/deploy/runtime boundaries
+- Supervisor / sandbox / checkpoint boundary when agent infrastructure is non-trivial
 
 詳細なdecision historyはADRへ分離する。
 
@@ -116,7 +120,21 @@ main
 - release PRは `release-x-y-z -> main`
 - Draft -> Ready -> merge -> Doneの条件
 
-## 8. Documentation verification
+## 8. Recovery discovery
+
+fresh agentが以前のchatを読めなくても、次を発見できるようにする。
+
+- current Issue / PR / target release
+- ticket branch / checkpointの見つけ方
+- `agent-recovery` Skill
+- current/next validation command
+- active child/subagentの確認方法
+- external side-effect journalの場所
+- recovery時にuserへ確認すべき条件
+
+native session resumeの手順だけを書いてrecovery guideとしない。sessionが失われても復旧できるdurable pathを記載する。
+
+## 9. Documentation verification
 
 docsもquality gateの対象にする。
 
@@ -125,11 +143,12 @@ docsもquality gateの対象にする。
 - documented commandsをCI/fresh sandboxで実行
 - broken links検出
 - setup pathをfresh environmentで確認
+- recovery pathをfresh agent/sandboxでdrill
 - version-sensitive instructionsをupgrade時にreview
 
-「READMEには書いてあるがfresh cloneでは動かない」を許容しない。
+「READMEには書いてあるがfresh cloneでは動かない」「recovery guideはあるがcheckpointから復旧できない」を許容しない。
 
-## 9. Update triggers
+## 10. Update triggers
 
 次の場合はonboarding docsを更新する。
 
@@ -138,6 +157,7 @@ docsもquality gateの対象にする。
 - framework/runtime migration
 - environment/host support変更
 - release workflow変更
+- Supervisor/sandbox/recovery model変更
 - recurring troubleshooting knowledgeが増えた
 - security/dependency maintenance workflow変更
 
