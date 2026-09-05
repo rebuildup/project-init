@@ -17,7 +17,8 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - worktree単体をexecution isolationとみなさない。
 - durable planning unitはGitHub Issue、短命な内部subtaskはSupervisor taskとしてよい。
 - child lifecycleはparent model processではなくSupervisorが所有する。
-- task/resultには必要に応じて `execution_generation` を持たせ、stale generationを統合しない。
+- すべてのmutable worker task/resultに `execution_generation` を必須で付与する。初期generationは `1` とし、recovery/reassignment時にSupervisorが原子的に進める。
+- result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
 
 ## Flow
@@ -25,17 +26,18 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 1. Issueのobjective / acceptance criteria / dependencyを読む。
 2. task graphを作る。
 3. 各nodeのinput snapshot / output contract / recovery boundaryを決める。
-4. unfinished prerequisiteのないnodeをspawnする。
-5. meaningful boundaryでcheckpointする。
-6. worker resultをinspectする。
-7. Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
-8. integration checkpointごとにrequired validationを行う。
-9. Reviewerをclean candidate snapshotから起動する。
-10. GitHub board stateを実行状態と同期する。
+4. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
+5. unfinished prerequisiteのないnodeをspawnする。
+6. meaningful boundaryでcheckpointする。
+7. worker resultをinspectし、result generationがcurrent generationと一致することを確認する。
+8. Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
+9. integration checkpointごとにrequired validationを行う。
+10. Reviewerをclean candidate snapshotから起動する。
+11. GitHub board stateを実行状態と同期する。
 
 ## Spawn contract
 
-最低限:
+mutable workerの最低限input:
 
 ```text
 issue_or_task_id
@@ -45,13 +47,17 @@ base_snapshot
 execution_generation
 role
 allowed_tools
+filesystem_policy
+network_policy
 budget
 expected_result
 ```
 
+`filesystem_policy` / `network_policy` はSupervisorが実際にenforceする境界を表す。policy enforcementが別のruntime/provider設定で行われる場合も、spawn contractにはそのpolicy IDまたは解決済みpolicyを記録し、worker inputと実際のsandbox制約が追跡可能でなければならない。
+
 ## Result contract
 
-最低限:
+mutable workerの最低限output:
 
 ```text
 agent_id
@@ -64,11 +70,13 @@ validation_results
 known_issues
 ```
 
+current `execution_generation` と一致しないresultは自動統合しない。
+
 ## Parent failure
 
 parent agentが停止してもsafeなchildを自動破棄しない。
 
-recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationshipとgenerationを確認してから統合する。
+recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationshipとcurrent generationを確認してから統合する。
 
 ## Fallback
 
