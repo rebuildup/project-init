@@ -9,12 +9,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
 - `skills/github-delivery/SKILL.md` — Issues / Projects / release sprint / branch / Draft PR / release integration。
-- `skills/quality-gate/SKILL.md` — deterministic completion gate。
+- `skills/quality-gate/SKILL.md` — stack-aware quality profileのcompile・実行・再評価。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
 - `ADR-0003.md` — isolated multi-agent execution / Supervisor / snapshot-result integration。
 - `ADR-0004.md` — GitHub ticket-driven release sprint deliveryとcross-platform local runtime。
+- `ADR-0005.md` — framework/runtime固有のadaptive quality gate compilation。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -31,12 +32,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - Supervisor / subagent integration
 - macOS / Windows+WSL / Linuxで再現可能なruntime
 - GitHub Issues / Projects / Pull Requestsによるticket-driven release sprint workflow
-- deterministic quality gates
+- framework/runtime固有のadaptive deterministic quality gates
+- project-local validation commands / GitHub Actions / required CI checks
 - architecture / ADR / CI/CD / release rules
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + release branchをsprint integration lineとする + deterministic verification + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + release branchをsprint integration lineとする + project固有quality profileをcompileする + deterministic verification + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -148,6 +150,46 @@ Release complete
 - ticket PR merge + Issue close + board updateをticket Done boundaryとする
 - sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
 
+## Adaptive quality gate
+
+quality gateは全project共通の固定bundleではありません。
+
+初期化時に実repoのlanguage / framework / runtime / SDK / app target / persistence / release targetを検出し、**実versionに対応するcurrent official guidanceを調査してproject-local quality profileへcompile**します。
+
+優先順位:
+
+1. framework/runtime/SDK official quality/testing guidance
+2. official examples/templates/starters
+3. official first-party CI / GitHub Actions guidance
+4. official language/toolchain guidance
+5. coherent existing project configuration
+6. maintained ecosystem tooling
+7. custom tooling
+
+必要であれば初期化agentが実際に追加・修復します。
+
+- formatter / lint / static analysis
+- compiler / type-check
+- unit / component / integration / E2E test infrastructure
+- framework/platform-specific validation
+- coverage policy
+- schema / migration validation
+- browser / device / OS / architecture matrix
+- build / package verification
+- project-local quality Agent Skills
+- GitHub Actions workflows
+- required CI checks
+
+標準的に次の3段階を分離します。
+
+- worker gate: 高速なfocused feedback
+- integration gate: ticket PRのfull applicable validation
+- release gate: `release-x-y-z -> main` 前のrelease-wide verification
+
+local commandとGitHub Actionsは可能な限り同じdeterministic entry pointを呼び、CI YAMLだけにhidden validation logicを持たせすぎません。
+
+coverageは有効なprojectでは利用しますが、80%等の一律値を盲目的に全projectへ強制しません。framework guidance、risk、code type、existing baselineからblocking policyを決め、coverageより適切なdeterministic signalがある領域ではそちらを優先します。
+
 ## Language policy
 
 branch名はidentifier/versionだけを持ち、説明責務を持たせません。
@@ -187,9 +229,11 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
-- formatter / lint / type-check / static analysis / build / test / coverage等をcompletion gateにする。
-- coverageは原則80%以上。
-- significant architecture/tooling/runtime/workflow decisionsはADRへ永続化。
+- quality gateはframework/runtime固有のcurrent official guidanceからproject-localにcompileする。
+- GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
+- worker / integration / release gateを分離する。
+- coverageは有用なprojectでproject-specific policyとして利用し、数値だけを品質proxyにしない。
+- significant architecture/tooling/runtime/workflow/quality decisionsはADRへ永続化。
 - temporary verification filesは `.tmp/`、external reference repositoriesは `.reference/`。
 - new container definitionは `Containerfile`。
 - CI/CDは原則GitHub Actions。
@@ -204,6 +248,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - conditional workflows -> Agent Skills
 - long-lived decisions -> ADR
 - reproducible runtime/tools -> project-local configuration
+- adaptive quality profile -> project-local commands / Skills / CI workflows
 - durable work workflow -> GitHub Issues / Projects / PR configuration
 
 へ分解します。
