@@ -32,7 +32,7 @@
 - documented commandがfresh environmentで再現可能か
 - session/thread resumeを唯一のrecovery mechanismにしていないか
 - unfinished workが会話履歴やSupervisor local DBだけに残らないか
-- fresh agentがIssue/PR/Git/checkpointからnext stepを再構成できるか
+- fresh agentがIssue/Project/PR/Git/checkpointからnext stepを再構成できるか
 - stale execution generationが復帰後に同じticketへ書き込めないか
 - parent agent failureでchild resultが失われないか
 - timeout後のexternal side effectを無条件retryしないか
@@ -52,8 +52,10 @@
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
+- snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
 - ticket Draft PR -> release branch -> release PR -> main lifecycleを壊していないか
+- release branch向けticket PRのmerge後にIssueを明示的にcloseする手順が維持されているか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 
 ## Canonical ADRs
@@ -77,12 +79,14 @@
 - ticket branch = `<issue-number>`
 - ticket PR base = target release branch
 - meaningful initial commit後にDraft PRを早期作成
-- ticket PR merge + Issue close + Project Done = ticket Done
+- ticket PR merge後、non-default baseではclosing keywordに依存せずlinked Issueを明示的にcloseし、Project Doneへ移す = ticket Done
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree-only isolationは禁止
 - parent -> child = immutable snapshot
-- child -> parent = immutable commit/ref/diff
+- child -> parent = immutable commit/diffまたはnever-moved ref
+- snapshot/resultはresolved commit SHAまたはcontent-addressed digestを記録し、integration/materializationは記録済みimmutable identityを使用する
+- mutable branch/refをsnapshot/result identityとして再解決しない。refが記録済みidentityと異なるtargetへ移動した場合は拒否する
 - Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
 
 ## Engineering decision invariants
@@ -115,7 +119,7 @@ userへ確認するのは、canonical source conflict、product semantics、publ
 
 変更surface/riskから必要test levelを選択します。
 
-worker / ticket integration / release gateを分離し、local deterministic entry pointとGitHub Actionsのsemanticsを揃えます。
+worker / ticket integration / release gateを分離し、repository-controlled canonical quality profileとlocal deterministic entry point / GitHub Actionsのsemanticsを揃えます。
 
 coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
 
@@ -138,15 +142,16 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 
 - native conversation/thread/subagent resumeはoptimizationでありcanonical SoTではない
 - fresh agentがchat historyなしでunfinished taskを再構成できる
-- durable recovery sourcesはIssue / PR / Git refs / committed docs / immutable results / structured checkpoint
+- durable recovery sourcesはIssue / Project / PR / Git refs / committed docs / immutable results / structured checkpoint
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
 - checkpointはtask identity / snapshot / completed / next / validation / children / side effects / blockersを表現できる
 - parent model processではなくSupervisorがchild lifecycleを所有する
 - recovery時にchild stateをreconcileし、stale resultを盲目的に統合しない
-- taskにはexecution lease/generationまたは同等のfencingを持たせ、stale generationのwrite/integrationを拒否する
+- mutable taskには初期値 `1` のexecution generationとlease/fencing tokenを持たせ、recovery時はcompare-and-set等で所有権を原子的に取得する
+- stale generation/tokenのwrite/integrationを拒否し、external write直前にもcurrent tokenを再検証する
 - external side effectは可能ならidempotency keyとdurable intent/resultを使用し、timeout後はremote actual stateを確認してからretryする
-- partial validation successをfull gate passと扱わない
+- validation resultはvalidated SHA/snapshotへpinし、current codeと完全一致しない古いgreen resultを流用しない
 - context limit接近時はstructured handoffを作成してplanned recoveryへ移る
 - project/runtimeが重要ならintentional recovery drillを実行できる
 
@@ -206,6 +211,8 @@ PR title/body/review discussionは日本語です。
 
 Ready前にacceptance criteria、required verification level、JP/EN semantics、ADR/README/Skill consistency、target release branch stalenessを確認します。
 
+merge後はPR baseがdefault branchではないため`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
+
 ### Release Pull Request
 
 release gate通過後 `release-x-y-z -> main` のPRを作成します。
@@ -221,7 +228,7 @@ release gate通過後 `release-x-y-z -> main` のPRを作成します。
 
 commit format:
 
-`<prefix>: <very concise title>`
+`<work-prefix>: <extremely concise title>`
 
 ## Time-sensitive rules
 
@@ -268,6 +275,8 @@ current official sourceを確認すべき対象:
 - conflicting rulesがない
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
 - release/ticket branch lifecycleが一貫
+- release branch向けticket PR merge後のexplicit Issue close手順が一貫
+- snapshot/resultがresolved immutable identityへpinされている
 - decision precedence / escalation boundaryが一貫
 - unit/smoke/integration/contract/E2E責務が一貫
 - security source/priority policyが一貫
