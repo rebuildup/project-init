@@ -16,18 +16,22 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - sandbox lifecycleはworker外のSupervisorが管理する。
 - worktree単体をexecution isolationとみなさない。
 - durable planning unitはGitHub Issue、短命な内部subtaskはSupervisor taskとしてよい。
+- child lifecycleはparent model processではなくSupervisorが所有する。
+- task/resultには必要に応じて `execution_generation` を持たせ、stale generationを統合しない。
+- long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
 
 ## Flow
 
 1. Issueのobjective / acceptance criteria / dependencyを読む。
 2. task graphを作る。
-3. 各nodeのinput snapshotとoutput contractを決める。
+3. 各nodeのinput snapshot / output contract / recovery boundaryを決める。
 4. unfinished prerequisiteのないnodeをspawnする。
-5. worker resultをinspectする。
-6. Coordinator/Supervisorだけがintegration branchへ順序立てて統合する。
-7. integration checkpointごとにfull validationを行う。
-8. Reviewerをclean candidate snapshotから起動する。
-9. GitHub board stateを実行状態と同期する。
+5. meaningful boundaryでcheckpointする。
+6. worker resultをinspectする。
+7. Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
+8. integration checkpointごとにrequired validationを行う。
+9. Reviewerをclean candidate snapshotから起動する。
+10. GitHub board stateを実行状態と同期する。
 
 ## Spawn contract
 
@@ -38,6 +42,7 @@ issue_or_task_id
 objective
 acceptance_criteria
 base_snapshot
+execution_generation
 role
 allowed_tools
 budget
@@ -52,11 +57,18 @@ expected_result
 agent_id
 issue_or_task_id
 base_snapshot
+execution_generation
 result_commit_or_ref
 summary
 validation_results
 known_issues
 ```
+
+## Parent failure
+
+parent agentが停止してもsafeなchildを自動破棄しない。
+
+recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationshipとgenerationを確認してから統合する。
 
 ## Fallback
 
