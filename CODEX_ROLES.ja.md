@@ -28,7 +28,8 @@ Codexのmodel、pricing、availability、subagent behavior、model routing、nat
 
 - Sol自身がhost-level sandbox managerになるという意味ではありません。
 - sandbox create/destroy、credential injection、child lifecycle等は外部Agent Supervisor/control planeへ委譲してください。
-- worker結果はimmutable commit/ref/diffとして統合してください。
+- worker結果はimmutable commit/diff、または記録済みcommit SHA/content digestへpinされたnever-moved refとして統合してください。
+- integration時にmutable branch/ref名を再解決せず、記録済みimmutable identityを使用し、ref移動を検出した場合は拒否してください。
 - shared mutable working treeへ複数agentを直接配置しないでください。
 
 機械的な大量実装をSol自身へ集中させないでください。
@@ -48,7 +49,7 @@ Codexのmodel、pricing、availability、subagent behavior、model routing、nat
 
 可能な場合、implementer自身のself-reviewだけで完了させないでください。
 
-Reviewerはintegration candidate commit/refのclean snapshotから開始し、implementerのdirty workspaceを共有しないでください。
+Reviewerはmutable refやimplementerのdirty workspaceではなく、integration candidateのcommit SHA/content digestへpinされたclean snapshotから開始してください。
 
 ## Luna — primary implementation worker role
 
@@ -65,7 +66,7 @@ Reviewerはintegration candidate commit/refのclean snapshotから開始し、im
 
 implementation workerとして使う場合は、**workerごとのisolated mutable execution environment**で実行してください。
 
-worker inputはimmutable snapshot、worker outputはimmutable commit/ref/diffを標準とします。
+worker inputはresolved commit SHA/content digestへpinされたimmutable snapshot、worker outputはimmutable commit/diffまたは記録済みimmutable identityへpinされたnever-moved refを標準とします。
 
 安全に分離できる実装は可能な限りworkerへ委譲してthroughputを拡大してください。品質よりcostを優先するという意味ではありません。
 
