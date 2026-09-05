@@ -2,7 +2,7 @@
 
 Initialize or reconcile the AI coding-agent environment for this repository.
 
-This is a meta-prompt intended to replace or augment a normal `/init`. Its purpose is to inspect the actual repository, stack, architecture, runtime, tests, CI/CD, and development workflow, then construct a **minimal, reproducible, project-local environment in which multiple AI agents can work concurrently in isolated execution environments and integrate through GitHub Issues / Projects / Pull Requests using ticket-driven agile delivery**.
+This is a meta-prompt intended to replace or augment a normal `/init`. Its purpose is to inspect the actual repository, technology stack, architecture, runtime, tests, CI/CD, and development workflow, then construct a **minimal, reproducible, project-local environment in which multiple AI agents can work concurrently in isolated execution environments and integrate through GitHub Issues / Projects / Pull Requests using ticket-driven agile delivery**.
 
 Do not load this entire document for ordinary tasks. Read the full policy only when (a) initializing the repository with this policy for the first time, or (b) reconstructing project-local Agent Skills, adapters, or runtime policy.
 
@@ -10,7 +10,7 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core principle:
 
-> **Use Git as the canonical Source of Truth for source state and GitHub Issues / Projects as the canonical Source of Truth for work state; isolate mutable execution state per agent; delegate through immutable snapshots; return immutable results; manage lifecycle through a Supervisor; integrate by ticket/PR; maximize deterministic verification; and parallelize as much as is logically safe.**
+> **Use Git as the canonical Source of Truth for source state and GitHub Issues / Projects as the canonical Source of Truth for work state; isolate mutable execution state per agent; delegate through immutable snapshots; return immutable results; manage lifecycle through a Supervisor; integrate by Issue/PR; maximize deterministic verification; use progressive disclosure; and parallelize as much as is logically safe.**
 
 ---
 
@@ -35,12 +35,12 @@ Default invariants:
 
 - 1 implementation worker = 1 isolated workspace/runtime
 - multiple agents may use the same internal ports
-- databases, caches, queues, volumes, and other mutable runtime state must not be shared between agents
+- databases, caches, queues, volumes, and other mutable state must not be shared between agents
 - multiple agents must not directly edit the same shared working directory
-- parent/child result transfer must not depend on a shared mutable filesystem
+- parent/child change transfer must not depend on a shared mutable filesystem
 - sandbox lifecycle must be managed by a Supervisor outside the sandbox
 - canonical Git remote / refs are the Source of Truth for source-code state
-- GitHub Issues / Projects are the Source of Truth for tickets, sprint state, status, and dependencies
+- GitHub Issues / Projects are the Source of Truth for tickets, priority, sprint, status, and dependencies
 
 A Git worktree may be used as an internal implementation detail inside an already-isolated sandbox. **A worktree alone must never be considered process/network/runtime isolation.**
 
@@ -50,7 +50,7 @@ A Git worktree may be used as an internal implementation detail inside an alread
 
 Do not assume initialization runs only once.
 
-Inspect the current state first and only change the delta toward the desired state.
+Inspect the current state first and change only the delta toward the desired state.
 
 At minimum inspect:
 
@@ -94,8 +94,6 @@ Canonical project state must be representable by at least:
 
 Each implementation ticket should be able to pin a `base_sha` when it begins.
 
-Conceptually:
-
 ```text
 origin/main @ abc123
 ├─ issue #101: base_sha=abc123 + result A
@@ -112,7 +110,7 @@ Never use “which directory looks newest” as the Source of Truth rule.
 - review / integration: GitHub Pull Requests
 - transient execution state: Supervisor
 
-A Supervisor-local database or queue may be used as cache/execution state, but unrecoverable hidden state must not be the only Source of Truth for task management.
+A Supervisor-local database or queue may be used as cache/execution state, but unrecoverable hidden state must not be the only Source of Truth for work management.
 
 ---
 
@@ -150,7 +148,7 @@ Responsibilities:
 - perform final verification
 - synthesize the final result
 
-Do not concentrate large amounts of mechanical implementation in the Root Coordinator.
+Do not concentrate large amounts of mechanical implementation in the Coordinator itself.
 
 ### Agent Supervisor
 
@@ -162,7 +160,7 @@ Responsibilities:
 - create workspace snapshots
 - spawn / wait / cancel agents
 - choose model / agent adapters
-- enforce resource budgets
+- enforce resource / cost budgets
 - enforce recursion depth / child count
 - inject credentials
 - collect Git results
@@ -175,7 +173,7 @@ Do not give workers a Docker socket, host-root-equivalent privilege, cloud maste
 
 Each agent receives only the minimum required capabilities.
 
-Define roles logically rather than by vendor product name.
+Define roles by logical responsibility rather than fixed vendor product names.
 
 ---
 
@@ -183,7 +181,7 @@ Define roles logically rather than by vendor product name.
 
 Even when the selected coding agent has native subagents, verify that implementation workers satisfy the isolation requirements in this policy.
 
-Ideally, the Root Coordinator and permitted parent agents should have logical tools equivalent to:
+Ideally, the Coordinator and permitted parent agents should have logical tools equivalent to:
 
 ```text
 spawn_agent
@@ -197,7 +195,7 @@ integrate_agent_result
 
 The transport may be a native agent API, MCP, ACP, a CLI wrapper, or a project-local Supervisor client.
 
-Expose **agent creation as a high-level tool** rather than requiring models to directly manage Docker/VM/container commands.
+Expose **agent creation as a high-level tool** rather than requiring models to manage Docker/VM/container commands directly.
 
 A spawn request may include:
 
@@ -215,11 +213,11 @@ A spawn request may include:
 
 The Supervisor must prevent agent fork bombs and unbounded cost.
 
-Do not impose an arbitrary low agent-count limit merely to simplify orchestration, but do enforce real resource, rate, quota, cost, and depth limits.
+Do not impose an arbitrary low agent-count limit merely to simplify orchestration, but do enforce real resource, rate, quota, cost, WIP, and depth limits.
 
 ---
 
-## 6. Distinguish three subagent modes
+## 6. Distinguish subagent modes
 
 At minimum distinguish these logical modes.
 
@@ -232,7 +230,7 @@ For:
 - architecture investigation
 - bounded analysis
 
-Research is read-only by default. A heavy isolated runtime is not mandatory when no code changes are returned, unless command/context execution would interfere with other work.
+Research is read-only by default. A heavy isolated runtime is not mandatory when no code changes are returned, unless command/runtime execution would interfere with other work.
 
 ### Worker
 
@@ -257,24 +255,24 @@ For:
 - test adequacy
 - integration review
 
-Start from a clean snapshot of the target commit/ref. Do not directly share the implementer's dirty workspace.
+Start from a clean snapshot of the target commit/ref. Do not share the implementer's dirty workspace.
 
 ---
 
-## 7. Parent-to-child transfer uses immutable snapshots
+## 7. Parent -> Child uses an immutable snapshot
 
 Do not assume a child agent can recover required state by looking at the parent's current directory.
 
-If a parent has unintegrated changes when spawning a child, first create an immutable checkpoint.
+If a parent has unintegrated changes when spawning a child, create an immutable checkpoint first.
 
 Acceptable mechanisms include:
 
 - ephemeral Git commit
 - local immutable Git ref
-- container / filesystem snapshot
+- container/filesystem snapshot
 - content-addressed workspace snapshot
 
-Choose a mechanism appropriate to the platform, but ensure:
+Ensure:
 
 - the snapshot identity is traceable
 - child input cannot change when the parent continues editing
@@ -285,7 +283,7 @@ Do not make implicitly shared uncommitted working-tree state part of the subagen
 
 ---
 
-## 8. Child-to-parent transfer uses immutable results
+## 8. Child -> Parent uses an immutable result
 
 A child agent must not return work by directly editing the parent's workspace.
 
@@ -304,14 +302,14 @@ known_issues
 
 The standard result from an implementation worker is a Git commit or equivalent immutable diff.
 
-The parent / Coordinator uses the Supervisor to:
+The Coordinator uses the Supervisor to:
 
 - inspect
 - cherry-pick / merge / rebase equivalent
 - reject
 - request revision
 
-Do not make multiple agents pushing concurrently to the same branch the default design.
+Do not make multiple agents pushing concurrently to the same integration branch the default design.
 
 Merge conflicts can happen, but conflict resolution must not be the normal parallelization strategy. Reduce conflicts in advance through ticket boundaries, interfaces, and dependencies.
 
@@ -322,7 +320,7 @@ Merge conflicts can happen, but conflict resolution must not be the normal paral
 An implementation worker environment must isolate at least:
 
 - repository checkout / workspace
-- process namespace or equivalent process boundary
+- process boundary
 - network namespace or port mapping
 - writable runtime filesystem
 - database state
@@ -332,8 +330,6 @@ An implementation worker environment must isolate at least:
 - mutable build output
 
 All sandboxes may use the same internal ports.
-
-Example:
 
 ```text
 Sandbox A: app :3000, api :8000, db :5432
@@ -382,8 +378,6 @@ Relevant categories include:
 
 Reuse the same environment definition across local and remote providers whenever practical.
 
-Ideal:
-
 ```text
 same repository + same environment specification
     -> macOS local sandbox
@@ -393,17 +387,17 @@ same repository + same environment specification
 
 For remote compute, prefer task-lifecycle create/destroy over permanently running VMs when feasible.
 
-Keep provider-specific behavior behind Supervisor adapters rather than leaking it throughout the project contract.
+Keep provider-specific behavior behind Supervisor adapters rather than leaking it throughout project semantics.
 
 ---
 
-## 11. GitHub ticket / sprint / PR workflow
+## 11. GitHub Issue / Project / Sprint / Branch / Draft PR workflow
 
 Replace direct development on local `main` with **GitHub Issue-centered ticket-driven development**.
 
-Treat `origin/main`, or the project's designated canonical integration branch, as the Source of Truth for source state.
+Treat `origin/main`, or the project's designated canonical integration branch, as the Source of Truth for source-code state.
 
-### GitHub Issues
+### Issue
 
 A durable work item that can be planned, implemented, and reviewed independently should normally be an Issue.
 
@@ -416,29 +410,36 @@ Where relevant, each Issue should contain:
 - priority
 - size / estimate
 - area / component
-- target sprint / iteration
+- sprint / iteration
 - target release / milestone
 
 Split oversized Issues into vertically sliced tickets that are independently reviewable and mergeable.
 
-Do not create GitHub Issues for every short-lived research agent or internal implementation subtask. **Durable planning units are Issues; ephemeral execution units are Supervisor tasks.**
+Do not create GitHub Issues for every short-lived research agent or nested implementation subtask.
+
+**durable planning unit = GitHub Issue**
+
+**ephemeral execution unit = Supervisor task**
 
 ### GitHub Projects / Kanban
 
 When available, use GitHub Projects as the canonical work board.
 
-Suggested minimum fields:
+Minimum Status model:
 
-- Status: Backlog / Ready / In Progress / In Review / Done
+`Backlog -> Ready -> In Progress -> In Review -> Done`
+
+Recommended fields:
+
 - Priority
 - Size
 - Iteration / Sprint
 - Area / Component
 - Target Release
 
-Expose blocked/dependency state when useful.
+Expose Blocked/dependency state when useful.
 
-Do not allow unlimited WIP. The Coordinator selects Ready tickets based on dependencies and capacity, and keeps In Progress aligned with actual execution.
+Do not allow unlimited WIP. The Coordinator selects Ready, dependency-cleared tickets within capacity and keeps board state aligned with actual execution.
 
 ### Sprint / iteration
 
@@ -448,38 +449,94 @@ For each sprint:
 
 1. define the sprint goal
 2. select Ready tickets
-3. inspect dependencies
-4. allocate capacity / agent budget
-5. launch parallel workers
+3. inspect the dependency graph
+4. allocate human/agent capacity and budget
+5. launch isolated parallel workers
 6. use PR / review / CI as the Done gate
 7. re-plan unfinished tickets rather than silently treating them as complete
 
-When the project has a release date, connect sprint planning to milestone/release goals.
+When the project has a release date, connect sprint planning to milestone/target-release goals.
 
-### Branch / PR
+### Branch naming
 
-Default workflow:
+Normally create one integration branch per top-level Issue.
+
+Canonical format:
+
+`issue/<issue-number>-<short-slug>`
+
+Examples:
+
+- `issue/123-add-oauth`
+- `issue/418-fix-calendar-race`
+
+Do not omit the Issue number for normal ticket work.
+
+Ephemeral refs/commits returned by nested workers do not need this naming convention.
+
+### Draft PR first
+
+After an Issue begins and the integration branch has a meaningful initial commit, **open a Draft PR as early as practical**.
+
+Use the Draft PR as a durable integration surface rather than a completion announcement.
+
+Purposes:
+
+- Issue linkage
+- progress visibility
+- early CI
+- reviewer context
+- agent/human discussion
+- change-scope inspection
+
+The PR body should include at least:
+
+- `Closes #<issue-number>` or an explicit Issue link
+- acceptance criteria
+- change summary
+- validation status/results
+- known limitations / blockers
+
+### Ready for review
+
+Move a Draft PR to Ready for review only when:
+
+- Issue acceptance criteria are implemented
+- the integration quality gate has been run
+- blocking known issues are resolved or explicitly out of scope
+- the PR description matches the current implementation
+- the integration branch is reviewable
+
+### Merge / Done
+
+The standard Done boundary is:
+
+- acceptance criteria satisfied
+- required CI/checks green
+- blocking review resolved
+- canonical-base staleness handled
+- PR merged
+- linked Issue closed
+- GitHub Project status = Done
+
+Do not mark a ticket Done merely because a worker reports success.
+
+### Multi-agent branch integration
 
 - normally 1 top-level Issue = 1 integration branch = 1 PR
-- include the Issue number and short slug in the branch name
 - workers do not directly share and mutate the integration branch concurrently
 - workers return immutable commits/refs to the Coordinator
 - only the Coordinator/Supervisor integrates results into the integration branch in a defined order
-- explicitly link the PR to its Issue and use `Closes #<id>` when merge should close it
-- include acceptance criteria, change summary, validation results, and known limitations in the PR body
-- verify staleness against the canonical base before merge
+- nested subagents do not need individual PRs
+- verify canonical-base staleness before merge
 
-Nested subagents do not need individual GitHub PRs. Internal workers may return ephemeral refs/commits that are integrated into the top-level Issue PR.
-
-When the canonical branch advances, do not continuously force every task onto latest `main`; decide at integration time whether rebase, merge, or rerun is required.
+When the canonical branch advances, do not continuously force every ticket onto latest `main`; decide at integration time whether rebase, merge, or rerun is required.
 
 Write Git / GitHub messages in English.
 
 Commit format:
 
 `<work-prefix>: <extremely concise title>`
-
-Issues / PRs should use concise English titles and structured summaries.
 
 ---
 
@@ -498,13 +555,11 @@ Each durable node should have at least:
 - owner role
 - integration target
 
-Ready nodes with no unfinished prerequisites should run concurrently within real resource and WIP constraints.
+Ready nodes with no unfinished prerequisites should run concurrently within real resource/WIP constraints.
 
 Do not rely only on “these tasks touch the same file, therefore they must be serial.” Isolated sandboxes allow separate tasks to edit the same file independently.
 
 However, tasks that incompatibly change the same interface, generate the same artifact, or write the same external mutable resource require explicit dependency ordering or additional isolation.
-
-For phase dependencies:
 
 ```text
 Phase 1: parallel Issues
@@ -553,8 +608,8 @@ Move detailed workflows into Agent Skills.
 Prefer at least these four independent Skills:
 
 1. `parallel-orchestration`
-   - task graph
-   - subagent spawn/wait/result
+   - dependency graph
+   - spawn/wait/result
    - snapshot delegation
    - integration ordering
 
@@ -568,15 +623,15 @@ Prefer at least these four independent Skills:
    - Issues
    - Projects/Kanban
    - sprint/iteration
-   - branch/PR/review/merge
-   - board state transitions
+   - `issue/<number>-<slug>` branch
+   - Draft PR -> Ready -> merge -> Done
 
 4. `quality-gate`
    - formatter/lint/type-check/static analysis
    - tests/coverage/build
    - integration verification
 
-Add architecture/design/ADR, debugging, dependency hygiene, UI/browser, container/IaC, release/versioning, or external-documentation Skills when needed.
+Add architecture/design/ADR, debugging, dependency hygiene, UI/browser, container/IaC, review, release/versioning, or external-documentation Skills when needed.
 
 Ordinary tasks should reach relevant policy through short root pointers and Skills rather than rereading this full prompt.
 
@@ -608,7 +663,7 @@ Prefer:
 4. project-local adapter / protocol integration
 5. plugin / MCP only when it has a clear advantage
 
-For selections, evaluate necessity, reproducibility, maintenance, security, license, context cost, cross-platform support, and version pinning.
+Evaluate necessity, reproducibility, maintenance, security, license, context cost, cross-platform support, and version pinning.
 
 Record consequential choices of Supervisor, sandbox runtime, or agent runtime in ADRs.
 
@@ -624,24 +679,24 @@ First-class targets:
 - Windows 11 + WSL2 / WSL Containers
 - native Linux / NixOS
 - NixOS in containers
-- remote Linux sandboxes when needed
+- remote Linux sandboxes
 
 ### Common rules
 
 Avoid excessive dependence on host-specific paths and manual setup. Express project-local environments through declarative mechanisms such as:
 
-- Containerfile
-- devcontainer-compatible definition
+- `Containerfile`
+- devcontainer-compatible definitions
 - Nix flake / dev shell
 - declarative bootstrap scripts
 
 For portable web/backend work, prefer Linux sandboxes on both macOS and Windows/WSL to reduce drift from CI/remote execution.
 
-Use macOS-native workers only when Apple-native tooling such as Xcode/iOS/macOS is actually required. Preserve per-worker workspace/runtime isolation and immutable result semantics there as well.
+Use macOS-native workers only when Apple-native tooling is actually required. Preserve per-worker workspace/runtime isolation and immutable result semantics there as well.
 
-### macOS
+### macOS / Apple Silicon
 
-Treat `arm64` as a first-class architecture on Apple Silicon.
+Treat `arm64` as a first-class architecture.
 
 Verify:
 
@@ -653,7 +708,7 @@ Verify:
 
 Do not make Docker Desktop mandatory. Inspect current local container/VM runtimes and select one appropriate to the project.
 
-For portable projects, avoid making large sets of host-installed macOS system packages part of the required project state; keep them in a sandbox or declarative dev environment where practical.
+For portable projects, avoid making large sets of host-installed macOS system packages mandatory project state; keep them in a sandbox or declarative dev environment where practical.
 
 ### Windows + WSL2
 
@@ -809,26 +864,22 @@ Examples:
 
 Workers run focused validation for their scope. At integration checkpoints, the Coordinator or a dedicated verification agent runs the full applicable suite.
 
-Required CI/checks must pass before a PR moves to Done.
+Required CI/checks must pass before a PR moves to Ready/Done.
 
 False green states are prohibited, including:
 
 - skipped tests
 - `.only`
-- blanket ignores
-- blanket suppressions
+- blanket ignores/suppressions
 - ignored exit codes
 - `|| true`
 - no-fail options
 - disabled CI checks
+- lowered coverage thresholds or unjustified exclusions
 
 If an upstream warning cannot be fixed by the project, report it and do not claim a completely clean result.
 
-### Coverage
-
-Maintain at least 80% for meaningful testable source by default.
-
-Do not fake coverage by lowering thresholds or broadly excluding difficult files.
+Maintain at least 80% coverage for meaningful testable source by default.
 
 ---
 
@@ -907,7 +958,7 @@ CI should at least:
 
 - reproduce from a clean checkout
 - run required quality gates
-- validate Issue-linked PRs
+- validate Issue-linked Draft/Ready PRs
 - validate the canonical integration branch
 
 Evaluate PR labels, required reviewers, auto-merge, merge queues, and release workflows when useful.
@@ -923,7 +974,7 @@ Do not stash, commit, or discard user uncommitted changes merely to perform a mi
 Do not make any of the following standard practice:
 
 - multiple implementation agents directly editing one working tree
-- multiple agents concurrently committing/pushing to the same Git index or branch
+- multiple agents concurrently committing/pushing to the same Git index or integration branch
 - treating a worktree alone as complete isolation
 - manually assigning host ports per agent
 - sharing one writable DB/Redis instance across agents
@@ -933,6 +984,8 @@ Do not make any of the following standard practice:
 - using a hidden local orchestrator database as the only task Source of Truth
 - allowing the GitHub board to remain permanently inconsistent with actual execution state
 - repeatedly starting substantial feature work without an Issue
+- creating normal ticket branches without an Issue number
+- delaying the Draft PR until implementation is almost complete and losing early integration feedback
 - putting multiple unrelated tickets into one PR
 - integrating stale-base work without recognizing staleness
 - forcing dependent tasks into parallel execution merely to increase agent count
@@ -1008,12 +1061,13 @@ Where practical configure:
 - GitHub Project / Kanban
 - Iteration / Sprint field
 - Priority / Size / Area / Target Release fields
-- branch naming convention
+- branch naming convention `issue/<issue-number>-<short-slug>`
+- early Draft PR convention
 - Issue-linked PR convention
 - required checks
 - release/milestone convention
 
-Do not introduce process for formality. However, in projects that actually run several agents concurrently, prefer durable Issue/Project/PR state so active work is recoverable and inspectable.
+Do not introduce process merely for formality. However, in projects that actually run several agents concurrently, prefer durable Issue/Project/PR state so active work is recoverable and inspectable.
 
 Do not introduce frameworks, plugins, MCPs, or custom orchestrators merely for formality. Use native capabilities when they satisfy the requirements.
 
@@ -1035,7 +1089,9 @@ Before reporting initialization complete, verify at least:
 - durable work items can be managed as GitHub Issues
 - GitHub Projects/Kanban can track Backlog -> Ready -> In Progress -> In Review -> Done, or an equivalent durable state model exists
 - sprint/iteration and release goals can be represented when relevant
-- a top-level Issue can integrate through its branch/PR
+- a top-level Issue can create an `issue/<number>-<slug>` branch
+- a Draft PR can open after a meaningful initial commit
+- Draft -> Ready for review -> merge -> Issue close -> Done lifecycle is defined
 - Issue acceptance criteria and validation results are traceable from the PR
 - a deterministic validation entry point exists
 - README / AGENTS / Skills / ADRs do not conflict
@@ -1043,4 +1099,4 @@ Before reporting initialization complete, verify at least:
 - the chosen native/local/remote provider is explicit
 - canonical Git + GitHub work state remains recoverable if the provider disappears
 
-Finally, report the project-local configuration created or changed, Skill structure, selected Supervisor/runtime, macOS/WSL handling, GitHub Project/sprint workflow, parallelization model, validation results, and remaining constraints.
+Finally, report the project-local configuration created or changed, Skill structure, selected Supervisor/runtime, macOS/WSL handling, GitHub Project / sprint / Draft PR workflow, parallelization model, validation results, and remaining constraints.
