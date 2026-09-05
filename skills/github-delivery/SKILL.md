@@ -36,7 +36,7 @@ Git ref上の可読性とshell/URLでの扱いやすさのため、version separ
 
 ```text
 main
-└─ release-0-2-0
+└─ release-x-y-z
    ├─ 123
    ├─ 124
    └─ 125
@@ -91,10 +91,11 @@ Readyかつdependency解消済みticketからcapacity内で起動する。
 6. ticketごとにnumber-only branchを作る。
 7. isolated workerを並行起動する。
 8. ticket PRをrelease branchへ統合する。
-9. release branch全体を検証する。
-10. release PRを `main` へmergeする。
-11. version/release処理を完了する。
-12. 未完了ticketは次releaseへ明示的に再計画する。
+9. merge成功を確認後、linked Issueを明示的にcloseしてProject statusをDoneへ更新する。
+10. release branch全体を検証する。
+11. release PRを `main` へmergeする。
+12. version/release処理を完了する。
+13. 未完了ticketは次releaseへ明示的に再計画する。
 
 ## Ticket branch
 
@@ -142,7 +143,7 @@ PR title/bodyは日本語を標準とする。
 
 PR本文には最低限:
 
-- linked Issue (`Closes #<issue-number>` 等)
+- linked Issue (`Issue: #<issue-number>` 等。non-default release branch向けPRではclosing keywordによる自動closeに依存しない)
 - acceptance criteria
 - implementation summary
 - validation results
@@ -170,11 +171,13 @@ IssueのDone条件:
 - blocking review resolved
 - release branchとのstaleness handled
 - ticket PR merged into target `release-x-y-z`
-- linked Issue closed
+- linked Issue explicitly closed after successful merge
 - GitHub Project status moved to Done
 
 `main`へのmergeをIssue単位のDone条件にはしない。
-Issueはrelease branchへの統合時点でDoneになり得る。
+Issueはrelease branchへの統合後、explicit close / Project Done更新まで完了した時点でDoneになる。
+
+GitHubのclosing keywordはdefault branch向けPRでのみ自動closeに使えるため、ticket PRではmerge成功確認後にCoordinatorまたはdelivery automationがIssueを明示的にcloseする。`Closes #<issue-number>`だけをDone transitionにしない。
 
 ## Release integration
 
@@ -205,7 +208,7 @@ release PRがmergeされた時点で `main` がそのversionのreleased source s
 - 1 top-level Issue = 1 ticket branch = 1 ticket PRを基本とする。
 - ticket branchのbase/PR targetは該当 `release-x-y-z`。
 - implementation workerはticket branchを複数agentで直接共有しない。
-- nested workerはimmutable commit/refを返す。
+- nested workerはresolved immutable identityへpinされたcommit/ref resultを返す。
 - Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
 - release branchへはReadyなticket PRを通して統合する。
 - merge前にtarget release branchとのstalenessを確認する。
