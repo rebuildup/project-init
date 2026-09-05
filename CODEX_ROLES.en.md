@@ -28,7 +28,8 @@ Important:
 
 - Sol is not expected to become the host-level sandbox manager itself.
 - sandbox create/destroy, credential injection, and child lifecycle belong to the external Agent Supervisor/control plane.
-- integrate worker output as immutable commits/refs/diffs.
+- integrate worker output as immutable commits/diffs or never-moved refs pinned to a recorded commit SHA/content digest.
+- never re-resolve a mutable branch/ref name during integration; use the recorded immutable identity and reject ref movement.
 - do not place multiple implementation agents into one shared mutable working tree.
 
 Do not concentrate large amounts of mechanical implementation in Sol itself.
@@ -48,7 +49,7 @@ Primary responsibilities:
 
 Where practical, do not complete work using only the implementer's self-review.
 
-Start Reviewers from a clean snapshot of the integration candidate commit/ref rather than the implementer's dirty workspace.
+Start Reviewers from a clean snapshot pinned to the integration candidate commit SHA/content digest rather than from a mutable ref or the implementer's dirty workspace.
 
 ## Luna — primary implementation worker role
 
@@ -65,7 +66,7 @@ Primary responsibilities:
 
 When used as an implementation worker, run it in a **worker-specific isolated mutable execution environment**.
 
-The standard worker input is an immutable snapshot; the standard worker output is an immutable commit/ref/diff.
+The standard worker input is an immutable snapshot pinned to a resolved commit SHA/content digest; the standard worker output is an immutable commit/diff or a never-moved ref pinned to a recorded immutable identity.
 
 Delegate safely separable implementation to workers as much as practical to increase throughput. This does not mean prioritizing cost over quality.
 
