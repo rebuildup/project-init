@@ -10,7 +10,7 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 - 1 implementation worker = 1 isolated workspace/runtime。
 - mutable runtime stateはworker間で共有しない。
 - 同一内部portは使用してよい。host公開port / preview routeはruntime側で一意化する。
-- host Docker socketやmaster credentialをworkerへ渡さない。
+- host Docker socket、root-equivalent host capability、master credentialをworkerへ渡さない。
 - immutable/cacheable stateのみ共有する。
 - provider差はadapterへ閉じ込め、project semanticsを変えない。
 
