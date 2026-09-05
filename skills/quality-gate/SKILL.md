@@ -9,6 +9,8 @@ quality gateは固定bundleではない。
 
 実装ticketの完了はdeterministic checksで判定するが、**何をcheckするかはprojectの実stack、framework/runtimeのcurrent official guidance、既存architecture、release riskからcompileする**。
 
+このSkillは通常taskのvalidationだけでなく、**初期化時にquality infrastructureそのものを設計・導入・修復する責務**も持つ。
+
 ## 1. Initialization / recompile
 
 初回 `/init`、major framework/runtime upgrade、test architecture変更、CI/CD変更時はquality gateを再設計する。
@@ -71,7 +73,30 @@ validate:release
 
 AGENTS.mdにはcommandや不変条件への短いpointerだけを置き、詳細はこのSkillまたはproject-specific quality Skillへ分離する。
 
-## 3. Framework-native checksを優先する
+## 3. 調査だけで終わらず実装する
+
+初期化完了とはrecommendation reportを書くことではない。
+
+projectに必要なら実際に追加・修復する:
+
+- formatter / linter / static-analysis config
+- compiler / type-check config
+- unit / component / integration / E2E test infrastructure
+- framework/platform-specific validation
+- documentation tests
+- dependency/static analysis
+- coverage configuration
+- schema / migration validation
+- browser/device/OS/architecture matrices
+- production build/package checks
+- code/dependency/security checks
+- project-local specialized Agent Skills
+- `.github/workflows/*` quality workflows
+- required CI check structure
+
+既存の高品質な構成がある場合は理由なく置換せず、missing/incomplete/staleな部分だけreconcileする。
+
+## 4. Framework-native checksを優先する
 
 一般的なlint/test toolを機械的に追加する前に、framework/runtimeが持つ推奨・標準checkを確認する。
 
@@ -95,7 +120,7 @@ AGENTS.mdにはcommandや不変条件への短いpointerだけを置き、詳細
 
 frameworkが特定領域をE2Eで検証することを推奨する等、test levelに公式制約がある場合はそれをgate設計へ反映する。
 
-## 4. Agent Skills / toolingもstack-awareにする
+## 5. Agent Skills / toolingもstack-awareにする
 
 quality gateに必要なspecialized workflowがある場合、現在利用可能なofficial / maintained Agent Skills、plugin、CLI、LSP、MCP等を調査する。
 
@@ -109,7 +134,7 @@ quality gateに必要なspecialized workflowがある場合、現在利用可能
 
 frameworkごとの操作・検証手順を巨大なroot instructionへ埋め込まず、必要なSkillへprogressive disclosureする。
 
-## 5. GitHub Actionsをquality gateの実行基盤として設計する
+## 6. GitHub Actionsをquality gateの実行基盤として設計する
 
 GitHub Actionsを使用するprojectでは、local gateとCI gateを同じsemanticsへ揃える。
 
@@ -136,7 +161,7 @@ cacheにはsecretを入れず、untrusted PRからのwriteやexecutable cache po
 
 Actionsを増やすこと自体を目的にしない。local deterministic commandを薄くCIから呼ぶ構成を優先し、CIだけに存在するhidden test logicを増やしすぎない。
 
-## 6. Worker gate
+## 7. Worker gate
 
 workerは担当scopeで高速にfeedbackを得られるfocused validationを実行する。
 
@@ -153,11 +178,11 @@ project profileから必要なものだけ選ぶ。
 
 Worker gateはIntegration gateの代替ではない。
 
-## 7. Integration gate
+## 8. Integration gate
 
 Coordinatorまたは専用verification agentがclean integration candidateから、project profileで定義されたfull applicable suiteを実行する。
 
-候補:
+例候補:
 
 - formatter/check
 - lint/static analysis
@@ -166,7 +191,7 @@ Coordinatorまたは専用verification agentがclean integration candidateから
 - unit/component/integration/E2E tests
 - documentation tests
 - coverage
-- production build/package
+- build/package
 - container/IaC validation
 - schema/migration compatibility
 - security/dependency audit
@@ -174,7 +199,7 @@ Coordinatorまたは専用verification agentがclean integration candidateから
 
 「一般に良さそうだから全部」ではなく、project riskとofficial guidanceで適用範囲を決める。
 
-## 8. Release gate
+## 9. Release gate
 
 `release-x-y-z -> main` の前にはticket単位より広いrelease-level verificationを行う。
 
@@ -193,7 +218,7 @@ Coordinatorまたは専用verification agentがclean integration candidateから
 
 release gateはproject typeに合わせてcompileし、不要な項目を形式的に要求しない。
 
-## 9. PR Done gate
+## 10. PR Done gate
 
 - Issue acceptance criteriaを満たす。
 - project-specific required CI/checksが成功する。
@@ -201,7 +226,7 @@ release gateはproject typeに合わせてcompileし、不要な項目を形式�
 - known limitationを隠さない。
 - target `release-x-y-z` branchとのstalenessを確認する。
 
-## 10. False green禁止
+## 11. False green禁止
 
 - skipped test
 - `.only`
@@ -215,7 +240,7 @@ release gateはproject typeに合わせてcompileし、不要な項目を形式�
 
 projectから修正不能なupstream warningが残る場合は明示し、完全cleanと表現しない。
 
-## 11. Coverageは固定万能指標にしない
+## 12. Coverageは固定万能指標にしない
 
 coverageは意味のあるtestable sourceに対して有用な場合にenforceする。
 
@@ -225,7 +250,7 @@ coverageを高く見せるためだけのtest、threshold低下、広範囲exclu
 
 coverageが適切な品質指標でない領域では、別のdeterministic verificationへ置き換える。
 
-## 12. Re-evaluation triggers
+## 13. Re-evaluation triggers
 
 次の場合はquality profileを再compileする:
 
