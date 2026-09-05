@@ -170,23 +170,33 @@ manual verificationを暗黙の「見た感じOK」にしない。手順・期�
 
 ## 4. Quality profileをproject-localにcompileする
 
-通常taskで毎回再調査しなくて済む形へ落とす。
+通常taskで毎回再調査しなくて済むよう、**再現可能なcanonical quality profileをrepository-controlled stateとして必ず保存する。**
 
-明確化する:
+profileはproject conventionsに合う場所へ置く。標準候補は `quality/profile.yaml`、`quality/profile.json`、または同等のmachine-readable project-local configとし、既存のcanonical configがある場合はそれを再利用する。
 
+profileには最低限:
+
+- `schema_version`
+- profile version / updated-at or source revision
+- detected framework/runtime/SDK versions
+- official guidance source referencesと確認時点
 - test taxonomyとproject内の具体例
+- change-type -> required verification mapping
 - fast worker gate
 - ticket integration gate
 - release gate
 - canonical validation entry points
 - required CI checks
-- change-type -> required verification mapping
 - coverage policy when meaningful
 - browser/device/OS/architecture matrix
 - artifact/report paths
 - failure policy
 
-可能なら少数のstable entry pointへ集約する。
+を持たせる。
+
+worker / integration / releaseの各gateには、agentとCIが同じsemanticsで呼べるstable deterministic entry pointを**必須**で定義する。
+
+例:
 
 ```text
 validate:fast
@@ -195,6 +205,8 @@ validate:release
 ```
 
 実command名はproject conventionに合わせる。
+
+例外として、platform制約等で1つのlocal commandへ完全統合できない場合は、profileにその適用条件・runner/platform・required evidenceを明示し、agent/CIが別々の暗黙gateを選ばないようにする。
 
 ## 5. 調査だけで終わらず実装する
 
@@ -235,10 +247,10 @@ frameworkが特定領域をE2E/real runtimeで検証することを推奨する�
 
 優先:
 
-1. native agent capability
-2. project既存CLI
-3. framework official CLI
-4. short project-local Skill
+1. existing deterministic project command
+2. framework/runtime official CLI
+3. short project-local Skill wrapping deterministic tools
+4. native agent capability
 5. 明確な優位があるplugin/MCP
 
 ## 8. GitHub Actions
@@ -268,13 +280,13 @@ Actionsを増やすこと自体を目的にしない。CIだけのhidden test lo
 
 workerは担当scopeの高速feedbackを得る。
 
-変更risk mappingからfocused test/checkを選択する。
+canonical quality profileのworker entry pointと変更risk mappingからfocused test/checkを選択する。
 
 Worker gateはIntegration gateの代替ではない。
 
 ## 10. Ticket integration gate
 
-`<issue-number> -> release-x-y-z` のcandidateをclean environmentで検証する。
+`<issue-number> -> release-x-y-z` のcandidateをclean environmentで、canonical integration entry pointから検証する。
 
 最低限:
 
@@ -287,7 +299,7 @@ Worker gateはIntegration gateの代替ではない。
 
 ## 11. Release gate
 
-`release-x-y-z -> main` 前にticketより広いrelease-level verificationを行う。
+`release-x-y-z -> main` 前にcanonical release entry pointからticketより広いrelease-level verificationを行う。
 
 必要に応じて:
 
