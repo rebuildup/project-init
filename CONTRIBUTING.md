@@ -10,6 +10,8 @@
 
 `CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` もrole policyを変更する場合は同一変更で同期してください。
 
+通常task向けSkillを変更する場合は、full prompt / README / ADRと意味が矛盾しないようにしてください。
+
 ## 変更時に確認すること
 
 - project-local原則を弱めていないか
@@ -19,34 +21,86 @@
 - official architecture guidance優先を弱めていないか
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
-- Windows/WSL ContainersとNixOSの前提を壊していないか
+- macOS / Apple Silicon、Windows+WSL、Linux/NixOSのportabilityを壊していないか
+- WSL自体をworker isolationとして扱っていないか
 - `.env` / `.tmp/` / `.reference/` のpolicyと矛盾しないか
-- canonical Git remote/refをSoTとして維持しているか
+- canonical Git remote/refをsource SoTとして維持しているか
+- GitHub Issues / Projectsをdurable work SoTとして維持しているか
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
-- top-level PR integrationとbranch ownershipが曖昧になっていないか
-- multi-agent parallelismがdependency graphとresource limitsに基づいているか
+- Issue -> branch -> Draft PR -> Ready -> merge -> Done lifecycleを壊していないか
+- Issue番号付きbranch namingを維持しているか
+- multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 
 ## Multi-agent policy invariants
 
-現在のcanonical multi-agent modelはADR-0003です。
+canonical execution modelはADR-0003、delivery / cross-platform modelはADR-0004です。
 
 主要不変条件:
 
-- Git remote / canonical refがproject SoT
+- Git remote / canonical refがsource SoT
+- GitHub Issues / Projectsがdurable work SoT
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree-only isolationは禁止
 - immutable/cacheable stateのみ共有し、mutable runtime stateは隔離
 - parent -> childはimmutable snapshot
 - child -> parentはimmutable commit/ref/diff
 - Supervisorがsandbox/agent lifecycle、budget、credential、integrationを管理
-- workerが同じworking tree / Git index / branchを同時更新しない
-- top-level taskはindependent integration branch / PR
+- workerが同じworking tree / Git index / integration branchを同時更新しない
+- durable top-level workはIssueで管理
+- 1 top-level Issue = 1 integration branch = 1 PRを基本とする
+- canonical branch formatは `issue/<issue-number>-<short-slug>`
+- meaningful initial commit後にDraft PRを早期作成
 - nested workerはephemeral refs/commitsで統合可能
+- merge + Issue close + Project Doneを標準Done boundaryとする
 
 これらを変更する場合はADRを追加してください。
+
+## Progressive disclosure
+
+初期化promptは包括的で構いませんが、通常taskで毎回全文を読ませる構成へ戻してはいけません。
+
+標準Skill:
+
+- `skills/parallel-orchestration/SKILL.md`
+- `skills/sandbox-runtime/SKILL.md`
+- `skills/github-delivery/SKILL.md`
+- `skills/quality-gate/SKILL.md`
+
+Skillは短いtriggerと主要責務を持ち、必要なworkflowだけをcontextへ入れる構成にしてください。
+
+## GitHub workflow for this repository
+
+このrepository自身も可能な限りpolicyをdogfoodします。
+
+### Issue
+
+substantial policy changeはIssueを作成し、objective / acceptance criteria / scopeを明記してください。
+
+### Branch
+
+canonical format:
+
+`issue/<issue-number>-<short-slug>`
+
+### Pull Request
+
+意味のある最初のcommit後、早期にDraft PRを開いてください。
+
+Draft PR本文には最低限:
+
+- linked Issue / `Closes #<id>`
+- change summary
+- motivation
+- affected ADRs
+- validation status
+- known blockers
+
+を含めます。
+
+Ready for reviewへ移す前にJP/EN整合、ADR/README/Skill整合、Markdown構造、conflicting rulesを確認してください。
 
 ## Time-sensitive rules
 
@@ -56,12 +110,11 @@
 - native subagent / sandbox behavior
 - plugin / MCP / ACP / Agent Skills ecosystem
 - sandbox/runtime/provider ecosystem
+- macOS / WSL / Linux local runtime options
 - framework recommended architecture
 - testing / linting / dependency-analysis tools
 
 更新時はcurrent official sourceを確認してください。
-
-Codex role policyの時点表記が古くなった場合は `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` を同期更新し、decision自体が変わる場合は必要に応じて新ADRを作成してください。
 
 ## ADR
 
@@ -70,10 +123,13 @@ Codex role policyの時点表記が古くなった場合は `CODEX_ROLES.ja.md` 
 例:
 
 - project-local以外のscopeを標準化
-- canonical Git SoT modelを変更
+- canonical Git/GitHub SoT modelを変更
 - worktree-only isolationを許可
 - Supervisor architectureを変更
 - immutable snapshot/result protocolを変更
+- Issue/Project/PR delivery modelを変更
+- Draft PR / branch naming lifecycleを変更
+- cross-platform runtime strategyを変更
 - source/document language policyを変更
 - Python script禁止を変更
 - standard quality gateを緩和
@@ -97,31 +153,20 @@ commit format:
 
 `<prefix>: <very concise title>`
 
-空行の後に必要なsummary bulletを置いてください。
-
-## Pull Requests
-
-PRには最低限:
-
-- change summary
-- motivation
-- semantic differences between JP/EN, if any
-- affected ADRs
-- time-sensitive sources checked, when applicable
-
-を記載してください。
-
 ## Validation
 
 変更後は最低限:
 
 - `PROMPT.ja.md` と `PROMPT.en.md` のmajor section対応
 - role policy変更時の `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` 意味同値性
+- full promptと4つの標準Skillのoperational semantics整合
 - broken Markdown structureがないこと
 - conflicting rulesがないこと
 - ADR reference整合性
-- READMEの説明とprompt本体の一致
-- old shared-main / worktree-only assumptionsが残っていないこと
+- READMEの説明とprompt/Skill本体の一致
+- old shared-main / worktree-only assumptionsがcanonical ruleとして残っていないこと
 - parent/child snapshot/result semanticsが一貫していること
+- macOS / WSL/Linux portability policyが一貫していること
+- Issue-numbered branch / Draft PR lifecycleが一貫していること
 
 を確認してください。
