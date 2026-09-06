@@ -380,6 +380,8 @@ rootに置くもの:
 - `onboarding`
 - `agent-recovery`
 
+Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。`--global` を既定にしてはいけません。
+
 通常taskでは必要なSkillだけを読み、このfull promptを再読しない構成にしてください。
 
 ---
