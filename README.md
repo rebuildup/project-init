@@ -4,12 +4,55 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 ## Usage
 
+### Initialization prompt
+
 新規または既存 project で通常の `/init` 相当処理と同時に、用途に応じて次の prompt を渡してください。
 
 - [`PROMPT.ja.md`](./PROMPT.ja.md) — 日本語版。primary specification。
 - [`PROMPT.en.md`](./PROMPT.en.md) — 英語版。同じ operational semantics を定義。
 
 初期化時だけ包括的な prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
+
+### Install Agent Skills with `npx skills`
+
+`skills/` 配下の Agent Skills は [`skills` CLI](https://github.com/vercel-labs/skills) から直接導入できます。
+
+利用可能な Skill を確認:
+
+```bash
+npx skills add rebuildup/project-init --list
+```
+
+対話的に選択して current project へ導入:
+
+```bash
+npx skills add rebuildup/project-init
+```
+
+特定の Skill だけを導入:
+
+```bash
+npx skills add rebuildup/project-init --skill quality-gate
+```
+
+Codex を明示して導入:
+
+```bash
+npx skills add rebuildup/project-init --agent codex
+```
+
+全 Skill を Codex に導入:
+
+```bash
+npx skills add rebuildup/project-init --skill '*' --agent codex
+```
+
+`-g` / `--global` を付けると project-local ではなく user scope に導入できます。
+
+> [!IMPORTANT]
+> `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` / `PROMPT.en.md` は初期化用の包括的 prompt であり、`npx skills add` によって自動実行・適用されるものではありません。
+>
+> 新規 project の初期構築には `PROMPT.*.md` を使用し、その後の日常運用で必要な Skill を `npx skills` から導入する、という役割分担を想定しています。
 
 ## Repository layout
 
