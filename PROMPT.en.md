@@ -352,6 +352,8 @@ Default Skills:
 - `onboarding`
 - `agent-recovery`
 
+Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. Do not make `--global` the default.
+
 Normal tasks should load only the Skills they need, not this full prompt.
 
 ---
