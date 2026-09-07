@@ -47,14 +47,23 @@
 - GitHub Issues / Projectsをdurable work SoTとして維持しているか
 - `main`をreleased source stateとして維持しているか
 - sprintとtarget release versionが1:1で対応しているか
+- 通常sprint cadenceが1週間で維持されているか
 - `release-x-y-z`をsprint integration branchとして維持しているか
 - ticket branchがIssue番号だけになっているか
+- active durable branchにDraft PRが存在するか
+- branch作成 -> first meaningful commit -> immediate Draft PRが一つの開始手順になっているか
+- subagent/workerがdurable branchを作る場合にもDraft PR ruleが適用されるか
+- PR作成時にIssue linkage / assignee / reviewer / labels / target release / stack contextが適切に設定されるか
+- Issue dependency graphがcanonical dependency SoTとして維持されているか
+- stacked PRが同一repository・同一target releaseのlinear hard dependencyに限定されているか
+- stacked dependent ticketがexact predecessor snapshotへpinされているか
+- predecessor変更後にaffected downstream validationをcurrent SHAで再実行するか
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
-- ticket Draft PR -> release branch -> release PR -> main lifecycleを壊していないか
+- ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
 - release branch向けticket PRのmerge後にIssueを明示的にcloseする手順が維持されているか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 
@@ -65,21 +74,34 @@
 - ADR-0005: adaptive stack-aware quality gate compilation
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
+- ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
+ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
 
 ## Multi-agent / delivery invariants
 
 - Git remote / canonical ref = source SoT
 - GitHub Issues / Projects = durable work SoT
+- GitHub Issue dependency graph = durable dependency SoT
 - `main` = released/integrated source state
+- 通常sprint = 1週間
 - 1 sprint = 1 target semantic version
 - sprint integration branch = `release-<major>-<minor>-<patch>`
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - ticket branch = `<issue-number>`
-- ticket PR base = target release branch
-- meaningful initial commit後にDraft PRを早期作成
-- ticket PR merge後、non-default baseではclosing keywordに依存せずlinked Issueを明示的にcloseし、Project Doneへ移す = ticket Done
+- independent ticket PR base = target release branch
+- stacked dependent ticket PR base = immediate predecessor ticket branch
+- stack membersは同一target release branchをtrunkとして共有
+- stack-ready workはreviewable immutable predecessor snapshotへexact SHAでpin
+- predecessor変更時はdownstreamをreconcileし、affected validationをcurrent SHAで再実行
+- durable branch作成 -> first meaningful commit -> immediate Draft PRを一つの開始手順として扱う
+- active durable branchをDraft PRなしで継続しない
+- 上記Draft PR ruleはCoordinator / human / worker / subagentすべてに適用
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
+- 意味のない自己reviewerや架空labelでmetadataを埋めない
+- ticket PR merge後、non-default integrationではclosing keywordに依存せずlinked Issueを明示的にcloseし、Project Doneへ移す = ticket Done
+- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree-only isolationは禁止
@@ -123,6 +145,8 @@ worker / ticket integration / release gateを分離し、repository-controlled c
 
 coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
 
+validation resultはvalidated SHA/snapshotへpinします。stack rebase/update等でSHAが変わった場合、影響したrequired validationを再実行し、古いgreen resultをcurrent codeへ流用しません。
+
 ## Security maintenance invariants
 
 security source priority:
@@ -163,7 +187,8 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 - architecture/boundary理解
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
-- Issue選択 / ticket branch / Draft PR
+- weekly sprint / Issue selection / dependency / stack判断
+- ticket branch / immediate Draft PR / PR metadata
 - ADR/design/Skills discovery
 - troubleshooting
 - release/security/recovery workflow
@@ -191,13 +216,17 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 
 このrepository自身も可能な限りpolicyをdogfoodします。
 
-### Release branch
+### Sprint / release branch
 
-sprint開始時にtarget versionを決め、`main` から `release-<major>-<minor>-<patch>` を作成します。
+通常sprintは1週間です。
+
+sprint開始時にtarget versionとrelease dateを決め、`main` から `release-<major>-<minor>-<patch>` を作成します。
+
+release branchが`main`と同一な間はGitHub上PRを作れないため、最初のmeaningful integrated differenceが入った直後に `release-x-y-z -> main` のDraft release PRを開きます。
 
 ### Issue
 
-substantial policy changeはIssueを作成し、目的 / acceptance criteria / scopeを日本語で明記します。
+substantial policy changeはIssueを作成し、目的 / acceptance criteria / scope / dependency / target release / assigneeを日本語で明記します。
 
 ### Ticket branch
 
@@ -205,17 +234,42 @@ substantial policy changeはIssueを作成し、目的 / acceptance criteria / s
 
 ### Ticket Pull Request
 
-meaningful initial commit後、ticket branchからtarget release branchへDraft PRを開きます。
+branch作成後、最初のmeaningful commitを直ちに作り、その直後にDraft PRを開きます。Draft PRなしでそのbranchのactive implementationを継続しません。
+
+independent ticketはtarget release branchをbaseにします。
+同一releaseのlinear hard dependencyでは、dependent ticketをimmediate predecessor ticket branchへstackしてよいです。
 
 PR title/body/review discussionは日本語です。
 
-Ready前にacceptance criteria、required verification level、JP/EN semantics、ADR/README/Skill consistency、target release branch stalenessを確認します。
+作成時に少なくとも次を確認・設定します。
 
-merge後はPR baseがdefault branchではないため`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
+- linked Issue
+- assignee
+- reviewer / CODEOWNERS
+- established labels
+- acceptance criteria
+- target release
+- stack context if any
+- current validation / blockers
+
+meaningful reviewerがいない場合、自己reviewerを形式的に指定せず、その事実とreview automation / CI等の代替pathをPR bodyへ明記します。
+
+Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
+
+merge後はnon-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
+
+### Subagent / worker branches
+
+subagent/workerがdurable branchを作る場合も同じDraft PR lifecycleを適用します。
+
+PR作成権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Draft PRが作成されるまで追加implementationを進めません。
+
+ephemeral immutable result refはこのruleの対象外です。
 
 ### Release Pull Request
 
-release gate通過後 `release-x-y-z -> main` のPRを作成します。
+最初のrelease差分が入った時点でDraft release PRを開き、sprint中維持します。
+release gate通過後にReadyへ移し、`release-x-y-z -> main` をmergeします。
 
 ## Language policy
 
@@ -243,6 +297,7 @@ current official sourceを確認すべき対象:
 - framework/runtime security advisories
 - testing/linting/dependency-analysis tools
 - GitHub Actions guidance / first-party actions / security practices
+- GitHub Pull Request / stacked PR / branch protection / ruleset capabilities
 
 ## ADR対象
 
@@ -251,7 +306,10 @@ current official sourceを確認すべき対象:
 - canonical Git/GitHub SoT変更
 - Supervisor/sandbox model変更
 - release branch/sprint model変更
+- weekly sprint cadence変更
 - ticket branch naming変更
+- stacked PR / dependency integration model変更
+- Draft PR lifecycle / PR metadata contract変更
 - decision precedence / user escalation model変更
 - verification taxonomy / quality compiler変更
 - security advisory prioritization model変更
@@ -274,9 +332,14 @@ current official sourceを確認すべき対象:
 - broken Markdown structureがない
 - conflicting rulesがない
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
-- release/ticket branch lifecycleが一貫
+- 1週間sprint / release lifecycleが一貫
+- independent / stacked ticket PR base semanticsが一貫
+- active durable branchにDraft PRが必ず存在する運用になっている
+- worker/subagentにもDraft PR ruleが適用される
+- PR metadata requirementがIssue/Skill/promptで一貫
 - release branch向けticket PR merge後のexplicit Issue close手順が一貫
 - snapshot/resultがresolved immutable identityへpinされている
+- stack predecessor変更後のrevalidation policyが一貫
 - decision precedence / escalation boundaryが一貫
 - unit/smoke/integration/contract/E2E責務が一貫
 - security source/priority policyが一貫
