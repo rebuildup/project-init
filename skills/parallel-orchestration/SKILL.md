@@ -1,11 +1,11 @@
 ---
 name: parallel-orchestration
-description: 複数AIエージェントへtaskを分解・委譲し、immutable snapshot/resultで安全に並行統合する時に使用する。
+description: 複数AIエージェントへtaskを分解・委譲し、immutable snapshot/resultとdependency-aware stacked deliveryで安全に並行統合する時に使用する。
 ---
 
 # Parallel Orchestration
 
-非自明な実装をdependency graphへ分解し、Readyなnodeをresource/WIP制約内で最大限並行実行する。
+非自明な実装をdependency graphへ分解し、Readyまたはstack-readyなnodeをresource/WIP制約内で最大限並行実行する。
 
 ## Invariants
 
@@ -16,24 +16,40 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - sandbox lifecycleはworker外のSupervisorが管理する。
 - worktree単体をexecution isolationとみなさない。
 - durable planning unitはGitHub Issue、短命な内部subtaskはSupervisor taskとしてよい。
+- Issue dependency graphがdurable dependency SoTであり、Git branch topologyだけでdependencyを管理しない。
 - child lifecycleはparent model processではなくSupervisorが所有する。
 - すべてのmutable worker task/resultに `execution_generation` を必須で付与する。初期generationは `1` とし、recovery/reassignment時にSupervisorが原子的に進める。
 - result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
+- validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
+
+## Dependency readiness
+
+nodeは次のどちらかを満たす場合にspawn可能:
+
+1. unfinished prerequisiteがない
+2. hard predecessorが未mergeでも、reviewable immutable predecessor snapshotがあり `stack-ready` と判定できる
+
+`stack-ready` で開始する場合、worker inputへpredecessor Issue/PR identityとexact commit SHA / immutable snapshotを記録する。
+
+predecessorが後から変更された場合はaffected downstream task/branchをstaleとして扱い、base reconciliationとrequired revalidationを行う。
 
 ## Flow
 
-1. Issueのobjective / acceptance criteria / dependencyを読む。
-2. task graphを作る。
-3. 各nodeのinput snapshot / output contract / recovery boundaryを決める。
-4. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
-5. unfinished prerequisiteのないnodeをspawnする。
-6. meaningful boundaryでcheckpointする。
-7. worker resultをinspectし、result generationがcurrent generationと一致することを確認する。
-8. Coordinator/Supervisorだけがticket branchへ順序立てて統合する。
-9. integration checkpointごとにrequired validationを行う。
-10. Reviewerをclean candidate snapshotから起動する。
-11. GitHub board stateを実行状態と同期する。
+1. Issueのobjective / acceptance criteria / dependency / target releaseを読む。
+2. canonical Issue dependency graphからtask graphを作る。
+3. linear hard dependency segmentでstacked PRが適切かを判断する。
+4. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
+5. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
+6. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
+7. durable ticket branchをworker/subagentが作る場合、最初のmeaningful commit直後にDraft PRを作成する。Draft PRなしでactive implementationを継続しない。
+8. meaningful boundaryでcheckpointする。
+9. worker resultをinspectし、result generationとbase snapshotがcurrent expected stateに一致することを確認する。
+10. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
+11. integration checkpointごとにrequired validationを行う。
+12. predecessor変更でupstack/downstream branchが更新された場合、affected validationを再実行する。
+13. Reviewerをclean candidate snapshotから起動する。
+14. GitHub Issue / Project / PR metadataを実行状態と同期する。
 
 ## Spawn contract
 
@@ -43,7 +59,16 @@ mutable workerの最低限input:
 issue_or_task_id
 objective
 acceptance_criteria
+target_release
 base_snapshot
+predecessor_issue_or_pr
+predecessor_snapshot
+immediate_pr_base
+branch_identity
+expected_draft_pr
+assignee_expectation
+reviewer_expectation
+label_expectation
 execution_generation
 role
 allowed_tools
@@ -53,7 +78,27 @@ budget
 expected_result
 ```
 
+dependency / durable GitHub deliveryを使わない短命taskでは該当しないfieldはnull/omittedでよい。
+
 `filesystem_policy` / `network_policy` はSupervisorが実際にenforceする境界を表す。policy enforcementが別のruntime/provider設定で行われる場合も、spawn contractにはそのpolicy IDまたは解決済みpolicyを記録し、worker inputと実際のsandbox制約が追跡可能でなければならない。
+
+## Durable branch contract
+
+worker/subagentへdurable branch作成権限を与える場合、その権限はDraft PR lifecycleとセットで扱う。
+
+canonical sequence:
+
+1. branch作成
+2. first meaningful commit
+3. immediate Draft PR creation
+4. Issue linkage / assignee / reviewer / labels / target release / stack contextを設定
+5. implementation継続
+
+GitHub上のPRはhead/baseに差分がないと作れないため、branch作成とfirst commitとDraft PR creationを1つのoperational start procedureとして扱う。
+
+workerがPR mutation権限を持たない場合、first commit後ただちにSupervisor/Coordinatorへcontrolを返し、Draft PR作成完了までそのdurable branchでの追加implementationを進めない。
+
+Ephemeral immutable ref/resultはこのcontractの対象外。
 
 ## Result contract
 
@@ -62,9 +107,12 @@ mutable workerの最低限output:
 ```text
 agent_id
 issue_or_task_id
+target_release
 base_snapshot
+predecessor_snapshot
 execution_generation
 result_commit_or_ref
+draft_pr_identity
 summary
 validation_results
 known_issues
@@ -72,12 +120,34 @@ known_issues
 
 current `execution_generation` と一致しないresultは自動統合しない。
 
+recorded predecessor/base snapshotとcurrent expected baseが異なるresultはstale candidateとしてreconcileし、盲目的に統合しない。
+
+## Review handoff
+
+Reviewer inputはclean candidate snapshotへpinする。
+
+PR review contextには最低限:
+
+- linked Issue / acceptance criteria
+- target release
+- immediate stack predecessor if any
+- current head SHA
+- validation evidence for that SHA
+- known blockers
+- expected reviewer/CODEOWNERS context
+
+review後にhead SHAが変わった場合、古いapproval/validationがcurrent policy上有効かを再評価する。
+
 ## Parent failure
 
 parent agentが停止してもsafeなchildを自動破棄しない。
 
-recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationshipとcurrent generationを確認してから統合する。
+recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、current generationを確認してから統合する。
+
+GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable branchにDraft PRがない状態を正常状態として扱わない。
 
 ## Fallback
 
 true isolationが使えない場合、shared mutable workspaceで並列実装しない。read-only researchの並列化または安全な直列実装へ縮退する。
+
+stacked PRを安全に維持できない場合もdependency SoTを壊さず、predecessor merge後に通常ticketとして開始する直列workflowへ縮退する。
