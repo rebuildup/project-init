@@ -18,7 +18,7 @@ onboarding documentationは「READMEがある」ことではなく、fresh contr
 5. test / validationを実行
 6. weekly sprint / target release / Issue dependencyを確認
 7. Issueを選びticket branchを作成
-8. first meaningful commit直後にDraft PRを作成し、assignee / reviewer / labels / Issue linkage / target release / stack contextを設定
+8. first meaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成し、assignee / reviewer / labels / Issue linkage / target release / stack contextを設定
 9. independent ticketかstacked dependent ticketかを判断
 10. decision / design / ADR / Skillの参照先を発見
 11. common failureを切り分け
@@ -136,14 +136,16 @@ main
 - independent ticket PR baseはtarget release branch
 - stacked dependent ticket PR baseはimmediate predecessor ticket branch
 - stack membersは同じtarget release trunkを共有
-- branch作成 -> first meaningful commit -> immediate Draft PRを一つの開始手順として扱う
-- active durable branchをDraft PRなしで継続しない
-- subagent/workerがdurable branchを作る場合にも同じDraft PR ruleを適用
+- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱う
+- active durable branchをpublished commitとDraft PRなしで継続しない
+- subagent/workerがdurable branchを作る場合にも同じpublish + Draft PR ruleを適用
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定
 - predecessor変更後はdownstream branchをreconcileし、affected validationをcurrent SHAで再実行
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成
+- stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進む
 - release PRは `release-x-y-z -> main`
-- Draft -> Ready -> merge -> Issue close / Project Doneの条件
+- public repositoryでは`main`をprotected branch/rulesetで保護し、直接push/直接編集を禁止してrelease PRからのみ変更する
+- Draft -> Ready -> target release-trunk landing -> Issue close / Project Doneの条件
 
 意味のあるreviewerがいないrepositoryでは、形式的な自己reviewerを設定するのではなく、その事実と代替review pathを文書化する。
 
@@ -160,7 +162,7 @@ fresh agentが以前のchatを読めなくても、次を発見できるよう�
 - external side-effect journalの場所
 - recovery時にuserへ確認すべき条件
 
-active durable branchにDraft PRがない場合、それを正常状態として扱わず、branch/Issue ownershipを確認してdelivery surfaceを修復する。
+active durable ticket branchにDraft PRがない場合、それを正常状態として扱わず、branch/Issue ownershipを確認してdelivery surfaceを修復する。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後は同様にDraft release PRを必須とする。
 
 native session resumeの手順だけを書いてrecovery guideとしない。sessionが失われても復旧できるdurable pathを記載する。
 
@@ -174,6 +176,7 @@ docsもquality gateの対象にする。
 - broken links検出
 - setup pathをfresh environmentで確認
 - GitHub workflow exampleがcurrent delivery policyと一致するか検証
+- public repositoryの`main` protection/rulesetが実際に有効か確認
 - recovery pathをfresh agent/sandboxでdrill
 - version-sensitive instructionsをupgrade時にreview
 
@@ -190,6 +193,7 @@ docsもquality gateの対象にする。
 - sprint cadence / release workflow変更
 - stacked PR / dependency workflow変更
 - branch / Draft PR / PR metadata lifecycle変更
+- public repositoryのmain protection/ruleset変更
 - Supervisor/sandbox/recovery model変更
 - recurring troubleshooting knowledgeが増えた
 - security/dependency maintenance workflow変更
