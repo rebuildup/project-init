@@ -42,7 +42,7 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 4. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
 5. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
 6. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
-7. durable ticket branchをworker/subagentが作る場合、最初のmeaningful commit直後にDraft PRを作成する。Draft PRなしでactive implementationを継続しない。
+7. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
 8. meaningful boundaryでcheckpointする。
 9. worker resultをinspectし、result generationとbase snapshotがcurrent expected stateに一致することを確認する。
 10. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
@@ -84,19 +84,21 @@ dependency / durable GitHub deliveryを使わない短命taskでは該当しな�
 
 ## Durable branch contract
 
-worker/subagentへdurable branch作成権限を与える場合、その権限はDraft PR lifecycleとセットで扱う。
+worker/subagentへdurable branch作成権限を与える場合、その権限はremote publication + Draft PR lifecycleとセットで扱う。
 
 canonical sequence:
 
 1. branch作成
 2. first meaningful commit
-3. immediate Draft PR creation
-4. Issue linkage / assignee / reviewer / labels / target release / stack contextを設定
-5. implementation継続
+3. canonical remoteへcommitをpublish
+4. remote branch head SHAがfirst meaningful commit SHAと一致することを確認
+5. immediate Draft PR creation
+6. Issue linkage / assignee / reviewer / labels / target release / stack contextを設定
+7. implementation継続
 
-GitHub上のPRはhead/baseに差分がないと作れないため、branch作成とfirst commitとDraft PR creationを1つのoperational start procedureとして扱う。
+GitHub上のPRはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成・first commit・remote publication・remote head検証・Draft PR creationを1つのoperational start procedureとして扱う。
 
-workerがPR mutation権限を持たない場合、first commit後ただちにSupervisor/Coordinatorへcontrolを返し、Draft PR作成完了までそのdurable branchでの追加implementationを進めない。
+workerがremote publishまたはPR mutation権限を持たない場合、first meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返す。Supervisor/Coordinatorがcommitをpublishし、remote head SHA一致を確認し、Draft PR作成を完了するまでそのdurable branchでの追加implementationを進めない。
 
 Ephemeral immutable ref/resultはこのcontractの対象外。
 
@@ -144,7 +146,7 @@ parent agentが停止してもsafeなchildを自動破棄しない。
 
 recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、current generationを確認してから統合する。
 
-GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable branchにDraft PRがない状態を正常状態として扱わない。
+GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + Draft PRがない状態を正常状態として扱わない。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とする。
 
 ## Fallback
 
