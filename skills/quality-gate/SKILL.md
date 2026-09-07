@@ -27,6 +27,7 @@ quality gateは固定bundleではない。
 - generated-code boundary
 - browser / OS / CPU architecture targets
 - release/deploy target
+- GitHub PR topology: independent / stacked / release trunk
 
 次に実versionに対応するcurrent official documentationを調査する。
 
@@ -184,6 +185,7 @@ profileには最低限:
 - change-type -> required verification mapping
 - fast worker gate
 - ticket integration gate
+- stack reconciliation/revalidation policy
 - release gate
 - canonical validation entry points
 - required CI checks
@@ -273,6 +275,7 @@ GitHub Actionsを使用するprojectではlocal gateとCI gateを同じsemantics
 - secrets
 - action version/pinning
 - trusted/untrusted PR behavior
+- stacked PR / non-default baseのrequired-check semantics
 
 Actionsを増やすこと自体を目的にしない。CIだけのhidden test logicを増やさずproject-local validation entry pointを呼ぶ。
 
@@ -286,7 +289,14 @@ Worker gateはIntegration gateの代替ではない。
 
 ## 10. Ticket integration gate
 
-`<issue-number> -> release-x-y-z` のcandidateをclean environmentで、canonical integration entry pointから検証する。
+clean integration candidateで、canonical integration entry pointからticketに必要なverificationを実行する。
+
+PR topologyは固定しない:
+
+- independent ticket: `<issue-number> -> release-x-y-z`
+- stacked dependent ticket: `<issue-number> -> <immediate-predecessor-ticket-branch>`
+
+どちらでもticketは共通のtarget release trunkを持つ。
 
 最低限:
 
@@ -294,10 +304,26 @@ Worker gateはIntegration gateの代替ではない。
 - changed boundaryに必要なunit/smoke/integration/contract/E2E
 - formatter/lint/type/static/build等のapplicable checks
 - required CI checks
+- current head SHAとvalidation evidenceの一致
+- immediate PR base / target release trunkとのstaleness確認
 
 「all unit tests green」だけをintegration completionにしない。
 
-## 11. Release gate
+## 11. Stack reconciliation gate
+
+stack predecessorがreview/rebase/updateで変化した場合、affected downstream branchをdependency orderでreconcileする。
+
+必須:
+
+- previous `validated_sha` とcurrent head SHAを比較
+- SHAが変わったdownstream ticketではaffected required verificationを再実行
+- old green resultをcurrent headのpassとして流用しない
+- required CI/checksをcurrent headで再評価
+- predecessor contract/API/schema変更時はdependent contract/integration testを優先して再評価
+
+単なるbranch ref名ではなくresolved immutable SHAをvalidation identityにする。
+
+## 12. Release gate
 
 `release-x-y-z -> main` 前にcanonical release entry pointからticketより広いrelease-level verificationを行う。
 
@@ -314,16 +340,18 @@ Worker gateはIntegration gateの代替ではない。
 - upgrade/backward-compatibility
 - release-like environment smoke
 
-## 12. PR Done gate
+## 13. PR Done gate
 
 - Issue acceptance criteriaを満たす
 - required verification levelを満たす
-- required CI/checks成功
+- required CI/checksがcurrent SHAで成功
 - blocking review解消
 - known limitationを隠さない
-- target releaseとのstaleness確認
+- target release trunk / immediate predecessorとのstaleness確認
+- stack update後のaffected revalidation完了
+- PR metadata / linked Issueがcurrent delivery stateと一致
 
-## 13. False green禁止
+## 14. False green禁止
 
 禁止:
 
@@ -336,8 +364,9 @@ Worker gateはIntegration gateの代替ではない。
 - mock-only testをreal integrationと報告
 - manual check未実施を「動作確認済み」と報告
 - coverage threshold低下や不当exclude
+- predecessor変更後にold SHAのgreen resultを流用
 
-## 14. Coverageは固定万能指標にしない
+## 15. Coverageは固定万能指標にしない
 
 coverageは有用なtestable sourceでproject-specific policyとして利用する。
 
@@ -345,7 +374,7 @@ framework guidance、risk、code type、existing baselineを優先する。
 
 coverageが適切でない領域では別のdeterministic signalへ置き換える。
 
-## 15. Re-evaluation triggers
+## 16. Re-evaluation triggers
 
 次の場合はquality profileを再compileする:
 
@@ -354,6 +383,7 @@ coverageが適切でない領域では別のdeterministic signalへ置き換え�
 - architecture boundary変更
 - new app/platform target
 - CI workflow変更
+- PR/stack/release integration model変更
 - flaky/slow gateが開発速度を阻害
 - escaped regressionがgateの穴を示した
 - release process変更

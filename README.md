@@ -66,6 +66,23 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 >
 > 新規 project の初期構築には `PROMPT.*.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
 
+## Delivery model
+
+標準deliveryはGitHub Issues / Projects / Pull Requestsを中心とした **1週間のrelease sprint** です。
+
+- `main` = released/integrated source state
+- `release-x-y-z` = 1週間のsprint / target version integration branch
+- 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
+- Issue dependency graph = canonical dependency SoT
+- independent ticket PRはtarget release branchへ向ける
+- same-releaseのlinear hard dependencyはstacked PRとしてpredecessor branchへ向けられる
+- durable branchはfirst meaningful commit直後にDraft PRを必ず作成し、worker/subagentも例外にしない
+- PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
+- stack predecessor変更後はcurrent SHAでaffected validationを再実行する
+- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
+
+詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+
 ## Repository layout
 
 ```text
@@ -78,7 +95,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ docs/
 │  ├─ policy-overview.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0007.md
+│  │  └─ ADR-0001.md ... ADR-0008.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -104,10 +121,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 通常 task では必要な Skill だけを読み込みます。
 
-- `parallel-orchestration` — subagent 分解・snapshot/result 統合
+- `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / Projects / release sprint / Draft PR
-- `quality-gate` — stack-aware quality profile と verification taxonomy
+- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle
+- `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation 設計
@@ -115,4 +132,4 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues / Projects を work state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues / Projects を work/dependency state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
