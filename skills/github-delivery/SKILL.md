@@ -81,7 +81,7 @@ Dependency execution上は必要に応じて次を区別する:
 
 - `blocked`: prerequisite snapshotがまだ利用できない
 - `stack-ready`: reviewable immutable predecessor snapshotがあり、dependent workを開始できる
-- `integrated`: predecessorがtarget releaseへ統合済み
+- `integrated`: ticket changesがtarget release trunkへland済み
 
 この3状態はdependency semanticsであり、Project Status自体を必ず増やす必要はない。
 
@@ -95,12 +95,13 @@ Dependency execution上は必要に応じて次を区別する:
 6. ticketごとにnumber-only branchを作る。
 7. 最初のmeaningful commit直後にDraft PRを必ず作成し、metadataを設定する。
 8. isolated workerをdependency/WIP制約内で並行起動する。
-9. independent ticketまたはstacked ticketをreview/integrationする。
-10. ticket merge成功を確認後、linked Issueを明示的にcloseしてProject statusをDoneへ更新する。
-11. release branch全体を検証する。
-12. release PRを `main` へmergeする。
-13. version/release処理を完了する。
-14. 未完了ticketは次releaseへ明示的に再計画する。
+9. independent ticketまたはstacked ticketをreviewする。
+10. ticket/stackをtarget release trunkへlandし、landing成功を確認する。
+11. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、Project statusをDoneへ更新する。
+12. release branch全体を検証する。
+13. release PRを `main` へmergeする。
+14. version/release処理を完了する。
+15. 未完了ticketは次releaseへ明示的に再計画する。
 
 ## Ticket branch
 
@@ -237,24 +238,29 @@ DraftからReady for reviewへ移す条件:
 - target release branchまたはimmediate stack predecessorとのstaleness/conflictを処理済み
 - predecessor変更によるdownstream revalidationを処理済み
 
-## Ticket merge / Done
+## Ticket landing / Done
 
 IssueのDone条件:
 
 - acceptance criteria satisfied
-- required CI/checks green for current SHA
+- required CI/checks green for current landing candidate
 - blocking review resolved
 - release/stack staleness handled
-- ticket PRが意図したintegration pathへmerge済み
-- linked Issue explicitly closed after successful merge
+- ticket changesがtarget release trunkへland済み
+- linked Issue explicitly closed after successful trunk landing
 - GitHub Project status moved to Done
 
-通常stackはearliest predecessorからdownstreamへ順序立ててmergeする。
-platform/repository policyがatomic stack landingを安全に提供する場合は、stack内すべてのticketが個別にacceptance criteria / review / current-SHA validationを満たす時だけ使用してよい。merge後は各Issue/Project stateを明示的にreconcileする。
+independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。
 
-`main`へのmergeをIssue単位のDone条件にはしない。
+native stacked PRでは、stackはbottom（trunkに最も近いPR）からlandingする。選択したstacked PRをmergeすると、そのPRと未mergeのlower PRがcontiguous groupとしてtarget release trunkへlandする。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
 
-GitHubのclosing keywordはdefault branch向けPRでのみ自動closeに使えるため、non-default integrationではmerge成功確認後にCoordinatorまたはdelivery automationがIssueを明示的にcloseする。
+native stack landingを使えずordinary nested PRへfallbackする場合、例えば `124 -> 123` の通常mergeはintermediate integrationにすぎない。#124のchangesがtarget `release-x-y-z` へ到達するまでIssue #124をclose/Doneにしない。
+
+contiguous stack groupまたはstack全体を一括landingする場合、含まれるすべてのticketが個別にacceptance criteria / review / current-SHA validationを満たしていることを確認する。landing後に各Issue/Project stateを明示的にreconcileする。
+
+`main`へのmergeをIssue単位のDone条件にはしない。Issue Done boundaryはtarget release trunkである。
+
+GitHubのclosing keywordはdefault branch向けPRでのみ自動closeに使えるため、release trunkへのlanding成功確認後にCoordinatorまたはdelivery automationがIssueを明示的にcloseする。
 
 ## Release integration
 
@@ -292,7 +298,8 @@ release PRがmergeされた時点で `main` がそのversionのreleased source s
 - nested workerはresolved immutable identityへpinされたcommit/ref resultを返す。
 - durable branchを作るworker/subagentにはDraft PR creation / metadata contractも適用する。
 - Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
-- merge前にtarget release / predecessor / current validation SHAを確認する。
+- merge/landing前にtarget release / predecessor / current validation SHAを確認する。
+- Doneへ移す前にactual target release trunk上のlandingを確認する。
 
 ## Language policy
 
