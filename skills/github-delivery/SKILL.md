@@ -17,6 +17,23 @@ description: GitHub Issues / Projects / Pull Requestsを使い、1週間のrelea
 `main` はリリース済み・統合済みの安定状態を表す。
 通常のticket PRを直接 `main` へ向けない。
 
+## Public repository main protection
+
+public repositoryでは`main`をprotected branch / branch rulesetで必ず保護する。
+
+最低限のinvariant:
+
+- `main`へのdirect push / direct web edit / force push / deletionを通常運用で許可しない
+- `main`変更にはPull Requestを必須とする
+- normal actor/adminが保護を日常的にbypassする運用を作らない
+- `main`へmerge可能な正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする
+- ticket branchや任意branchから`main`へのPRを正規delivery pathとして認めない
+- required checks / review / conversation resolution等、projectで定義したrelease gateを満たしてからmergeする
+
+GitHubのbranch protection/rulesetだけではPRのhead branch名を完全には制約できない場合がある。その場合は、`base == main` のPRについて `head` がcanonical `release-*` patternかつ現在のtarget releaseであることを検証するrequired status check / GitHub Action等を追加し、release branch以外からの`main` mergeを機械的に拒否する。
+
+初期化時にrepository visibilityを確認し、publicなら`main` protection/rulesetの実在と有効性を検証する。設定変更権限がある場合は不足を作成・修復し、権限がない場合は未設定を明示的blockerとして報告する。
+
 ## Weekly release sprint
 
 通常のsprint期間は **1週間** とする。
@@ -35,7 +52,7 @@ canonical format:
 
 release branchはsprint開始時に `main` のrelease基準commitから作成する。
 
-緊急patchや明示的なrelease判断では1週間から外れてよいが、通常planning cadenceは1週間を基準とする。
+緊急patchや明示的なrelease判断では1週間から外れてよいが、通常planning cadenceは1週間を基準とする。patchでも`main`を直接変更せず、target patch release branch -> `main` のrelease PRを使用する。
 
 ## Issue
 
@@ -93,7 +110,7 @@ Dependency execution上は必要に応じて次を区別する:
 4. Ready ticketを選択する。
 5. dependency / stack候補 / capacityを確認する。
 6. ticketごとにnumber-only branchを作る。
-7. 最初のmeaningful commit直後にDraft PRを必ず作成し、metadataを設定する。
+7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを必ず作成し、metadataを設定する。
 8. isolated workerをdependency/WIP制約内で並行起動する。
 9. independent ticketまたはstacked ticketをreviewする。
 10. ticket/stackをtarget release trunkへlandし、landing成功を確認する。
@@ -123,19 +140,21 @@ nested workerが返すephemeral immutable ref/commitはこの命名規則の対�
 
 ## Branch creation and Draft PR are one start procedure
 
-**active durable branchには必ずDraft PRを持たせる。**
+**active durable ticket branchにはpublished remote headとDraft PRを必ず持たせる。**
 
-GitHubはbaseと差分のないbranchにはPRを作れないため、canonical sequenceは次の通り:
+GitHubはremoteで解決できないheadやbaseと差分のないbranchにはPRを作れないため、canonical sequenceは次の通り:
 
 1. durable branchを作成する
 2. 最初のmeaningful commitを直ちに作る
-3. Draft PRを直ちに作る
-4. Draft PRがない状態でactive implementationを継続しない
+3. そのcommitをcanonical remoteへpublishする
+4. remote branch head SHAがpublishしたcommit SHAと一致することを確認する
+5. Draft PRを直ちに作る
+6. published commit + Draft PRがない状態でactive implementationを継続しない
 
-「後でPRを作る」は禁止する。
+「後でpushする」「後でPRを作る」は禁止する。
 
 このruleはhuman / Coordinator / implementation worker / subagentのすべてに適用する。
-subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がDraft PRまで作成するか、最初のcommit後ただちにSupervisor/Coordinatorへcontrolを返してDraft PRを作成させる。Draft PRなしで追加implementationを継続しない。
+subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がpublish + remote head検証 + Draft PRまで完了する。remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返し、Supervisor/Coordinatorがcommit publication・remote head SHA確認・Draft PR作成を完了するまで追加implementationを進めない。
 
 Ephemeral immutable worker ref/resultはdurable branchではないため対象外。
 
@@ -266,7 +285,7 @@ GitHubのclosing keywordはdefault branch向けPRでのみ自動closeに使え�
 
 release branchは複数ticketの統合結果を保持するsprint integration lineである。
 
-release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。
+release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
 Draft release PRにもassignee / reviewer / labels / release goal / included Issues / current validation stateを設定し、release期間中維持する。
 
@@ -286,6 +305,8 @@ release PR:
 - known limitations
 - version/release metadata
 
+public repositoryでは`main` protectionにより、このrelease PR以外の経路で`main`を更新できない状態を維持する。
+
 release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
 
 ## Multi-agent integration
@@ -296,10 +317,11 @@ release PRがmergeされた時点で `main` がそのversionのreleased source s
 - all stack members share one target release trunk。
 - implementation workerはticket branchを複数agentで直接共有しない。
 - nested workerはresolved immutable identityへpinされたcommit/ref resultを返す。
-- durable branchを作るworker/subagentにはDraft PR creation / metadata contractも適用する。
+- durable branchを作るworker/subagentにはremote publication + Draft PR creation / metadata contractも適用する。
 - Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
 - merge/landing前にtarget release / predecessor / current validation SHAを確認する。
 - Doneへ移す前にactual target release trunk上のlandingを確認する。
+- public repositoryでは`main` protection/rulesetとrelease-only main merge checkを初期化・検証する。
 
 ## Language policy
 
