@@ -6,9 +6,9 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 - `PROMPT.ja.md` — 日本語版の初期化prompt本体。
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
-- `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合。
+- `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/github-delivery/SKILL.md` — Issues / Projects / release sprint / branch / Draft PR / release integration。
+- `skills/github-delivery/SKILL.md` — Issues / Projects / weekly release sprint / stacked PR / Draft PR / release integration。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
@@ -22,6 +22,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0005.md` — framework/runtime固有のadaptive quality gate compilation。
 - `ADR-0006.md` — decision hierarchy / verification taxonomy / security maintenance / onboarding。
 - `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
+- `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -38,7 +39,10 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- GitHub Issues / Projects / Pull Requestsによるticket-driven release sprint workflow
+- GitHub Issues / Projects / Pull Requestsによるweekly ticket-driven release sprint workflow
+- dependency-aware stacked PR delivery
+- durable branchごとのremote publication + mandatory Draft PR lifecycleとPR metadata management
+- public repositoryのprotected `main` / release-only main integration
 - framework/runtime固有のadaptive deterministic quality gates
 - unit / smoke / integration / contract / E2Eのproject固有verification model
 - project-local validation commands / GitHub Actions / required CI checks
@@ -49,7 +53,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + release branchをsprint integration lineとする + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -77,6 +81,8 @@ Agent Supervisor
 - 複数agentが同じworking tree / Git index / ticket branchを同時更新しない
 - Supervisorはworker sandbox外でlifecycle / budget / credential / execution generationを管理
 - native session resumeが失敗してもfresh agentがdurable stateから復旧可能
+- durable ticket branchを作るworker/subagentにもremote publish + Draft PR lifecycleを適用
+- validation evidenceはcurrent SHA/snapshotへpinし、stack update後にstale successを流用しない
 
 ## Local development targets
 
@@ -97,7 +103,11 @@ Docker Desktopは必須前提にしません。
 
 ## GitHub agile delivery
 
-標準構造:
+通常sprintは **1週間** です。
+
+1 sprint = 1 target semantic version = 1 release integration branchを維持します。
+
+independent tickets:
 
 ```text
 main
@@ -107,26 +117,42 @@ main
    └─ 125
 ```
 
+hard dependency stack:
+
+```text
+main
+└─ release-0-2-0
+   └─ 123
+      └─ 124
+         └─ 125
+```
+
 意味:
 
 - `main`: リリース済み・統合済みsource state
-- `release-x-y-z`: そのversionを目標とするsprint integration branch
+- `release-x-y-z`: そのversionを目標とするweekly sprint integration branch / stack trunk
 - `<issue-number>`: 1 ticketのdurable branch
+- GitHub Issue / Project dependency metadata: canonical dependency SoT
+- stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
 
 標準ライフサイクル:
 
 ```text
-Version / Release Goal
+Weekly Version / Release Goal
         ↓
 release-x-y-z
         ↓
-GitHub Issue
+GitHub Issue + dependency
         ↓
-Project: Ready
+Project: Ready / stack-ready
         ↓
 <issue-number>
         ↓
-Draft PR -> release-x-y-z
+first meaningful commit
+        ↓
+remote publish + remote head SHA verify
+        ↓
+immediate Draft PR + metadata
         ↓
 Isolated parallel workers
         ↓
@@ -134,13 +160,15 @@ Verification + CI + Review
         ↓
 Ready for review
         ↓
-Ticket merge
+Ticket / contiguous stack landing
+        ↓
+target release trunk reached
         ↓
 Issue close + Project: Done
         ↓
 Release-wide verification
         ↓
-release-x-y-z -> main PR
+release-x-y-z -> protected main
         ↓
 Release complete
 ```
@@ -150,16 +178,43 @@ Release complete
 - durable planning unitはGitHub Issue
 - short-lived nested subtaskはSupervisor taskでよい
 - GitHub Project/Kanbanは `Backlog -> Ready -> In Progress -> In Review -> Done`
+- 通常sprintは1週間
 - sprintはtarget semantic versionで識別する
 - release branch formatは `release-<major>-<minor>-<patch>`
 - ticket branch formatはIssue番号だけ: `123`
 - branch名へ `issue/` prefixやslug/titleを入れない
 - 1 top-level Issue = 1 ticket branch = 1 ticket PRを基本とする
-- ticket PRのbaseは該当release branch
-- meaningfulな最初のcommit後、可能な限り早くDraft PRを開く
+- Issue dependency graphをcanonical dependency SoTにする
+- independent ticket PRのbaseはtarget release branch
+- same-release linear hard dependencyではdependent ticket PRをimmediate predecessor ticket branchへstackできる
+- stack membersは同じrelease branchをtrunkとして共有する
+- reviewable immutable predecessor snapshotがあればpredecessor merge前でもdependent ticketをstack-readyとして開始できる
+- branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> Draft PRを一つの開始手順として扱う
+- active durable ticket branchをpublished remote head + Draft PRなしで継続しない。subagent/workerも例外ではない
+- remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後にhandoffし、Coordinator/Supervisorがpublish + Draft PR作成を完了するまで追加implementationを進めない
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定する
+- predecessor変更でdownstream SHAが変わったらaffected validationを再実行する
 - acceptance criteriaとticket quality gateを満たしてからReady for reviewへ移す
-- ticket PR merge + Issue close + board updateをticket Done boundaryとする
+- stacked ticketはintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue close + board updateを行う
+- native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
+- release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
 - sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+
+### Public repository main protection
+
+public repositoryでは`main`をbranch protection / rulesetで保護します。
+
+最低限:
+
+- direct push / direct web edit / force push / deletionを通常運用で禁止
+- `main`への変更はPull Request必須
+- protectionを通常のadmin/automationが安易にbypassしない
+- `main`への正規delivery pathは `release-x-y-z -> main` のrelease PRのみ
+- release gateのrequired checks / review / conversation resolution等を満たしてからmerge
+
+branch protection/rulesetだけでPR head branch patternを制限できない場合は、`base == main` のPRについて `head == release-*` かつcurrent target releaseであることを検証するrequired GitHub Actions/status checkを追加し、ticket/arbitrary branchから`main`へのmergeを機械的に拒否します。
+
+初期化時にrepository visibilityとmain protection/rulesetを実際に確認し、public repositoryで不足していれば作成・修復します。権限不足で変更できない場合は未保護状態をblockerとして報告します。
 
 ## Engineering decision policy
 
@@ -217,6 +272,8 @@ quality gateは全project共通の固定bundleではありません。
 
 local commandとGitHub Actionsは可能な限り同じdeterministic entry pointを呼びます。
 
+validation evidenceはvalidated SHA/snapshotに結び付けます。stack rebase/updateでSHAが変わった場合は影響したrequired verificationを再実行します。
+
 coverageは有効なprojectでは利用しますが、一律thresholdを盲目的に全projectへ強制しません。
 
 ## Security maintenance
@@ -234,7 +291,7 @@ source priority:
 
 priorityはseverityだけでなくexploitability、project reachability、external exposure、impact、fix availability、regression risk、target release timingで決定します。
 
-meaningful advisoryはGitHub Issueへ変換し、target releaseを割り当てます。critical exposed vulnerabilityではcurrent sprintを中断してpatch releaseを切ることも許可します。
+meaningful advisoryはGitHub Issueへ変換し、target releaseを割り当てます。critical exposed vulnerabilityではcurrent sprintを中断してpatch releaseを切ることも許可しますが、patchでも`main`を直接変更せずpatch release branchからrelease PRを使用します。
 
 projectに適切ならdependency review、code scanning、secret scanning、container scanning、SBOM等も初期化時に導入・修復します。
 
@@ -244,15 +301,18 @@ AI agentの作業継続はconversation historyへ依存させません。
 
 native thread/session/subagent resumeは高速経路として利用できますが、canonical recoveryは次からfresh agentが再構成できることです。
 
-- Issue / Project
+- Issue / Project / dependency state
 - target release branch
-- ticket branch / commit graph
-- Draft/Ready PR / review / CI
+- ticket branch / remote commit graph
+- Draft/Ready PR / assignee / reviewer / labels / review / CI
+- stack predecessor / pinned predecessor SHA when relevant
 - design / ADR / Skills / docs
 - immutable child results
 - structured recovery checkpoint
 
 long-running taskはmeaningful boundaryでcheckpointを作ります。保存するのはprivate chain-of-thoughtではなく、task identity、base/checkpoint snapshot、completed/next steps、pending validation、active children、external side effects、blockers、decision/artifact refsなどのoperational stateです。
+
+active durable ticket branchではmeaningful stateがcanonical remoteへpublishされ、remote head identityとDraft PRが追跡できることをhard recovery boundaryに含めます。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後はDraft release PRを必須とします。
 
 ### Recovery levels
 
@@ -280,7 +340,7 @@ context limit接近はplanned handoff eventです。objective、accepted decisio
 
 fresh contributorや新しいagentが会話履歴・private memoryなしで開発開始できることを初期化完了条件に含めます。
 
-repository-controlled docsから最低限、project purpose / architecture / bootstrap / run / migrate / validation / GitHub workflow / decision precedence / ADR / troubleshooting / release/security/recovery workflowへ到達できるようにします。
+repository-controlled docsから最低限、project purpose / architecture / bootstrap / run / migrate / validation / weekly sprint / Issue dependency / ticket branch / remote publication / immediate Draft PR / PR metadata / stacked PR / protected main / decision precedence / ADR / troubleshooting / release/security/recovery workflowへ到達できるようにします。
 
 project規模に応じて `README.md`、`CONTRIBUTING.md`、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md` 等へprogressive disclosureします。
 
@@ -321,10 +381,17 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
-- GitHub Issues / Projectsをdurable work SoTとする。
+- GitHub Issues / Projectsをdurable work/dependency SoTとする。
 - `main`をreleased source stateとする。
+- public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
+- 通常sprintは1週間。
 - sprintごとに `release-x-y-z` integration branchを使用する。
 - ticket branchはIssue番号だけを使用する。
+- 1 top-level Issue = 1 durable branch = 1 ticket PRを基本とする。
+- independent PRはrelease branch、same-release linear hard dependencyはpredecessor branchへstack可能。
+- active durable ticket branchはfirst meaningful commitをremoteへpublishしてhead SHAを確認した直後にDraft PRを持つ。worker/subagentも例外なし。
+- PR作成時にIssue linkage / assignee / reviewer/CODEOWNERS / established labels / release / stack contextを設定する。
+- stacked ticket Doneはintermediate mergeではなくtarget release trunk landingで判定する。
 - implementation workerごとにisolated mutable runtimeを使用。
 - worktree-only isolationは禁止。sandbox内部実装としてのworktreeは許可。
 - nested delegationはimmutable snapshot/resultを使用。
@@ -359,6 +426,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / Projects / PR configuration
+- public main protection -> branch protection/ruleset + required release-source check when necessary
 
 へ分解します。
 

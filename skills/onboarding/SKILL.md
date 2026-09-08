@@ -16,11 +16,13 @@ onboarding documentationは「READMEがある」ことではなく、fresh contr
 3. local environmentをbootstrap
 4. application / serviceを起動
 5. test / validationを実行
-6. Issueを選びticket branchを作成
-7. Draft PRをtarget release branchへ作成
-8. decision / design / ADR / Skillの参照先を発見
-9. common failureを切り分け
-10. 中断されたticketをIssue / PR / Git / checkpointから復旧
+6. weekly sprint / target release / Issue dependencyを確認
+7. Issueを選びticket branchを作成
+8. first meaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成し、assignee / reviewer / labels / Issue linkage / target release / stack contextを設定
+9. independent ticketかstacked dependent ticketかを判断
+10. decision / design / ADR / Skillの参照先を発見
+11. common failureを切り分け
+12. 中断されたticketをIssue / PR / Git / checkpointから復旧
 
 ## 2. Document structure
 
@@ -33,7 +35,7 @@ project規模に合わせて最小限に構成する。
 - `docs/architecture.md`: system boundaries / dependency direction / data flow
 - `docs/development.md`: bootstrap / run / test / validation
 - `docs/troubleshooting.md`: recurring failure / diagnosis
-- `docs/release.md`: release sprint / version / deployment
+- `docs/release.md`: weekly release sprint / version / deployment
 - `docs/security.md`: security maintenance / reporting when appropriate
 - `docs/recovery.md`: checkpoint / recovery / external side-effect workflow when complexity justifies it
 - ADR directory
@@ -105,7 +107,9 @@ root agent instruction / CONTRIBUTING / development docsから、canonical polic
 
 ## 7. GitHub workflow guide
 
-明示する:
+通常sprintが1週間で、1 sprint = 1 target semantic version = 1 release branchであることを明示する。
+
+independent ticket:
 
 ```text
 main
@@ -113,24 +117,52 @@ main
    └─ <issue-number>
 ```
 
+stacked hard dependency:
+
+```text
+main
+└─ release-x-y-z
+   └─ 123
+      └─ 124
+         └─ 125
+```
+
+明示する:
+
 - Issue/PRは日本語
 - commitは英語
 - ticket branchはIssue番号のみ
-- ticket PR baseはtarget release branch
+- Issue dependency graphがcanonical dependency SoT
+- independent ticket PR baseはtarget release branch
+- stacked dependent ticket PR baseはimmediate predecessor ticket branch
+- stack membersは同じtarget release trunkを共有
+- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱う
+- active durable branchをpublished commitとDraft PRなしで継続しない
+- subagent/workerがdurable branchを作る場合にも同じpublish + Draft PR ruleを適用
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定
+- predecessor変更後はdownstream branchをreconcileし、affected validationをcurrent SHAで再実行
+- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成
+- stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進む
 - release PRは `release-x-y-z -> main`
-- Draft -> Ready -> merge -> Doneの条件
+- public repositoryでは`main`をprotected branch/rulesetで保護し、直接push/直接編集を禁止してrelease PRからのみ変更する
+- Draft -> Ready -> target release-trunk landing -> Issue close / Project Doneの条件
+
+意味のあるreviewerがいないrepositoryでは、形式的な自己reviewerを設定するのではなく、その事実と代替review pathを文書化する。
 
 ## 8. Recovery discovery
 
 fresh agentが以前のchatを読めなくても、次を発見できるようにする。
 
 - current Issue / PR / target release
+- immediate stack predecessor / pinned predecessor SHA when applicable
 - ticket branch / checkpointの見つけ方
 - `agent-recovery` Skill
 - current/next validation command
 - active child/subagentの確認方法
 - external side-effect journalの場所
 - recovery時にuserへ確認すべき条件
+
+active durable ticket branchにDraft PRがない場合、それを正常状態として扱わず、branch/Issue ownershipを確認してdelivery surfaceを修復する。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後は同様にDraft release PRを必須とする。
 
 native session resumeの手順だけを書いてrecovery guideとしない。sessionが失われても復旧できるdurable pathを記載する。
 
@@ -143,10 +175,12 @@ docsもquality gateの対象にする。
 - documented commandsをCI/fresh sandboxで実行
 - broken links検出
 - setup pathをfresh environmentで確認
+- GitHub workflow exampleがcurrent delivery policyと一致するか検証
+- public repositoryの`main` protection/rulesetが実際に有効か確認
 - recovery pathをfresh agent/sandboxでdrill
 - version-sensitive instructionsをupgrade時にreview
 
-「READMEには書いてあるがfresh cloneでは動かない」「recovery guideはあるがcheckpointから復旧できない」を許容しない。
+「READMEには書いてあるがfresh cloneでは動かない」「recovery guideはあるがcheckpointから復旧できない」「CONTRIBUTINGだけ古いPR lifecycleのまま」を許容しない。
 
 ## 10. Update triggers
 
@@ -156,7 +190,10 @@ docsもquality gateの対象にする。
 - architecture boundary変更
 - framework/runtime migration
 - environment/host support変更
-- release workflow変更
+- sprint cadence / release workflow変更
+- stacked PR / dependency workflow変更
+- branch / Draft PR / PR metadata lifecycle変更
+- public repositoryのmain protection/ruleset変更
 - Supervisor/sandbox/recovery model変更
 - recurring troubleshooting knowledgeが増えた
 - security/dependency maintenance workflow変更
