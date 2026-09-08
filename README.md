@@ -80,6 +80,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
 - stack predecessor変更後はcurrent SHAでaffected validationを再実行する
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
+- tag-triggered publishを使う場合はtag version / authoritative project version / release SHAの整合を検証する
 
 詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
@@ -94,6 +95,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ LICENSE
 ├─ docs/
 │  ├─ policy-overview.md
+│  ├─ audits/
+│  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
 │  │  └─ ADR-0001.md ... ADR-0008.md
 │  └─ roles/
@@ -113,6 +116,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ## Documentation
 
 - [`docs/policy-overview.md`](./docs/policy-overview.md) — policy 全体の背景、実行モデル、GitHub delivery、quality/security/recovery 方針。
+- [`docs/audits/2026-09-09-lost-rule-audit.md`](./docs/audits/2026-09-09-lost-rule-audit.md) — 初期版から現行版へのsemantic audit。意図的revisionとsilent lossを分類し、復元対象を追跡します。
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -123,12 +127,20 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle
-- `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy
-- `engineering-decisions` — project 内の判断優先順位と escalation policy
+- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
+- `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification
+- `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
-- `onboarding` — fresh contributor 向け documentation 設計
+- `onboarding` — fresh contributor 向け documentation、`.tmp/` / `.reference/` / env / `.gitignore` hygiene、fresh-clone audit
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
+
+## Policy integrity
+
+このrepositoryでは、文書の大規模な再構成でline countが増えていてもoperational ruleが失われ得ることを前提にします。
+
+policy sectionを削除・統合・Skillへ移動する場合は、各normative ruleについて **new canonical location / explicit revision / intentional removal** のいずれかを追跡できるようにし、どれにも該当しないsilent semantic deletionを許容しません。
+
+2026-09-09のbaseline監査は [`docs/audits/2026-09-09-lost-rule-audit.md`](./docs/audits/2026-09-09-lost-rule-audit.md) を参照してください。
 
 ## Core principle
 

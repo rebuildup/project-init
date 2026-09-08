@@ -309,6 +309,32 @@ public repositoryでは`main` protectionにより、このrelease PR以外の経
 
 release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
 
+## Version / tag-triggered release consistency
+
+versionはSemantic Versioning `MAJOR.MINOR.PATCH` をcanonical formとする。external ecosystem上の明確な理由がない限り省略形式を使わない。
+
+tag pushをpublish/release triggerとして使用するprojectでは、tag versionとauthoritative package/project versionを必ず一致させる。
+
+例:
+
+- tag: `v1.4.2`
+- authoritative version: `1.4.2`
+
+release automationは不一致を自動修正して続行せずfailする。
+
+conditional minimum sequence:
+
+1. tag format validation
+2. semantic version extraction
+3. authoritative version comparison
+4. current release SHAに対するfull applicable release gate
+5. release build/package
+6. successful validation後のみpublish/release
+
+複数release unitを持つprojectではauthoritative version sourceまたはunitごとのversion policyを明示する。
+
+weekly release branch modelとtag releaseは競合しない。release branch/PRがsource delivery、tag/publishがartifact deliveryに使われる場合、両者が同じintended version/SHAを指すことを検証する。
+
 ## Multi-agent integration
 
 - 1 top-level Issue = 1 ticket branch = 1 ticket PRを基本とする。

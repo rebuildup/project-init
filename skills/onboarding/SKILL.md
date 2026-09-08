@@ -199,3 +199,136 @@ docsもquality gateの対象にする。
 - security/dependency maintenance workflow変更
 
 実装変更でdocsがstaleになるなら同じticket/PR内で更新する。
+
+## 11. Temporary artifact contract
+
+一時的な検証・調査artifactはrepository root直下の `.tmp/` 以下へ集約する。
+
+対象例:
+
+- test result / report
+- 一次log
+- screenshot
+- trace
+- diagnostic file
+- generated verification artifact
+- temporary fixture
+- one-off investigation output
+
+禁止:
+
+- repository rootへ一時fileを直接散らす
+- `.tmp/` artifactを通常sourceとして参照する
+- 正式なdocumentation/test fixture等へ明示的に昇格していない一時artifactをcommitする
+
+`.tmp/` はGit ignoreする。正式artifactへ昇格する場合はcanonical locationへ移し、temporary originへ依存しない状態にする。
+
+## 12. External reference repository contract
+
+外部repositoryをsource/design/referenceとして調査する必要がある場合、target project root直下の `.reference/` 以下へcloneできる。
+
+`.reference/` はGit ignoreし、reference repositoryをproject本体の一部として扱わない。
+
+禁止:
+
+- project source treeへ直接組み込む
+- implicit build dependencyにする
+- implicit runtime dependencyにする
+- reference repository内の変更をtarget projectの成果物としてcommitする
+- `.reference/` の存在をfresh clone / build / test / runの必須条件にする
+
+必要な時だけcloneし、削除してもprojectが正常にbootstrap/build/test/runできる状態を維持する。
+
+source/code/designをcopyする場合は事前にlicense / redistribution / attribution / copied-source restrictionを確認する。
+
+## 13. Environment / `.gitignore` hygiene
+
+actual dotenvのcanonical policy:
+
+- `.env`
+- `.env.development`
+- `.env.production`
+
+を実値用として扱いGit ignoreする。
+
+committed schema/example:
+
+- `.env.example`
+- `.env.development.example`
+- `.env.production.example`
+
+を許可する。
+
+example filesはenvironment variable schemaとして維持し、GitHub Actions / GitHub Secretsで使用するvariable名も対応するexampleへ反映する。secretにはvalueを書かず `SECRET_NAME=` のようにnameだけを残す。public configurationだけsafe example valueを置ける。
+
+GitHubのstored secret valueを後から読み戻せることをbootstrap/recovery前提にしない。localとCIで同じ概念のvariable名を不必要に変えない。
+
+`.gitignore` はstackを調査して最低限次を検討する。
+
+- `.tmp/`
+- `.reference/`
+- actual dotenv files
+- dependencies
+- build outputs
+- generated caches
+- test / coverage outputs
+- tool caches
+- OS/editor temporary files
+- local secret artifacts
+
+一方、次を誤ってignoreしない。
+
+- source
+- lockfile
+- reproducibility configuration
+- Agent Skills / project agent config
+- CI/CD configuration
+- committed env examples
+
+重複・相互矛盾するignore ruleを無秩序に追加しない。
+
+このpolicyのためだけにpre-commit hookを新設しない。必要なvalidationはproject scriptとCIから再現可能にする。
+
+## 14. Fresh-clone audit
+
+初期化完了前に、既存machine stateを一度忘れたfresh cloneの視点で確認する。
+
+最低限:
+
+- agent behaviorを定義するcanonical fileは何か
+- Skills / adapters / plugin configはどこか
+- required binariesとprovision方法は何か
+- undocumented global software/configを暗黙要求していないか
+- environment variablesとexample schemaは何か
+- secrets/trust/authenticationはどう供給されるか
+- supported host/runtimeでbootstrapできるか
+- home directory config / implicit persistent memoryに依存していないか
+- `.tmp/` / `.reference/` / actual envがignoredか
+- env examples / lock/reproducibility configがcommittedか
+- `.reference/` がなくてもbuild/test/runできるか
+- local validationとCIが同じcanonical semanticsを呼ぶか
+- documented bootstrap/run/validation commandをfresh environmentで実行できるか
+
+hidden dependencyが見つかった場合はdocumentationだけで正当化せず、可能ならrepository-controlled reproducibilityへ移す。
+
+## 15. Initialization completion report
+
+初期化終了時は、単に「完了」と報告せず最低限次を簡潔にexternalizeする。
+
+- detected stack / architecture / target platform
+- official guidance investigated
+- existing agent configuration
+- files created/changed
+- Skillsとactivation conditions
+- plugins/tools considered
+- selected toolsとselection reason
+- rejected meaningful candidatesとrejection reason
+- ADRs created/updated
+- canonical bootstrap/run/validation entry points
+- test / quality / CI configuration
+- environment / secret schema configuration
+- remaining trust/authentication/user gates
+- existing quality/dependency debt
+- known limitations / unreproducible items
+
+report内容がconversationにしか残らないlong-lived decisionを含む場合は、先にrepository-controlled docs/ADRへ永続化する。
