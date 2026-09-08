@@ -389,3 +389,92 @@ coverageが適切でない領域では別のdeterministic signalへ置き換え�
 - release process変更
 
 quality gate自体をversioned project configurationとして扱う。
+
+## 17. Dependency / static-analysis goals
+
+dependency/static analysisは特定tool名を固定するのではなく、projectに該当する次のfailure modeを検出することを目的にする。
+
+- unused dependencies
+- missing / unlisted dependencies
+- duplicate or overlapping dependency responsibility
+- unused exports
+- unused files
+- unresolved references
+- stale configuration / dead entry points
+- generated/vendor boundaryの誤検出
+
+framework/runtime official tool、existing project tool、maintained ecosystem toolの順で適切な実装を選ぶ。JavaScript/TypeScriptでKnip等が適切なら利用できるが、全projectへ固定しない。
+
+broad ignoreや大量excludeを追加してgreenにするのではなく、原因を修正する。generated/vendor等の正当な例外はspecific / minimal / documentedにする。
+
+dependency addition/removal後はmanifestだけでなくlockfile、workspace graph、build/test/runtime resolutionまで整合を確認する。
+
+## 18. UI information architecture gate
+
+visible UIを変更するtaskでは、data model propertyをそのまま画面へ列挙することを設計とみなさない。
+
+実装前に最低限:
+
+1. data model
+2. use case
+3. user goal
+4. information priority
+5. interaction timing
+
+からinformation architectureを決める。
+
+確認する:
+
+- 何を常時visibleにするか
+- 何を必要時だけprogressive disclosureするか
+- どの情報/操作をgroup化するか
+- primary actionは何か
+- user flow上いつ情報が必要か
+- implicitでよい状態を説明UIで過剰に露出していないか
+
+情報構造を改善しないcard / wrapper / panel / border / visual chromeを増やさない。
+
+headless primitive / platform-native component / existing design systemが適切ならbehavior/accessibility primitiveとproject-specific presentationを分離する。
+
+## 19. Rendered UI verification
+
+visible UI changeはsource diffだけで合否判定しない。実際にrenderされたresultを確認する。
+
+project/platformに応じてbrowser/native automation、preview、screenshot、device/simulator等を使用し、必要な状態を明示的に確認する。
+
+代表例:
+
+- supported desktop/mobile viewport
+- loading
+- empty
+- error
+- success
+- disabled/hover/focus/selected等のinteraction state
+- overflow / clipping / scroll
+- visibility / z-order
+- text wrapping / localization-sensitive layout
+- console error
+- network failure
+- keyboard/accessibility interaction when relevant
+
+UI verification artifact、screenshot、trace、diagnostic outputは`.tmp/`へ置き、正式documentation/test fixtureへ昇格しない限りcommitしない。
+
+設計/acceptance criteriaを満たさないrendered resultが確認された場合、source上もっともらしいことを理由に完了せず実装loopへ戻る。
+
+## 20. Build / container / deliverable verification
+
+Containerfile、Compose、Kubernetes、Terraform、CloudFormation、Helm、package/signing等が変更surfaceに含まれる場合、projectに必要な最小validationをquality profileへcompileする。
+
+候補:
+
+- syntax/schema/native validator
+- lint
+- security/image/IaC scanner
+- build/package
+- generated plan/diff inspection
+- built image/artifact smoke test
+- deployment-like startup verification
+
+すべてのtoolを機械的に導入しないが、deliverableをbuildできるprojectでdefinition fileのtext checkだけを最終verificationにしない。
+
+scanner/linterをbroad ignoreで通すことはFalse green policyに従い禁止する。
