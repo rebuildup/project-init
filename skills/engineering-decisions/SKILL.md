@@ -49,7 +49,7 @@ existing implementationは重要なevidenceだが、誤ったlegacy patternを�
 
 - projectの既存命名規則に沿うfile名
 - official architectureに沿ったplacement
--既存formatterが決めるformat
+- 既存formatterが決めるformat
 - 既存test structureに沿ったtest location
 - 明らかなlint/type error修正
 
@@ -148,7 +148,7 @@ project evidenceからstable external contract / persisted compatibility obligat
 - obsolete internal APIを維持しない
 - deprecated schema / old behaviorを惰性で残さない
 - speculative compatibility shimを作らない
--目的とするcanonical designへ直接移行する
+- 目的とするcanonical designへ直接移行する
 
 ただし次は例外であり、project evidenceを優先する。
 
@@ -210,3 +210,31 @@ active agent mode、permission、trust、authenticationによってcapabilityが
 必要なcapabilityが正当に必要なら、許可されたmode変更、authentication、trust decision、credential provisioning等をuser/external gateとして要求する。
 
 制限下で可能な調査・準備・deterministic verificationは先に行い、userへは残った本物のgateだけを返す。
+
+## 13. Agent Skill design contract
+
+Agent Skillsはfull promptの箇条書きを機械的に1 Skillずつ分割して作らない。
+
+Skillのsplit / mergeは最低限次を基準に決める。
+
+- activation condition
+- responsibility
+- required tools
+- context cost
+
+発火条件と責務がほぼ同じruleは統合し、無関係なinstructionが同じtask contextへ常時入るなら分割する。
+
+各Skillは可能な限り:
+
+- 短く具体的なdescription
+- 明確なtrigger / activation condition
+- 1つの主要責務
+- deterministic tool invocation / validation entry point
+- 必要な場合だけ読むreference
+- 必要な場合だけ実行するscript
+
+を持つ。
+
+root agent fileへ詳細ruleを戻してcontextを肥大化させず、通常taskでは必要なSkillだけを読むprogressive disclosureを維持する。
+
+Skill統合・分割で旧Skillのnormative ruleを移動する場合は `docs/policy-integrity.md` のsemantic-loss guardを適用し、new canonical locationまたはexplicit revisionを追跡可能にする。
