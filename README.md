@@ -95,7 +95,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ docs/
 │  ├─ policy-overview.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0008.md
+│  │  └─ ADR-0001.md ... ADR-0009.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -114,6 +114,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - [`docs/policy-overview.md`](./docs/policy-overview.md) — policy 全体の背景、実行モデル、GitHub delivery、quality/security/recovery 方針。
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
+- [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -124,7 +125,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle
-- `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy
+- `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation 設計
