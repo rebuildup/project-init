@@ -330,11 +330,11 @@ latent eval graderには最低限:
 
 を要求します。critical must-notはscoreで相殺しません。controlsが識別できないgraderのscoreはquality evidenceとして扱いません。
 
-orchestration前に `mechanical / localized / cross-boundary / judgment-heavy` のexecution profileを決めます。これはquality gateのtest-risk taxonomyとは別です。small/mechanical taskへ不要なfan-outを入れず、cross-boundary / judgment-heavy workでは必要に応じてdependency decompositionやcold artifact reviewを使います。
+orchestration前に `mechanical / localized / cross-boundary / judgment-heavy` のexecution profileを決めます。これはquality gateのtest-risk taxonomyとは別です。small/mechanical taskへ不要なfan-outを入れません。cross-boundary / judgment-heavy workではcompleted artifactに対するbuilderと分離したindependent cold reviewを必須とします。`cross-boundary` と `judgment-heavy` が重なる場合は、dependency decomposition / safe parallelismとevidence/rubric-first executionの両方を適用し、combined routingをorchestration前に記録します。
 
-judgment-heavy reviewではbuilderのprivate reasoningではなくobjective / frozen rubric / completed artifact / validation evidenceをreviewerへ渡します。numeric self-ratingはrequired quality signalにしません。
+cross-boundary / judgment-heavy reviewではbuilderのprivate reasoningではなくobjective / frozen rubric / completed artifact / validation evidenceをreviewerへ渡します。numeric self-ratingはrequired quality signalにしません。
 
-progressive disclosureはdirectory構造だけでなくalways-loaded context量も測ります。root agent contractが大きくなった場合、追加内容が本当にall-task invariantかを確認し、conditional workflow / reference / Skillへ移せないかreviewします。critical invariantはcontext削減だけを理由に削除しません。
+progressive disclosureはdirectory構造だけでなくalways-loaded context量も測ります。root agent contractが大きくなった場合、追加内容が本当にall-task invariantかを確認し、conditional workflow / reference / Skillへ移せないかreviewします。critical invariantはcontext削減だけを理由に削除しません。repository regression checkは `bash evals/policy-evaluation/context-budget.sh` で実行し、checked-in baselineに対するroot / total always-on / 各conditional Skillのbyte growthをmachine-readable TSVで検査します。
 
 同じ非自明な手順を繰り返した場合、failureだけでなく成功例もcodification candidateとします。deterministicならscript/config、judgment workflowならSkill、long-lived invariantならpolicy/ADRへ昇格させます。
 
@@ -469,7 +469,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
-- significantなAgent policy / Skill変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。
+- significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。
 - orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 - progressive disclosureではalways-loaded root contractのcontext costも測定し、肥大化をreviewする。
 - repeated deterministic reasoningはscript / command / configへcodifyする。
