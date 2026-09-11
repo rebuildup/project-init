@@ -235,6 +235,27 @@ project evidenceから実質一意に決まる可逆・局所的な判断を、a
 
 user escalationは、product semantics、public contract、security/privacy、meaningful cost、release scope、irreversible operation、canonical source間の矛盾など、本物の意思決定が残る場合に限定します。
 
+## Reader-oriented writing discipline
+
+agentが保持しているtext contextと、readerへ渡す文章を同一視しません。
+
+conversation、task、調査、実装、tool output、current execution stateはwriting inputにはなりますが、その順序や粒度のままdocumentation等へ転写する対象ではありません。reader-facing textは次の変換を通します。
+
+```text
+raw context
+  -> Select: audience / purposeに必要なcommunicative contentを選ぶ
+  -> Compose: readerの理解順へstandalone proseとして再構成する
+  -> Reread: 元contextを知らないreaderとして全文を読み直し編集する
+```
+
+rereadは誤字脱字確認だけではありません。文・段落の接続、冗長、指示語、前提不足、chronology leakage、context dependencyを確認し、必要なら削除・統合・並べ替え・書き直しを行います。
+
+このdisciplineはREADME等のdocumentationだけでなく、ADR、Issue、Pull Request、commit message、code comment、review comment等のpersistentまたは他者向けtextへ共通適用します。
+
+temporal/history/execution informationは、それ自体を禁止しません。version compatibility、migration、audit、incident、reproducibility、readerの判断に必要なstatus等、artifactの責務として必要な場合だけ残します。単にagentのcurrent contextへ存在することは記載理由になりません。
+
+詳細なartifact別workflowは `writing-discipline` Skillへprogressive disclosureします。
+
 ## Adaptive quality / verification gate
 
 quality gateは全project共通の固定bundleではありません。
@@ -371,6 +392,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `writing-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -400,6 +422,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - project-wide policy > design/spec/instruction > existing implementation majority の判断順序を標準化する。
 - project evidenceで解ける自明な判断をuserへ返さない。
+- reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
 - quality gateはframework/runtime固有のcurrent official guidanceからproject-localにcompileする。
