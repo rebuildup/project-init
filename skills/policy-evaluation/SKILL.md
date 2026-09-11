@@ -275,7 +275,7 @@ policy change完了時は、該当する範囲で次を示す。
 - latent eval結果と使用したmodel/runtime identity when known
 - current policy revision / SHA
 - evalで確認できないknown limitation
-- context budgetへの影響
+- `bash evals/policy-evaluation/context-budget.sh` の結果とcontext budgetへの影響
 - execution profileの変更有無
 
 latent evalを実行できない環境では、未実施を明示し、deterministic controlsだけでlatent behaviorまで証明したと報告しない。
