@@ -18,6 +18,11 @@
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
 - deterministic verificationを主観的判断へ置き換えていないか
+- deterministicに検証できるpolicy behaviorをlatent LLM judgmentだけへ残していないか
+- latent policy evalにnegative / regression / positive controlsがあり、grader自体の識別能力を確認できるか
+- mechanical / localized taskへ不要なmulti-agent fan-outを強制していないか
+- judgment-heavy reviewへbuilderのprivate reasoningやnumeric self-ratingをquality evidenceとして持ち込んでいないか
+- root / always-loaded agent contextの肥大化を測らずprogressive disclosureを名目化していないか
 - unit / smoke / integration / contract / E2Eの責務が混同されていないか
 - change riskからrequired verification levelを決めるmodelが維持されているか
 - quality gateを固定bundleへ戻していないか
@@ -78,6 +83,8 @@
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
+- ADR-0009: cost-aware GitHub Actions resource efficiency
+- ADR-0010: evaluated Agent policy contract / execution profile / context budget
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -156,6 +163,21 @@ coverage等のmetricはproject-specific signalとして設計し、固定数値�
 
 validation resultはvalidated SHA/snapshotへpinします。stack rebase/update等でSHAが変わった場合、影響したrequired validationを再実行し、古いgreen resultをcurrent codeへ流用しません。
 
+## Agent policy evaluation invariants
+
+- policy behaviorをdeterministic spaceとlatent spaceへ分離する
+- stable inputから同じ結果を要求できる処理はscript / command / parser / configへ寄せる
+- latent evalはfresh agentへ必要最小限のpolicyとscenarioだけを渡す
+- latent graderはnegative / regression / positive controlsを区別できなければquality evidenceとして使わない
+- critical must-notをaggregate scoreで相殺しない
+- execution profileは `mechanical / localized / cross-boundary / judgment-heavy` を標準とする
+- execution profileはorchestration/review強度を決め、quality-gateのverification risk taxonomyとは分離する
+- cross-boundary / judgment-heavy reviewではobjective / rubric / artifact / validation evidenceを中心にcold reviewする
+- numeric self-ratingをrequired quality signalにしない
+- root agent contract変更時はalways-loaded context costを測り、conditional workflowをSkillへ移せないかreviewする
+- repeated deterministic reasoningはfailure時だけでなく成功時もcodification candidateとする
+- real regressionを修正した場合、可能ならbroken behaviorをregression fixtureとして残す
+
 ## Security maintenance invariants
 
 security source priority:
@@ -214,6 +236,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 標準Skill:
 
 - `skills/parallel-orchestration/SKILL.md`
+- `skills/policy-evaluation/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
 - `skills/quality-gate/SKILL.md`
@@ -331,6 +354,7 @@ current official sourceを確認すべき対象:
 - public repository main protection / release-only main integration変更
 - decision precedence / user escalation model変更
 - verification taxonomy / quality compiler変更
+- Agent policy eval / execution profile / grader control / context-budget model変更
 - security advisory prioritization model変更
 - onboarding/documentation strategy変更
 - recovery checkpoint / fencing / side-effect reconciliation model変更
