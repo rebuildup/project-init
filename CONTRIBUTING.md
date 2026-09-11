@@ -29,6 +29,8 @@
 - framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
 - vulnerability priorityがseverityだけの機械判定に戻っていないか
 - onboarding knowledgeがchat/private memory依存になっていないか
+- reader-facing textをconversation / task / execution contextのserializationとして書いていないか
+- textをSelect -> Compose -> Rereadでreader-oriented artifactへ編集しているか
 - documented commandがfresh environmentで再現可能か
 - session/thread resumeを唯一のrecovery mechanismにしていないか
 - unfinished workが会話履歴やSupervisor local DBだけに残らないか
@@ -218,6 +220,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/github-delivery/SKILL.md`
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
+- `skills/writing-discipline/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
@@ -268,9 +271,11 @@ PR title/body/review discussionは日本語です。
 - acceptance criteria
 - target release
 - stack context if any
-- current validation / blockers
+- reviewに必要なvalidation evidence / durable limitations
 
-meaningful reviewerがいない場合、自己reviewerを形式的に指定せず、その事実とreview automation / CI等の代替pathをPR bodyへ明記します。
+PR bodyはreview artifactとして必要な内容へ整え、current head SHA、ahead/behind、bot status、branch同期履歴、trial-and-error等を作業contextに存在するという理由だけで転写しません。native GitHub metadata / checksで表現できるmutable stateは、そのsurfaceをcanonicalにします。
+
+meaningful reviewerがいない場合、自己reviewerを形式的に指定しません。reviewer不在がreview/merge semanticsへ影響する場合だけ、readerに必要な形で説明します。
 
 Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
 
