@@ -161,6 +161,22 @@ project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ
 
 質問する場合も、調査可能なfactを先に確認し、選択肢・影響・推奨案を整理してから聞いてください。
 
+### Reader-facing writing discipline
+
+persistentまたは他者向けの文章を、conversation / task / investigation / execution contextのserializationとして生成してはいけません。
+
+文章を書くときは次を明示的に分離してください。
+
+1. **Select**: audienceとpurposeを決め、readerに必要なfact / decision / constraint / rationaleだけを選ぶ。作業順・会話順・tool output等のscaffoldingは捨てる。
+2. **Compose**: 選んだcommunicative contentを、readerが理解する順序のstandalone proseへ再構成する。raw contextの要約を完成文章とみなさない。
+3. **Reread**: 元のtaskやconversationを知らないreaderとして全文を読み直し、接続・冗長・referent・context依存・不自然なchronologyを編集する。
+
+temporal/history/execution informationは一律禁止しません。version compatibility、migration、audit、reproducibility等、artifactの意味やreaderの判断に必要な場合だけ含めてください。
+
+documentation / ADR / Issue / PR / commit message / code comment / review commentには同じ原則を適用し、詳細は `writing-discipline` Skillへprogressive disclosureしてください。
+
+> **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
+
 ---
 
 ## 5. Agent architecture
@@ -413,6 +429,7 @@ rootに置くもの:
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `writing-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
