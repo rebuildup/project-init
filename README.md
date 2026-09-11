@@ -98,16 +98,20 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ audits/
 │  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0009.md
+│  │  └─ ADR-0001.md ... ADR-0010.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
+├─ evals/
+│  └─ policy-evaluation/
 └─ skills/
    ├─ agent-recovery/
+   ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
    ├─ onboarding/
    ├─ parallel-orchestration/
+   ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
    ├─ security-maintenance/
@@ -120,6 +124,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`docs/audits/2026-09-09-lost-rule-audit.md`](./docs/audits/2026-09-09-lost-rule-audit.md) — 初期版から現行版へのsemantic audit。意図的revisionとsilent lossを分類し、復元対象を追跡します。
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
+- [`ADR-0010`](./docs/adr/ADR-0010.md) — evidence-first design refinement / decision frontier policy。
+- [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policyをdeterministic checks + cold eval + grader controlsで検証する実行contract。
+- [`evals/`](./evals/) — policy behaviorのcold scenario、deterministic grader、positive/negative/regression controls。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -128,10 +135,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 通常 task では必要な Skill だけを読み込みます。
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
+- `policy-evaluation` — execution profile、deterministic/latent policy eval、cold review、context budget
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
+- `design-refinement` — implementation前のevidence読解、fact/decision分離、dependency-aware decision frontier
 - `writing-discipline` — contextを直接転写せず、Select → Compose → Rereadでreader-oriented proseへ変換するwriting workflow
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation、`.tmp/` / `.reference/` / env / `.gitignore` hygiene、fresh-clone audit

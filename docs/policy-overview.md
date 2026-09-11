@@ -14,6 +14,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
+- `skills/policy-evaluation/SKILL.md` — policy behaviorのdeterministic/latent分離、execution profile、cold review、context budget。
+- `evals/` — cold policy scenariosとdeterministic grader / controls。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
@@ -23,6 +25,9 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0006.md` — decision hierarchy / verification taxonomy / security maintenance / onboarding。
 - `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
 - `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
+- `ADR-0009.md` — cost-aware GitHub Actions resource efficiency。
+- `ADR-0010.md` — evidence-first design refinement / decision frontier policy。
+- `ADR-0011.md` — Agent policyをevaluated executable contractとして扱う方針。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -50,6 +55,9 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - vulnerability intake / triage / patch-release workflow
 - fresh contributor向けonboarding / architecture / development documentation
 - architecture / ADR / CI/CD / release rules
+- Agent policyのdeterministic checks / cold eval / grader controls
+- execution profileによるorchestration強度の調整
+- always-loaded root contractのcontext budget
 
 基本思想:
 
@@ -235,6 +243,33 @@ project evidenceから実質一意に決まる可逆・局所的な判断を、a
 
 user escalationは、product semantics、public contract、security/privacy、meaningful cost、release scope、irreversible operation、canonical source間の矛盾など、本物の意思決定が残る場合に限定します。
 
+## Evidence-first design refinement
+
+非自明なfeature / architecture / product designでは、planning / implementation前にrepository-controlled evidenceを読み、unknownとhidden assumptionを整理します。
+
+標準workflow:
+
+```text
+inspect evidence
+  -> classify facts / decisions
+  -> investigate facts
+  -> resolve project-determined decisions
+  -> build unresolved decision graph
+  -> ask only consequential decision frontier
+  -> persist significant results
+  -> plan / implement
+```
+
+factはrepository、official source、executable probe等からagentが調査し、userへ返しません。project evidenceから実質一意に決まるdecisionは `engineering-decisions` のprecedenceで自律決定します。
+
+複数のmeaningful optionが残り、product semantics / architecture / public contract / risk / cost / release scope等が変わるdecisionだけをuser escalation候補にします。
+
+decision同士に依存関係がある場合はgraphとして扱い、未解決の上流decisionに依存する下流質問を先に投げません。userへは現在のdecision frontierだけを、既知evidence・選択肢・meaningful consequence・推奨案とともに提示します。
+
+long-livedなdecision/domain knowledgeだけをdesign/spec、ADR、project-local Skill、architecture docs、schema/test、glossary/domain context等へ永続化します。domain vocabularyが単純なprojectへ独立documentを強制せず、固定の `CONTEXT.md` を標準必須fileにしません。
+
+このworkflowはexternal interview Skillをmandatory dependencyにせず、project-initの既存decision hierarchyとprogressive disclosureへnativeにcompileします。
+
 ## Reader-oriented writing discipline
 
 agentが保持しているtext contextと、readerへ渡す文章を同一視しません。
@@ -296,6 +331,35 @@ local commandとGitHub Actionsは可能な限り同じdeterministic entry point�
 validation evidenceはvalidated SHA/snapshotに結び付けます。stack rebase/updateでSHAが変わった場合は影響したrequired verificationを再実行します。
 
 coverageは有効なprojectでは利用しますが、一律thresholdを盲目的に全projectへ強制しません。
+
+## Agent policy evaluation / execution profile
+
+Agent policyは文章の整合だけで完了としません。
+
+significantなSkill / prompt / routing変更では、対象behaviorを次へ分けます。
+
+- **deterministic space**: file/config/schema/metadata/exact SHA/command等、stable inputから機械的に検証できる部分
+- **latent space**: decomposition / escalation / prioritization / qualitative review等、fresh agentの判断が必要な部分
+
+deterministic部分はscript / command / parser / fixtureへ寄せ、latent部分は必要最小限のpolicyだけをfresh agentへ渡すcold evalで確認します。
+
+latent eval graderには最低限:
+
+- naive negative control -> FAIL
+- real/representative regression control -> FAIL
+- current positive control -> PASS
+
+を要求します。critical must-notはscoreで相殺しません。controlsが識別できないgraderのscoreはquality evidenceとして扱いません。
+
+orchestration前に `mechanical / localized / cross-boundary / judgment-heavy` のexecution profileを決めます。これはquality gateのtest-risk taxonomyとは別です。small/mechanical taskへ不要なfan-outを入れません。cross-boundary / judgment-heavy workではcompleted artifactに対するbuilderと分離したindependent cold reviewを必須とします。`cross-boundary` と `judgment-heavy` が重なる場合は、dependency decomposition / safe parallelismとevidence/rubric-first executionの両方を適用し、combined routingをorchestration前に記録します。
+
+cross-boundary / judgment-heavy reviewではbuilderのprivate reasoningではなくobjective / frozen rubric / completed artifact / validation evidenceをreviewerへ渡します。numeric self-ratingはrequired quality signalにしません。
+
+progressive disclosureはdirectory構造だけでなくalways-loaded context量も測ります。root agent contractが大きくなった場合、追加内容が本当にall-task invariantかを確認し、conditional workflow / reference / Skillへ移せないかreviewします。critical invariantはcontext削減だけを理由に削除しません。repository regression checkは `bash evals/policy-evaluation/context-budget.sh` で実行し、checked-in baselineに対するroot / total always-on / 各conditional Skillのbyte growthをmachine-readable TSVで検査します。
+
+同じ非自明な手順を繰り返した場合、failureだけでなく成功例もcodification candidateとします。deterministicならscript/config、judgment workflowならSkill、long-lived invariantならpolicy/ADRへ昇格させます。
+
+詳細は `skills/policy-evaluation/SKILL.md`、`evals/`、ADR-0011を参照します。
 
 ## Security maintenance
 
@@ -388,10 +452,12 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 標準Skill:
 
 - `parallel-orchestration`
+- `policy-evaluation`
 - `sandbox-runtime`
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `design-refinement`
 - `writing-discipline`
 - `security-maintenance`
 - `onboarding`
@@ -422,9 +488,14 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - project-wide policy > design/spec/instruction > existing implementation majority の判断順序を標準化する。
 - project evidenceで解ける自明な判断をuserへ返さない。
+- 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
 - reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
+- significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。
+- orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
+- progressive disclosureではalways-loaded root contractのcontext costも測定し、肥大化をreviewする。
+- repeated deterministic reasoningはscript / command / configへcodifyする。
 - quality gateはframework/runtime固有のcurrent official guidanceからproject-localにcompileする。
 - unit/smoke/integration/contract/E2Eの責務を区別し、変更riskからrequired verificationを決める。
 - GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
@@ -446,7 +517,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - long-lived decisions -> ADR
 - reproducible runtime/tools -> project-local configuration
 - adaptive quality profile -> project-local commands / Skills / CI workflows
-- engineering decision/security/recovery policy -> dedicated Skills / config / Issues
+- engineering decision/security/recovery/policy-evaluation -> dedicated Skills / config / evals / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / Projects / PR configuration
 - public main protection -> branch protection/ruleset + required release-source check when necessary

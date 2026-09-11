@@ -43,6 +43,10 @@
 - project evidenceで解ける自明な判断をuserへ返さない。
 - native session/thread resumeを唯一のrecovery mechanismにしない。
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
+- significantなAgent policy / Skill / prompt / routing変更は、deterministicに検証できる部分とfresh agent判断が必要なlatent部分を分離して検証する。
+- latent policy evalのgraderはpositiveだけで信用せず、negative / regression / positive controlsを識別できることを要求する。
+- orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
+- progressive disclosureではroot agent contractのalways-loaded context costも実測し、conditional workflowをSkillへ遅延できるかreviewする。
 
 Git worktree自体は禁止ではありません。既にisolatedなsandbox内部のGit実装詳細として使用できますが、worktreeだけでport/process/database等が分離されたとは扱いません。
 
@@ -57,7 +61,9 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 最低限確認:
 
 - root agent instructions
+- root / always-loaded instructionのcontext budget
 - Agent Skills / adapters
+- policy eval scenarios / deterministic graders / controls
 - plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
 - Supervisor integration / execution state model
@@ -160,6 +166,24 @@ project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ
 - explicit design-first approval gate
 
 質問する場合も、調査可能なfactを先に確認し、選択肢・影響・推奨案を整理してから聞いてください。
+
+### Implementation前のevidence-first design refinement
+
+非自明なfeature / architecture / product designでは、planningやimplementationへ進む前に `design-refinement` Skillを使い、質問を作る前にrepository-controlled evidenceを読んでください。
+
+最低限:
+
+- task / Issue / acceptance criteria、canonical policy / architecture、design/spec、relevant ADR / Skillを確認
+- relevant code / tests / schema / contractを複数箇所確認
+- version-sensitiveなfactはcurrent official sourceで確認
+- unknownをfact / project evidenceで決まるdecision / unresolved consequential decisionへ分類
+- factはagentが調査し、project evidenceで決まるdecisionは `engineering-decisions` に従って自律決定
+- implementationを左右するhidden assumptionを検出
+- unresolved decisionに依存関係がある場合はdecision graphを作り、上流が未確定なまま下流質問を先にしない
+- userへは現在のdecision frontierにある本物のproduct/architecture decisionだけを、evidence・影響・推奨案付きで聞く
+- long-livedなdecision/domain knowledgeだけをdesign/spec、ADR、Skill、glossary/domain context等へ永続化
+
+目的は大量interviewではなく **read relentlessly, ask minimally** です。domain vocabulary documentは必要なprojectだけに導入し、固定の `CONTEXT.md` を全projectへ強制しないでください。
 
 ### Reader-facing writing discipline
 
@@ -425,10 +449,12 @@ rootに置くもの:
 標準Skill候補:
 
 - `parallel-orchestration`
+- `policy-evaluation`
 - `sandbox-runtime`
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `design-refinement`
 - `writing-discipline`
 - `security-maintenance`
 - `onboarding`
@@ -710,7 +736,7 @@ stacked deliveryを安全に維持できない場合はdependency SoTを壊さ�
 
 非自明taskでは:
 
-`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 を自律的に回してください。
 
