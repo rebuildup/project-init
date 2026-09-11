@@ -11,6 +11,7 @@ ROOT_FILES=(
   ".github/copilot-instructions.md"
 )
 
+# Return the UTF-8 byte count for a tracked path, or zero when it is absent.
 bytes_for() {
   local path=$1
   if [ -f "$R/$path" ]; then
@@ -20,6 +21,7 @@ bytes_for() {
   fi
 }
 
+# Return the whitespace-delimited word count for a tracked path, or zero when absent.
 words_for() {
   local path=$1
   if [ -f "$R/$path" ]; then
@@ -29,6 +31,7 @@ words_for() {
   fi
 }
 
+# Sum byte counts for the root instruction files that are always loaded when present.
 always_on_bytes() {
   local total=0 path
   for path in "${ROOT_FILES[@]}"; do
@@ -37,6 +40,7 @@ always_on_bytes() {
   printf '%s' "$total"
 }
 
+# Sum word counts for the root instruction files that are always loaded when present.
 always_on_words() {
   local total=0 path
   for path in "${ROOT_FILES[@]}"; do
@@ -45,6 +49,7 @@ always_on_words() {
   printf '%s' "$total"
 }
 
+# Emit the canonical machine-readable snapshot used to create or compare a baseline.
 snapshot() {
   local path
   printf 'kind\tpath\tbytes\n'
