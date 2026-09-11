@@ -238,3 +238,15 @@ Skillのsplit / mergeは最低限次を基準に決める。
 root agent fileへ詳細ruleを戻してcontextを肥大化させず、通常taskでは必要なSkillだけを読むprogressive disclosureを維持する。
 
 Skill統合・分割で旧Skillのnormative ruleを移動する場合は `docs/policy-integrity.md` のsemantic-loss guardを適用し、new canonical locationまたはexplicit revisionを追跡可能にする。
+
+
+## 14. Design refinementとの関係
+
+非自明なfeature / architecture / product designで、そもそも何がfactで何が未決定decisionか、どのdecisionが別decisionに依存するかを発見する段階では `design-refinement` Skillを先に使用する。
+
+責務を分ける:
+
+- `design-refinement`: evidenceを読み、fact / hidden assumption / decision dependencyを発見し、現在のdecision frontierを作る
+- `engineering-decisions`: 各decisionをcanonical precedenceで自律決定するか、本物のuser escalationとして残すか判定する
+
+`design-refinement` が質問を増やす理由になってはいけない。project evidenceで解けるものはこのSkillのprecedenceで解決し、userへ返すのは残ったconsequential decisionだけにする。

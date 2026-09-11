@@ -26,7 +26,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
 - `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
 - `ADR-0009.md` — cost-aware GitHub Actions resource efficiency。
-- `ADR-0010.md` — Agent policyをevaluated executable contractとして扱う方針。
+- `ADR-0010.md` — evidence-first design refinement / decision frontier policy。
+- `ADR-0011.md` — Agent policyをevaluated executable contractとして扱う方針。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -242,6 +243,33 @@ project evidenceから実質一意に決まる可逆・局所的な判断を、a
 
 user escalationは、product semantics、public contract、security/privacy、meaningful cost、release scope、irreversible operation、canonical source間の矛盾など、本物の意思決定が残る場合に限定します。
 
+## Evidence-first design refinement
+
+非自明なfeature / architecture / product designでは、planning / implementation前にrepository-controlled evidenceを読み、unknownとhidden assumptionを整理します。
+
+標準workflow:
+
+```text
+inspect evidence
+  -> classify facts / decisions
+  -> investigate facts
+  -> resolve project-determined decisions
+  -> build unresolved decision graph
+  -> ask only consequential decision frontier
+  -> persist significant results
+  -> plan / implement
+```
+
+factはrepository、official source、executable probe等からagentが調査し、userへ返しません。project evidenceから実質一意に決まるdecisionは `engineering-decisions` のprecedenceで自律決定します。
+
+複数のmeaningful optionが残り、product semantics / architecture / public contract / risk / cost / release scope等が変わるdecisionだけをuser escalation候補にします。
+
+decision同士に依存関係がある場合はgraphとして扱い、未解決の上流decisionに依存する下流質問を先に投げません。userへは現在のdecision frontierだけを、既知evidence・選択肢・meaningful consequence・推奨案とともに提示します。
+
+long-livedなdecision/domain knowledgeだけをdesign/spec、ADR、project-local Skill、architecture docs、schema/test、glossary/domain context等へ永続化します。domain vocabularyが単純なprojectへ独立documentを強制せず、固定の `CONTEXT.md` を標準必須fileにしません。
+
+このworkflowはexternal interview Skillをmandatory dependencyにせず、project-initの既存decision hierarchyとprogressive disclosureへnativeにcompileします。
+
 ## Adaptive quality / verification gate
 
 quality gateは全project共通の固定bundleではありません。
@@ -310,7 +338,7 @@ progressive disclosureはdirectory構造だけでなくalways-loaded context量�
 
 同じ非自明な手順を繰り返した場合、failureだけでなく成功例もcodification candidateとします。deterministicならscript/config、judgment workflowならSkill、long-lived invariantならpolicy/ADRへ昇格させます。
 
-詳細は `skills/policy-evaluation/SKILL.md`、`evals/`、ADR-0010を参照します。
+詳細は `skills/policy-evaluation/SKILL.md`、`evals/`、ADR-0011を参照します。
 
 ## Security maintenance
 
@@ -408,6 +436,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `design-refinement`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -437,6 +466,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - project-wide policy > design/spec/instruction > existing implementation majority の判断順序を標準化する。
 - project evidenceで解ける自明な判断をuserへ返さない。
+- 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
 - significantなAgent policy / Skill変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。
