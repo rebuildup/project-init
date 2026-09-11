@@ -160,25 +160,33 @@ Ephemeral immutable worker ref/resultはdurable branchではないため対象�
 
 ## PR metadata is required state
 
-PRはdiffだけではなくdurable work stateである。
-作成時にrepository evidenceから該当するmetadataを評価し、設定する。
+PRはdiffだけではなくdurable work stateである。ただし、durable stateとPR proseを同一視しない。
 
-最低限:
+作成時にrepository evidenceからnative GitHub metadataを評価し、最低限次を設定する。
 
-- linked Issue (`Issue: #<issue-number>` 等)
+- linked Issue
 - accountable assignee
 - reviewer request / CODEOWNERS-derived reviewer
 - repositoryで定義済みの適切なlabels
-- acceptance criteria
-- implementation summary
-- validation status/results
-- known limitations / blockers
 - target release branch
 - stacked PRならstack trunk / immediate predecessor / relevant successor context
 
+PR bodyはreviewerがchangeを理解・評価するためのartifactとして書く。必要に応じて次を含める。
+
+- purpose / intended outcome
+- implementation summary
+- acceptance criteriaまたはその参照
+- non-obvious design decision / constraint
+- review判断に必要なvalidation evidence
+- merge後も意味を持つlimitation / migration / compatibility note
+
+current head SHA、ahead/behind、bot status、branch同期履歴、tool invocation、trial-and-error等を、作業contextに存在するという理由だけでPR bodyへ転写しない。GitHub checks、branch state、review status等のmutable stateはnative surfaceをcanonicalにし、proseへ重複させるのはreader判断に必要な場合だけにする。
+
 ownership、scope、stack position、review requirementが変わった場合はmetadataも更新する。
 
-存在しないlabelを勝手に作る、関係のないreviewerを形式的に指定する、PR author自身を自己reviewerとして埋める、という運用はしない。意味のあるreviewerが存在しない場合はPR bodyへその事実と代替review path（configured review automation / CI / explicit final review等）を記録する。
+存在しないlabelを勝手に作る、関係のないreviewerを形式的に指定する、PR author自身を自己reviewerとして埋める、という運用はしない。meaningful reviewer不在をPR bodyへ自動記録せず、それがreview/merge semanticsの理解に必要な場合だけ説明する。
+
+PR title/body/review discussionには `writing-discipline` を適用し、Select -> Compose -> Rereadを経てreader-oriented proseへ整える。
 
 Issue/PR title/body/review discussionは日本語を標準とする。
 
@@ -287,7 +295,7 @@ release branchは複数ticketの統合結果を保持するsprint integration li
 
 release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issues / current validation stateを設定し、release期間中維持する。
+Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
 
 release完了前にrelease branch上でfull applicable quality gateを実行する。
 
@@ -301,8 +309,8 @@ release PR:
 - included Issues/PRs
 - breaking changes
 - migration notes
-- full validation result
-- known limitations
+- release判断に必要なverification scope / evidence
+- durable known limitations
 - version/release metadata
 
 public repositoryでは`main` protectionにより、このrelease PR以外の経路で`main`を更新できない状態を維持する。
