@@ -4,6 +4,7 @@ set -uo pipefail
 R=$(cd "$(dirname "$0")/../.." && pwd)
 RC=0
 
+# Run one fixture through the grader and assert the expected PASS/FAIL result.
 expect() {
   label=$1
   file=$2
