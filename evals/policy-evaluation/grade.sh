@@ -12,6 +12,7 @@ SCHEMA=0
 DUPLICATE=0
 LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
 
+# Assert that one required record is present; multiplicity is checked by the schema gate below.
 must_exact() {
   if echo "$T" | grep -qxF "$2"; then
     HIT=$((HIT + 1))
@@ -22,6 +23,7 @@ must_exact() {
   fi
 }
 
+# Record a hard failure when a forbidden policy-eval record is present.
 never() {
   if echo "$T" | grep -qE "$2"; then
     VIOL=$((VIOL + 1))
@@ -50,12 +52,7 @@ never "no repeated deterministic manual reasoning" '^D .*execution=(solo|decompo
 echo "schema:"
 while IFS= read -r line; do
   case "$line" in
-    "A profile=mechanical space=deterministic execution=solo review=none"|\
-    "B profile=cross-boundary space=mixed execution=decompose review=cold"|\
-    "C profile=judgment-heavy space=latent execution=evidence-first review=cold"|\
-    "D profile=mechanical space=deterministic execution=codify review=none"|\
-    "reviewer_context=artifact-only"|\
-    "self_rating=not-a-gate") ;;
+    "A profile=mechanical space=deterministic execution=solo review=none"|"B profile=cross-boundary space=mixed execution=decompose review=cold"|"C profile=judgment-heavy space=latent execution=evidence-first review=cold"|"D profile=mechanical space=deterministic execution=codify review=none"|"reviewer_context=artifact-only"|"self_rating=not-a-gate") ;;
     *)
       SCHEMA=$((SCHEMA + 1))
       printf '  INVALID record: %s\n' "$line"
