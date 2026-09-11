@@ -40,7 +40,7 @@ policy changeのquality signalを、作者自身の読み直しや「もっと�
 
 - user escalationが必要か
 - taskをどう分解するか
--どのquality levelを要求するか
+- どのquality levelを要求するか
 - project evidenceから何をcanonicalと読むか
 - ambiguity / risk / trade-offの扱い
 - reviewerがartifactをどう評価するか
@@ -142,7 +142,7 @@ task complexityだけでなく、**必要なexecution behavior**を先に分類�
 ### mechanical
 
 - deterministic transformation中心
--局所変更
+- 局所変更
 - product / architecture judgmentなし
 - failure impactが限定的
 
@@ -150,7 +150,7 @@ default:
 
 - solo execution
 - deterministic/focused validation
--不要なfan-outやcriticを起動しない
+- 不要なfan-outやcriticを起動しない
 
 ### localized
 
@@ -184,7 +184,7 @@ default:
 default:
 
 - evidence / reference / acceptance rubricを先に固定
--必要ならindependent critic
+- 必要ならindependent critic
 - cold artifact review
 - significant decisionをappropriate durable surfaceへ保存
 
@@ -251,11 +251,11 @@ failureだけでなく、繰り返し成功しているmanual flowも自動化�
 
 次の場合は関連evalを再実行・更新する。
 
--対象policy / Skill変更
+- 対象policy / Skill変更
 - prompt routing / progressive disclosure変更
 - model generation変更でbehavior差が疑われる
 - grader変更
--新しいreal regression発見
+- 新しいreal regression発見
 - control fixtureの前提変更
 
 新しいregressionを修正した場合、可能ならそのbroken behaviorをregression fixtureへ保存する。
