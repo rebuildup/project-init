@@ -23,6 +23,7 @@
 - mechanical / localized taskへ不要なmulti-agent fan-outを強制していないか
 - judgment-heavy reviewへbuilderのprivate reasoningやnumeric self-ratingをquality evidenceとして持ち込んでいないか
 - root / always-loaded agent contextの肥大化を測らずprogressive disclosureを名目化していないか
+- `bash evals/policy-evaluation/context-budget.sh` がchecked-in baselineに対してroot/always-loaded contextと各conditional Skillの回帰を検出できるか
 - unit / smoke / integration / contract / E2Eの責務が混同されていないか
 - change riskからrequired verification levelを決めるmodelが維持されているか
 - quality gateを固定bundleへ戻していないか
@@ -84,7 +85,8 @@
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
 - ADR-0009: cost-aware GitHub Actions resource efficiency
-- ADR-0010: evaluated Agent policy contract / execution profile / context budget
+- ADR-0010: evidence-first design refinement / decision frontier
+- ADR-0011: evaluated Agent policy contract / execution profile / context budget
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -172,7 +174,8 @@ validation resultはvalidated SHA/snapshotへpinします。stack rebase/update�
 - critical must-notをaggregate scoreで相殺しない
 - execution profileは `mechanical / localized / cross-boundary / judgment-heavy` を標準とする
 - execution profileはorchestration/review強度を決め、quality-gateのverification risk taxonomyとは分離する
-- cross-boundary / judgment-heavy reviewではobjective / rubric / artifact / validation evidenceを中心にcold reviewする
+- cross-boundary / judgment-heavy workではcompleted artifactに対するbuilderと分離したindependent cold reviewを必須とする
+- `cross-boundary` と `judgment-heavy` が重なる場合は、dependency decompositionとevidence/rubric-first executionの両方を適用し、orchestration前にcombined routingを記録する
 - numeric self-ratingをrequired quality signalにしない
 - root agent contract変更時はalways-loaded context costを測り、conditional workflowをSkillへ移せないかreviewする
 - repeated deterministic reasoningはfailure時だけでなく成功時もcodification candidateとする
