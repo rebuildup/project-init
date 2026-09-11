@@ -162,6 +162,24 @@ Ask the user when a genuine unresolved decision remains, such as:
 
 Investigate discoverable facts first, then present options, impact, and a recommendation.
 
+### Evidence-first design refinement before implementation
+
+For non-trivial feature, architecture, or product design work, use the `design-refinement` Skill before planning or implementation. Read repository-controlled evidence before forming questions.
+
+At minimum:
+
+- inspect the task / Issue / acceptance criteria, canonical policy / architecture, design/spec, and relevant ADRs / Skills
+- inspect multiple relevant code, test, schema, and contract locations
+- verify version-sensitive facts against current official sources
+- classify unknowns as facts, decisions determined by project evidence, or unresolved consequential decisions
+- investigate facts autonomously and resolve determined decisions through `engineering-decisions`
+- detect hidden assumptions that could change implementation
+- when unresolved decisions depend on one another, build a decision graph and do not ask downstream questions before their prerequisites are resolved
+- ask the user only about genuine product/architecture decisions on the current decision frontier, with evidence, consequences, and a recommendation
+- persist only long-lived decisions/domain knowledge into design/spec, ADRs, Skills, glossary/domain context, or another canonical project location
+
+The goal is not a large interview. The rule is **read relentlessly, ask minimally**. Add domain-vocabulary documentation only when the project benefits from it; do not require a fixed `CONTEXT.md` in every repository.
+
 ---
 
 ## 5. Agent architecture
@@ -394,6 +412,7 @@ Default Skills:
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `design-refinement`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -654,7 +673,7 @@ If stacked delivery cannot be maintained safely, preserve the dependency SoT and
 
 For non-trivial tasks run:
 
-`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 Do not stop merely because compilation succeeds, one focused test passes, or the first implementation appears plausible.
 
