@@ -43,7 +43,7 @@ Core model:
 - Do not escalate self-evident decisions that project evidence already resolves.
 - Do not make native session/thread resume the only recovery mechanism.
 - A fresh agent must be able to reconstruct unfinished work without conversation history.
-- For significant Agent policy / Skill changes, separate deterministically verifiable behavior from latent behavior that requires fresh-agent judgment.
+- For significant Agent policy / Skill / prompt / routing changes, separate deterministically verifiable behavior from latent behavior that requires fresh-agent judgment.
 - Do not trust a latent policy-eval grader only because a positive example passes; require it to discriminate negative, regression, and positive controls.
 - Classify the execution profile before orchestration so mechanical/localized tasks do not receive unnecessary fan-out.
 - Measure the always-loaded context cost of the root agent contract as part of progressive disclosure, and review whether conditional workflows can move into Skills.
