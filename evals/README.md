@@ -24,11 +24,13 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 ## Current evals
 
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
+- `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
 controls:
 
 ```bash
 bash evals/policy-evaluation/controls.sh
+bash evals/policy-evaluation/context-budget.sh
 ```
 
 fresh agentのanswerを採点:
