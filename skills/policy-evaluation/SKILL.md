@@ -51,7 +51,7 @@ deterministicにできるものをlatent evalへ残さない。逆に、keyword 
 
 ## 2. Policy change gate
 
-significantなAgent policy / Skill変更では、変更前に次を判定する。
+significantなAgent policy / Skill / prompt / routing変更では、変更前に次を判定する。
 
 1. 何のbehaviorを変えるか
 2. そのbehaviorのdeterministic部分は何か
@@ -174,7 +174,7 @@ default:
 - dependency decomposition
 - safeなnodeだけparallelize
 - integration gate
-- builderと分離したreviewerを検討
+- completed artifactに対するbuilderと分離したindependent cold reviewを必須とする
 
 ### judgment-heavy
 
@@ -184,9 +184,11 @@ default:
 default:
 
 - evidence / reference / acceptance rubricを先に固定
-- 必要ならindependent critic
-- cold artifact review
+- builderと分離したindependent cold reviewerを必須とする
+- completed artifact / diff / immutable snapshotをcold review
 - significant decisionをappropriate durable surfaceへ保存
+
+複数profileに該当する場合は、より弱いlabelへ丸めずsafeguardを合成する。特に `cross-boundary` かつ `judgment-heavy` のtaskはdependency decomposition / safe parallelismとevidence/rubric-first executionの両方を適用し、combined routingをorchestration前に記録する。
 
 execution profileはquality taxonomyの代替ではない。
 
@@ -194,7 +196,7 @@ execution profileはquality taxonomyの代替ではない。
 
 ## 7. Cold artifact review
 
-cross-boundary / judgment-heavy taskでは、builder自身の作業記憶だけをfinal quality signalにしない。
+cross-boundary / judgment-heavy taskでは、completed candidate artifactに対するbuilderと分離したindependent cold reviewをrequired completion gateとし、builder自身の作業記憶だけをfinal quality signalにしない。
 
 reviewerへ原則渡すもの:
 
@@ -217,6 +219,8 @@ reviewerはartifactをfreshに読み、実際に存在する結果から評価�
 ## 8. Context budget
 
 progressive disclosureは構造だけでなく、always-loaded context量でも監視する。
+
+このrepositoryでは `bash evals/policy-evaluation/context-budget.sh` をdeterministic regression checkとして実行する。checked-in `evals/policy-evaluation/context-budget-baseline.tsv` とroot instruction files / total always-on instructions / 各conditional `skills/*/SKILL.md` を比較し、各surfaceのbyte growthがbaselineの10%または512 bytesの大きい方を超えた場合はFAILする。outputはmachine-readable TSVとし、intentionalなbaseline更新はreview対象にする。
 
 初期化・policy再構成・root agent fileの大幅変更時に最低限確認する:
 
@@ -251,7 +255,7 @@ failureだけでなく、繰り返し成功しているmanual flowも自動化�
 
 次の場合は関連evalを再実行・更新する。
 
-- 対象policy / Skill変更
+- 対象policy / Skill / prompt / routing変更
 - prompt routing / progressive disclosure変更
 - model generation変更でbehavior差が疑われる
 - grader変更
