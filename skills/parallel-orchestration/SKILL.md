@@ -22,6 +22,18 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
 - validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
+- spawn前に `policy-evaluation` Skillのexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
+
+## Execution profile routing
+
+orchestration strengthはtask sizeの印象ではなくexecution profileから決める。
+
+- `mechanical`: solo executionをdefaultとし、deterministic tooling / focused validationを優先する。
+- `localized`: bounded scopeをsoloで進め、必要なvalidationと、policy/user-visible riskがある場合のcold final reviewを追加する。
+- `cross-boundary`: dependency graphへ分解し、安全なnodeのみparallelizeする。
+- `judgment-heavy`: evidence / reference / acceptance rubricを先に固定し、必要ならbuilderと分離したcold reviewerを使う。
+
+execution profileは `quality-gate` のverification risk taxonomyを置換しない。orchestration/review強度とtest levelを別々に決定する。
 
 ## Dependency readiness
 
@@ -37,19 +49,20 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 ## Flow
 
 1. Issueのobjective / acceptance criteria / dependency / target releaseを読む。
-2. canonical Issue dependency graphからtask graphを作る。
-3. linear hard dependency segmentでstacked PRが適切かを判断する。
-4. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
-5. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
-6. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
-7. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
-8. meaningful boundaryでcheckpointする。
-9. worker resultをinspectし、result generationとbase snapshotがcurrent expected stateに一致することを確認する。
-10. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
-11. integration checkpointごとにrequired validationを行う。
-12. predecessor変更でupstack/downstream branchが更新された場合、affected validationを再実行する。
-13. Reviewerをclean candidate snapshotから起動する。
-14. GitHub Issue / Project / PR metadataを実行状態と同期する。
+2. `policy-evaluation` に従ってexecution profileを判定し、fan-out / reviewer強度を決める。
+3. canonical Issue dependency graphからtask graphを作る。
+4. linear hard dependency segmentでstacked PRが適切かを判断する。
+5. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
+6. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
+7. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
+8. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
+9. meaningful boundaryでcheckpointする。
+10. worker resultをinspectし、result generationとbase snapshotがcurrent expected stateに一致することを確認する。
+11. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
+12. integration checkpointごとにrequired validationを行う。
+13. predecessor変更でupstack/downstream branchが更新された場合、affected validationを再実行する。
+14. Reviewerをclean candidate snapshotから起動する。cross-boundary / judgment-heavy workではbuilderのprivate reasoningではなくobjective / rubric / artifact / validation evidenceを渡すcold reviewを優先する。
+15. GitHub Issue / Project / PR metadataを実行状態と同期する。
 
 ## Spawn contract
 
