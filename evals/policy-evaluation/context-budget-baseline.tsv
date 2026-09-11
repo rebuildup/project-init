@@ -1,0 +1,15 @@
+kind	path	bytes
+root	AGENTS.md	0
+root	CLAUDE.md	0
+root	.github/copilot-instructions.md	0
+always_on_total	__always_on_total__	0
+skill	skills/agent-recovery/SKILL.md	12788
+skill	skills/design-refinement/SKILL.md	6146
+skill	skills/engineering-decisions/SKILL.md	10924
+skill	skills/github-delivery/SKILL.md	15159
+skill	skills/onboarding/SKILL.md	12817
+skill	skills/parallel-orchestration/SKILL.md	9118
+skill	skills/policy-evaluation/SKILL.md	10389
+skill	skills/quality-gate/SKILL.md	23437
+skill	skills/sandbox-runtime/SKILL.md	1894
+skill	skills/security-maintenance/SKILL.md	3792

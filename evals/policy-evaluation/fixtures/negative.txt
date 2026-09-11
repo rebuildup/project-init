@@ -1,0 +1,6 @@
+A profile=judgment-heavy space=latent execution=decompose review=cold
+B profile=judgment-heavy space=latent execution=decompose review=cold
+C profile=judgment-heavy space=latent execution=decompose review=cold
+D profile=judgment-heavy space=latent execution=decompose review=cold
+reviewer_context=builder-reasoning
+self_rating=score
