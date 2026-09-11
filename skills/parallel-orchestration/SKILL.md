@@ -30,8 +30,10 @@ orchestration strengthはtask sizeの印象ではなくexecution profileから�
 
 - `mechanical`: solo executionをdefaultとし、deterministic tooling / focused validationを優先する。
 - `localized`: bounded scopeをsoloで進め、必要なvalidationと、policy/user-visible riskがある場合のcold final reviewを追加する。
-- `cross-boundary`: dependency graphへ分解し、安全なnodeのみparallelizeする。
-- `judgment-heavy`: evidence / reference / acceptance rubricを先に固定し、必要ならbuilderと分離したcold reviewerを使う。
+- `cross-boundary`: dependency graphへ分解し、安全なnodeのみparallelizeする。candidate artifact完了後はbuilderと分離したindependent cold reviewを必須とする。
+- `judgment-heavy`: evidence / reference / acceptance rubricを先に固定し、candidate artifact完了後はbuilderと分離したindependent cold reviewを必須とする。
+
+複数profileに該当する場合はsafeguardを合成する。特に `cross-boundary` かつ `judgment-heavy` のtaskはdependency decomposition / safe parallelismとevidence/rubric-first executionの両方を適用し、combined routingをorchestration前に記録する。
 
 execution profileは `quality-gate` のverification risk taxonomyを置換しない。orchestration/review強度とtest levelを別々に決定する。
 
@@ -61,7 +63,7 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 11. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
 12. integration checkpointごとにrequired validationを行う。
 13. predecessor変更でupstack/downstream branchが更新された場合、affected validationを再実行する。
-14. Reviewerをclean candidate snapshotから起動する。cross-boundary / judgment-heavy workではbuilderのprivate reasoningではなくobjective / rubric / artifact / validation evidenceを渡すcold reviewを優先する。
+14. Reviewerをclean candidate snapshotから起動する。cross-boundary / judgment-heavy workではbuilderのprivate reasoningではなくobjective / rubric / artifact / validation evidenceを渡すindependent cold reviewを必須とする。
 15. GitHub Issue / Project / PR metadataを実行状態と同期する。
 
 ## Spawn contract
