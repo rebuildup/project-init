@@ -15,7 +15,7 @@ fresh agentへ **`skills/policy-evaluation/SKILL.md` だけ**を渡してくだ�
 > C. 新規user向けonboarding flowをゼロから設計する。product semanticsとUX trade-offが中心で、reference/rubricはまだない。
 > D. 毎回同じinput schemaから同じGitHub metadata JSONへ正規化する作業を、複数ticketで繰り返している。
 >
-> Write exactly these six lines to `/tmp/policy_eval_answer.txt`:
+> Return exactly these six lines as your entire response:
 >
 > ```text
 > A profile=<profile> space=<space> execution=<execution> review=<review>
@@ -35,7 +35,9 @@ fresh agentへ **`skills/policy-evaluation/SKILL.md` だけ**を渡してくだ�
 > - reviewer_context: `artifact-only|builder-reasoning`
 > - self_rating: `not-a-gate|score`
 >
-> Do not execute commands. Do not explain the answer outside the file.
+> Do not execute commands or write files. Do not add any explanation.
+
+The eval runner, not the evaluated agent, must capture those six response lines verbatim into `/tmp/policy_eval_answer.txt`. Manual runners may copy the response exactly; automated runners should write the model response to that path without adding wrappers or metadata.
 
 ## Deterministic half
 
