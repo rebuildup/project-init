@@ -43,6 +43,10 @@
 - project evidenceで解ける自明な判断をuserへ返さない。
 - native session/thread resumeを唯一のrecovery mechanismにしない。
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
+- significantなAgent policy / Skill変更は、deterministicに検証できる部分とfresh agent判断が必要なlatent部分を分離して検証する。
+- latent policy evalのgraderはpositiveだけで信用せず、negative / regression / positive controlsを識別できることを要求する。
+- orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
+- progressive disclosureではroot agent contractのalways-loaded context costも実測し、conditional workflowをSkillへ遅延できるかreviewする。
 
 Git worktree自体は禁止ではありません。既にisolatedなsandbox内部のGit実装詳細として使用できますが、worktreeだけでport/process/database等が分離されたとは扱いません。
 
@@ -57,7 +61,9 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 最低限確認:
 
 - root agent instructions
+- root / always-loaded instructionのcontext budget
 - Agent Skills / adapters
+- policy eval scenarios / deterministic graders / controls
 - plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
 - Supervisor integration / execution state model
@@ -409,6 +415,7 @@ rootに置くもの:
 標準Skill候補:
 
 - `parallel-orchestration`
+- `policy-evaluation`
 - `sandbox-runtime`
 - `github-delivery`
 - `quality-gate`
