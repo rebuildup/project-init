@@ -44,6 +44,8 @@ project規模に合わせて最小限に構成する。
 
 巨大な1 documentへ全て詰め込まない。入口から必要なdetailへprogressive disclosureできるようにする。
 
+documentationは作業contextの保存先ではなくreader-facing artifactとして扱う。新規作成・更新時は `writing-discipline` に従い、Select -> Compose -> Rereadで独立した文章へ整える。
+
 ## 3. README minimum
 
 READMEにはprojectに応じて最低限:
@@ -179,6 +181,8 @@ docsもquality gateの対象にする。
 - public repositoryの`main` protection/rulesetが実際に有効か確認
 - recovery pathをfresh agent/sandboxでdrill
 - version-sensitive instructionsをupgrade時にreview
+- conversation / task / execution contextなしで文章単体を理解できるかreader視点でreread
+- chronology dump、不要なcurrent-state記述、context-dependent referent、重複を編集
 
 「READMEには書いてあるがfresh cloneでは動かない」「recovery guideはあるがcheckpointから復旧できない」「CONTRIBUTINGだけ古いPR lifecycleのまま」を許容しない。
 

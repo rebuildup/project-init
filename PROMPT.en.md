@@ -186,6 +186,22 @@ At minimum:
 
 The goal is not a large interview. The rule is **read relentlessly, ask minimally**. Add domain-vocabulary documentation only when the project benefits from it; do not require a fixed `CONTEXT.md` in every repository.
 
+### Reader-facing writing discipline
+
+Do not generate persistent or reader-facing prose by serializing conversation, task, investigation, or execution context.
+
+Use an explicit writing pipeline:
+
+1. **Select**: define the audience and purpose, then select only the facts, decisions, constraints, and rationale the reader needs. Discard scaffolding such as work order, conversation order, and raw tool output.
+2. **Compose**: reorganize the selected communicative content into standalone prose in the reader's order of understanding. Do not treat a compressed context dump as finished writing.
+3. **Reread**: read the entire draft as a reader who does not know the original task or conversation, then edit transitions, redundancy, referents, context dependence, and unnecessary chronology.
+
+Do not ban temporal, historical, or execution information categorically. Include it only when the artifact's meaning or the reader's decision requires it, such as version compatibility, migration, auditability, or reproducibility.
+
+Apply the same rule to documentation, ADRs, Issues, Pull Requests, commit messages, code comments, and review comments. Progressive-disclose the detailed workflow through the `writing-discipline` Skill.
+
+> **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
+
 ---
 
 ## 5. Agent architecture
@@ -420,6 +436,7 @@ Default Skills:
 - `quality-gate`
 - `engineering-decisions`
 - `design-refinement`
+- `writing-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`

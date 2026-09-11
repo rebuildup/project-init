@@ -114,7 +114,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
-   └─ security-maintenance/
+   ├─ security-maintenance/
+   └─ writing-discipline/
 ```
 
 ## Documentation
@@ -140,6 +141,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
 - `design-refinement` — implementation前のevidence読解、fact/decision分離、dependency-aware decision frontier
+- `writing-discipline` — contextを直接転写せず、Select → Compose → Rereadでreader-oriented proseへ変換するwriting workflow
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation、`.tmp/` / `.reference/` / env / `.gitignore` hygiene、fresh-clone audit
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
