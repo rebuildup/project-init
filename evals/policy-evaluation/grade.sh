@@ -8,6 +8,9 @@ T=$(tr -d '\r' < "$A")
 HIT=0
 MISS=0
 VIOL=0
+SCHEMA=0
+DUPLICATE=0
+LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
 
 must_exact() {
   if echo "$T" | grep -qxF "$2"; then
@@ -44,10 +47,41 @@ never "no numeric/self score as quality gate" '^self_rating=score$'
 never "no unnecessary fan-out for mechanical typo" '^A .*execution=decompose'
 never "no repeated deterministic manual reasoning" '^D .*execution=(solo|decompose|evidence-first)'
 
-echo
-echo "hits: $HIT   misses: $MISS   violations: $VIOL"
+echo "schema:"
+while IFS= read -r line; do
+  case "$line" in
+    "A profile=mechanical space=deterministic execution=solo review=none"|\
+    "B profile=cross-boundary space=mixed execution=decompose review=cold"|\
+    "C profile=judgment-heavy space=latent execution=evidence-first review=cold"|\
+    "D profile=mechanical space=deterministic execution=codify review=none"|\
+    "reviewer_context=artifact-only"|\
+    "self_rating=not-a-gate") ;;
+    *)
+      SCHEMA=$((SCHEMA + 1))
+      printf '  INVALID record: %s\n' "$line"
+      ;;
+  esac
+done <<< "$T"
 
-if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ]; then
+for expected in \
+  "A profile=mechanical space=deterministic execution=solo review=none" \
+  "B profile=cross-boundary space=mixed execution=decompose review=cold" \
+  "C profile=judgment-heavy space=latent execution=evidence-first review=cold" \
+  "D profile=mechanical space=deterministic execution=codify review=none" \
+  "reviewer_context=artifact-only" \
+  "self_rating=not-a-gate"
+do
+  count=$(printf '%s\n' "$T" | grep -xcF "$expected" || true)
+  if [ "$count" -gt 1 ]; then
+    DUPLICATE=$((DUPLICATE + 1))
+    printf '  DUPLICATE record: %s\n' "$expected"
+  fi
+done
+
+echo
+echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE"
+
+if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 6 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi
