@@ -64,6 +64,7 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 - canonical sources同士が矛盾し、どちらを選ぶかでproduct semanticsが変わる
 - acceptance criteriaが複数解釈でき、user-visible behaviorが変わる
 - irreversible/destructive operation
+- PR merge / squash / rebase / stacked landing / auto-merge等、明示的なuser authorizationを必要とするintegration side effect
 - external/public API contractを確定する
 - security/privacy/compliance riskの受容判断
 - meaningful cost increase
@@ -71,6 +72,12 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 - design-first policyでuser合意が明示的に必要
 
 質問する場合も、調査可能な事実を先に調査し、選択肢・影響・推奨案を整理してから聞く。
+
+### Merge authorizationはquality decisionと別
+
+PRのacceptance criteria、review、CI、conversation resolution、mergeabilityがすべて満たされても、それだけでAgentがmerge操作を実行してよいとは判断しない。merge / landing / auto-merge enablementはidentified PRまたはbounded PR setへのexplicit user authorizationを必要とする。
+
+`対応して`、`レビューして`、`conflictを解消して`、`リリース準備して`、`最後まで進めて`等はmerge authorizationへ読み替えない。明示的authorizationがないtaskはready-to-mergeで完了できる。
 
 ## 5. Unknownは調査してから判断する
 
