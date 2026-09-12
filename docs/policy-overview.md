@@ -166,7 +166,9 @@ Isolated parallel workers
         ↓
 Verification + CI + Review
         ↓
-Ready for review
+Ready for review / ready-to-merge
+        ↓
+Explicit user merge authorization
         ↓
 Ticket / contiguous stack landing
         ↓
@@ -174,7 +176,9 @@ target release trunk reached
         ↓
 Issue close + Project: Done
         ↓
-Release-wide verification
+Release-wide verification + release ready-to-merge
+        ↓
+Explicit user release-merge authorization
         ↓
 release-x-y-z -> protected main
         ↓
@@ -203,10 +207,13 @@ Release complete
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定する
 - predecessor変更でdownstream SHAが変わったらaffected validationを再実行する
 - acceptance criteriaとticket quality gateを満たしてからReady for reviewへ移す
+- quality/readinessとmerge authorizationを分離し、identified PR / bounded PR setへのexplicit user merge/land requestがない限りAgentはready-to-mergeで停止する
+- green CI / approval / mergeable / resolved review / generic completion requestからmerge authorizationを推論しない。auto-merge enablement / stacked landing / equivalent landingも同じauthorization boundaryに含める
+- authorizationを別PRへ持ち越さず、materialなbase / target release / scope / included-change変化後は古いauthorizationを盲目的に再利用しない
 - stacked ticketはintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue close + board updateを行う
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
-- sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+- sprint完了時にrelease branch全体を検証してrelease PRをready-to-mergeにし、explicit release-merge authorizationがある場合だけAgentが`release-x-y-z -> main`をmergeする
 
 ### Public repository main protection
 
