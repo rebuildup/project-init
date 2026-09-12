@@ -1,0 +1,7 @@
+parity=different-conditions
+runner=ambient-user-config
+identity=implicit-default
+judge=named-separate
+labels=fixed-position
+gate=weighted-total-only
+run=unbounded-restart
