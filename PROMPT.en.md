@@ -1126,6 +1126,8 @@ Repository-controlled docs should lead to at least:
 - troubleshooting
 - release/security/recovery workflow
 
+For public repositories, actively use README badges when they help readers make faster decisions. Treat badges as compact signals/actions rather than decoration: select only project-relevant CI/build/test status, release/package version, license, adoption signals such as downloads/Stars, and deploy/demo/documentation actions. Prefer official provider badges/buttons; use a maintained generic badge service such as Shields.io when needed. Link each badge to the canonical destination matching what it displays, and avoid stale, duplicate, private-only, decorative, or excessive badge rows that reduce README readability.
+
 Use progressive disclosure across README, CONTRIBUTING, `docs/architecture.md`, `docs/development.md`, `docs/troubleshooting.md`, `docs/release.md`, `docs/security.md`, etc. according to project size.
 
 Use Mermaid or similar diagrams when they improve architecture/data-flow/trust-boundary understanding.
