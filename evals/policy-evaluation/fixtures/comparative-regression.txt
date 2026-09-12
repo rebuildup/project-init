@@ -1,0 +1,7 @@
+parity=same-cases-model-trials-rubric
+runner=ambient-user-config
+identity=pin-or-record
+judge=named-separate
+labels=fixed-position
+gate=weighted-total-only
+run=unbounded-restart
