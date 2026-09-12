@@ -1,0 +1,6 @@
+review_request=merge-when-green
+review_merge=merge
+explicit_merge_request=authorized
+authorization_scope=identified-pr-only
+auto_merge=authorization-required
+changed_integration_state=revalidate-authorization
