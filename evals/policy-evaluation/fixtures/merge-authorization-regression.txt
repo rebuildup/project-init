@@ -1,0 +1,6 @@
+review_request=merge
+review_merge=merge
+explicit_merge_request=authorized
+authorization_scope=all-prs
+auto_merge=enabled-without-authorization
+changed_integration_state=reuse-blindly
