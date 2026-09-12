@@ -146,6 +146,16 @@ project evidenceで実質一意に決まる、可逆・局所的なimplementatio
 
 userへ確認するのは、canonical source conflict、product semantics、public API、security/privacy risk acceptance、meaningful cost、release scope/date、irreversible operation、explicit design approval等、本物の意思決定が残る場合に限定します。
 
+## Merge authorization invariant
+
+PRのquality/readinessとmerge authorizationは別stateです。
+
+Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけ、merge / squash / rebase / stacked landing / auto-merge有効化 / equivalent landingを実行します。
+
+review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
+
+authorizationを別PRへ伝播させません。authorization後にexpected fixでheadが変わればcurrent SHAを再検証し、base / target release / scope / included changes等がmaterialに変わった場合やscope内か曖昧な場合は古いauthorizationを再利用しません。
+
 ## Verification / quality invariants
 
 `quality-gate` Skillは固定check listではなくproject-specific quality profile compilerです。
@@ -305,6 +315,8 @@ meaningful reviewerがいない場合、自己reviewerを形式的に指定し�
 
 Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
 
+Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
+
 stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
 
 ### Subagent / worker branches
@@ -318,7 +330,7 @@ ephemeral immutable result refはこのruleの対象外です。
 ### Release Pull Request
 
 最初のrelease差分が入った時点でDraft release PRを開き、sprint中維持します。
-release gate通過後にReadyへ移し、`release-x-y-z -> main` をmergeします。
+release gate通過後にReadyへ移します。`release-x-y-z -> main` のmergeは、このrelease PRへのexplicit user authorizationがある場合だけAgentが実行します。authorizationがなければready-to-mergeで停止します。
 
 ## Language policy
 
