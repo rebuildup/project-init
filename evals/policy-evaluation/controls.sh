@@ -4,13 +4,14 @@ set -uo pipefail
 R=$(cd "$(dirname "$0")/../.." && pwd)
 RC=0
 
-# Run one fixture through the grader and assert the expected PASS/FAIL result.
-expect() {
+# Run one fixture through the selected grader and assert the expected PASS/FAIL result.
+expect_with() {
   label=$1
-  file=$2
-  expected=$3
+  grader=$2
+  file=$3
+  expected=$4
 
-  out=$(bash "$R/evals/policy-evaluation/grade.sh" "$file" 2>&1)
+  out=$(bash "$grader" "$file" 2>&1)
   got=$(echo "$out" | tail -1)
 
   if [ "$got" = "EVAL $expected" ]; then
@@ -22,9 +23,18 @@ expect() {
   fi
 }
 
+expect() {
+  expect_with "$1" "$R/evals/policy-evaluation/grade.sh" "$2" "$3"
+}
+
 expect "negative control"   "$R/evals/policy-evaluation/fixtures/negative.txt" FAIL
 expect "regression control"   "$R/evals/policy-evaluation/fixtures/regression.txt" FAIL
 expect "positive control"   "$R/evals/policy-evaluation/fixtures/positive.txt" PASS
+
+MERGE_GRADER="$R/evals/policy-evaluation/merge-authorization-grade.sh"
+expect_with "merge auth negative" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-negative.txt" FAIL
+expect_with "merge auth regression" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-regression.txt" FAIL
+expect_with "merge auth positive" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-positive.txt" PASS
 
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
