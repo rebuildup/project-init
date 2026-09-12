@@ -1171,6 +1171,8 @@ repository-controlled docsから最低限次へ到達できるようにします
 - troubleshooting
 - release/security/recovery workflow
 
+public repositoryでは、README冒頭のbadgeが読者の判断を速くする場合は積極的に採用してください。badgeは装飾ではなく、現在状態・配布情報・信頼性・主要actionへの短い導線として扱います。CI/build/test status、release/package version、license、downloads/Stars等のadoption signal、deploy/demo/documentation等からprojectに意味のあるものだけを選び、公式provider badge/buttonを優先し、必要ならShields.io等のmaintained serviceを使用してください。badgeのlink先は表示内容に対応するcanonical destinationへ向け、重複・stale・private-only・装飾目的のbadgeやREADME冒頭の可読性を損なう過剰なbadge列を作らないでください。
+
 project規模に応じてREADME、CONTRIBUTING、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md`、`docs/security.md` 等へprogressive disclosureしてください。
 
 必要ならMermaid等でarchitecture/data flow/trust boundariesを可視化してください。
