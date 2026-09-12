@@ -1,6 +1,9 @@
 review_request=merge
 review_merge=merge
+ready_head_sha=7d4c9f8e2b6a1c305e7f94a8d2c61b0f3e5a7c9d
+ready_gate_state=checks-green,review-resolved,conflict-free,mergeable
 explicit_merge_request=authorized
 authorization_scope=all-prs
+stack_landing=all-included-prs-authorized
 auto_merge=enabled-without-authorization
 changed_integration_state=reuse-blindly

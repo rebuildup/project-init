@@ -34,6 +34,7 @@ expect "positive control"   "$R/evals/policy-evaluation/fixtures/positive.txt" P
 MERGE_GRADER="$R/evals/policy-evaluation/merge-authorization-grade.sh"
 expect_with "merge auth negative" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-negative.txt" FAIL
 expect_with "merge auth regression" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-regression.txt" FAIL
+expect_with "merge auth stack scope" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-stack-scope-regression.txt" FAIL
 expect_with "merge auth positive" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-positive.txt" PASS
 
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
