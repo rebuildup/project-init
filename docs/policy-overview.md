@@ -291,6 +291,20 @@ temporal/history/execution informationは、それ自体を禁止しません。
 
 詳細なartifact別workflowは `writing-discipline` Skillへprogressive disclosureします。
 
+## Active work interaction discipline
+
+persistent artifactのwriting disciplineとは別に、active work中のuser/operator-facing interactionも作業logのserializationにしません。
+
+agentが自律実行できるworkはagent側に保持し、userへはverified result、current blocker、external dependency、consequential decisionを優先して提示します。multi-turn stateは次の判断に必要な範囲だけ再掲し、full historyを毎回反復しません。
+
+errorはsymptom / evidence / cause or hypothesis / recovery / verificationとして扱い、agentが修正可能なfailureをuserへmanual taskとして返しません。user actionが必要な場合だけbounded stepsまたは1つのblocking questionへ落とします。
+
+このdisciplineはblanket brevity ruleではありません。taskが要求するtechnical detail、trade-off、safety information、complete listを保持し、削る対象はfiller、重複state、不要な実況、unrelated tangent、avoidable delegationです。根拠のない所要時間見積もりも強制しません。
+
+active interactionからdocumentation / PR / Issue等のpersistent textを作る場合は、そのままcopyせず `writing-discipline` のSelect -> Compose -> Rereadへrouteします。
+
+詳細は `interaction-discipline` Skillへprogressive disclosureします。
+
 ## Adaptive quality / verification gate
 
 quality gateは全project共通の固定bundleではありません。
@@ -459,6 +473,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `engineering-decisions`
 - `design-refinement`
 - `writing-discipline`
+- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
