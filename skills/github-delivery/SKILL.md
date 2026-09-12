@@ -17,6 +17,32 @@ description: GitHub Issues / Projects / Pull Requestsを使い、1週間のrelea
 `main` はリリース済み・統合済みの安定状態を表す。
 通常のticket PRを直接 `main` へ向けない。
 
+## Merge authorization boundary
+
+PRのquality/readinessとmerge side effectのauthorizationを分離する。
+
+Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、次を実行できる。
+
+- merge / squash merge / rebase merge
+- native stacked PR / contiguous stack landing
+- auto-merge有効化
+- integration targetへの直接反映等、PR mergeと実質同じlanding side effect
+
+次はauthorizationではない。
+
+- acceptance criteria satisfied
+- required checks green
+- approval / conversation resolution
+- mergeable / Ready for review
+- `対応して` / `レビューして` / `conflictを解消して` / `リリース準備して` / `最後まで進めて` 等の一般的な完遂依頼
+- repository policyやrelease schedule自体
+
+authorizationがなければ、implementation / push / Draft PR / metadata / review対応 / conflict解消 / validation / Ready化まで進め、**ready-to-merge** で停止する。対象PR、current head SHA、gate state、残るblockerを報告する。merge permissionを得るためだけに不要な質問を先回りして行わない。
+
+authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PRへ伝播させない。authorization後にexpected review fixでhead SHAが変わった場合はcurrent SHAでrequired validationを再実行する。base / target release / scope / included changes等がmaterialに変わった、unrelated changesが入った、またはauthorization scope内か曖昧になった場合は古いauthorizationを再利用せずuserへ再確認する。
+
+quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「Agentがmerge操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
+
 ## Public repository main protection
 
 public repositoryでは`main`をprotected branch / branch rulesetで必ず保護する。
@@ -112,13 +138,14 @@ Dependency execution上は必要に応じて次を区別する:
 6. ticketごとにnumber-only branchを作る。
 7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを必ず作成し、metadataを設定する。
 8. isolated workerをdependency/WIP制約内で並行起動する。
-9. independent ticketまたはstacked ticketをreviewする。
-10. ticket/stackをtarget release trunkへlandし、landing成功を確認する。
-11. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、Project statusをDoneへ更新する。
-12. release branch全体を検証する。
-13. release PRを `main` へmergeする。
-14. version/release処理を完了する。
-15. 未完了ticketは次releaseへ明示的に再計画する。
+9. independent ticketまたはstacked ticketをreviewし、current landing candidateを検証する。
+10. ticket/stackをready-to-mergeへ持っていく。
+11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
+12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、Project statusをDoneへ更新する。
+13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。
+14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeする。
+15. version/release処理を完了する。
+16. 未完了ticketは次releaseへ明示的に再計画する。
 
 ## Ticket branch
 
@@ -277,9 +304,11 @@ IssueのDone条件:
 - linked Issue explicitly closed after successful trunk landing
 - GitHub Project status moved to Done
 
-independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。
+independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。ただしAgentがそのmergeを実行できるのは、このPRまたは明確に限定されたPR集合へのexplicit merge authorizationがある場合だけである。authorizationがなければDoneへ進めずready-to-mergeで停止する。
 
-native stacked PRでは、stackはbottom（trunkに最も近いPR）からlandingする。選択したstacked PRをmergeすると、そのPRと未mergeのlower PRがcontiguous groupとしてtarget release trunkへlandする。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
+native stacked PRでもstack landing自体がmerge authorization boundaryである。stack内の1 PRへのauthorizationを未指定のsibling / predecessor / successor PRへ拡張しない。
+
+native stacked PRでは、stackはbottom（trunkに最も近いPR）からlandingする。選択したstacked PRをmergeすると、そのPRと未mergeのlower PRがcontiguous groupとしてtarget release trunkへlandする。したがってlanding前に、実際のcontiguous landing setに含まれる各PRへのexplicit authorizationが存在するか、またはその集合全体を明示的に限定したbounded stack authorizationが存在することを確認する。selected PRだけへのauthorizationしかない状態でlower PRを含むnative stack landingを実行してはならない。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
 
 native stack landingを使えずordinary nested PRへfallbackする場合、例えば `124 -> 123` の通常mergeはintermediate integrationにすぎない。#124のchangesがtarget `release-x-y-z` へ到達するまでIssue #124をclose/Doneにしない。
 
@@ -314,6 +343,8 @@ release PR:
 - version/release metadata
 
 public repositoryでは`main` protectionにより、このrelease PR以外の経路で`main`を更新できない状態を維持する。
+
+release gate成功はrelease PRをready-to-mergeにするquality evidenceであり、Agentへのmerge authorizationではない。explicit release-merge authorizationがなければ、release PRをReadyにできる状態まで整えて停止し、current head SHA / release gate / blockersを報告する。authorizationがある場合だけmergeを実行する。
 
 release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
 

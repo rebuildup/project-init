@@ -65,6 +65,29 @@ READMEにはprojectに応じて最低限:
 
 READMEへ内部実装detailを過剰に置かない。
 
+### Public README badges
+
+public repositoryでは、README冒頭のbadgeが読者の判断を速くする場合は積極的に採用する。
+
+badgeは装飾ではなく、projectの現在状態・配布情報・信頼性・主要actionへの短い導線として扱う。候補:
+
+- CI / build / test status
+- release / package version
+- license
+- package downloadsやGitHub Stars等のadoption signal
+- deploy / demo / documentation等のaction badge
+
+選定原則:
+
+- projectに実在し、現在も維持されている情報だけを表示する
+- GitHub Actionsやhosting/package provider等が公式badge/buttonを提供する場合はそれを優先する
+- 汎用badgeが必要な場合はShields.io等のmaintained serviceを使用してよい
+- badgeのlink先はstatus details、release/package page、license、deploy target等、表示内容に対応するcanonical destinationへ向ける
+- 同じ情報をREADME本文やGitHub UIと重複表示するだけで判断価値が低いbadgeは省く
+- private repositoryや、外部読者向けのsignal/actionが不要なrepositoryでは無理に追加しない
+- badge数を増やすことを目的にせず、README title直下の可読性と情報hierarchyを維持する
+
+
 ## 4. Development guide
 
 最低限:

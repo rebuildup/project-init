@@ -14,7 +14,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
-- `skills/policy-evaluation/SKILL.md` — policy behaviorのdeterministic/latent分離、execution profile、cold review、context budget。
+- `skills/policy-evaluation/SKILL.md` — policy behaviorのdeterministic/latent分離、execution profile、blind comparative evaluation、cold review、context budget。
 - `evals/` — cold policy scenariosとdeterministic grader / controls。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
@@ -166,7 +166,9 @@ Isolated parallel workers
         ↓
 Verification + CI + Review
         ↓
-Ready for review
+Ready for review / ready-to-merge
+        ↓
+Explicit user merge authorization
         ↓
 Ticket / contiguous stack landing
         ↓
@@ -174,7 +176,9 @@ target release trunk reached
         ↓
 Issue close + Project: Done
         ↓
-Release-wide verification
+Release-wide verification + release ready-to-merge
+        ↓
+Explicit user release-merge authorization
         ↓
 release-x-y-z -> protected main
         ↓
@@ -203,10 +207,13 @@ Release complete
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定する
 - predecessor変更でdownstream SHAが変わったらaffected validationを再実行する
 - acceptance criteriaとticket quality gateを満たしてからReady for reviewへ移す
+- quality/readinessとmerge authorizationを分離し、identified PR / bounded PR setへのexplicit user merge/land requestがない限りAgentはready-to-mergeで停止する
+- green CI / approval / mergeable / resolved review / generic completion requestからmerge authorizationを推論しない。auto-merge enablement / stacked landing / equivalent landingも同じauthorization boundaryに含める
+- authorizationを別PRへ持ち越さず、materialなbase / target release / scope / included-change変化後は古いauthorizationを盲目的に再利用しない
 - stacked ticketはintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue close + board updateを行う
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
-- sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+- sprint完了時にrelease branch全体を検証してrelease PRをready-to-mergeにし、explicit release-merge authorizationがある場合だけAgentが`release-x-y-z -> main`をmergeする
 
 ### Public repository main protection
 
@@ -356,6 +363,10 @@ significantなSkill / prompt / routing変更では、対象behaviorを次へ分�
 - **latent space**: decomposition / escalation / prioritization / qualitative review等、fresh agentの判断が必要な部分
 
 deterministic部分はscript / command / parser / fixtureへ寄せ、latent部分は必要最小限のpolicyだけをfresh agentへ渡すcold evalで確認します。
+
+baseline / candidateのlatent behaviorを比較できる場合は、candidate単独のabsolute scoreよりpaired comparative evidenceを優先します。cases / model / trials / rubric / tool environment等のmaterial conditionをそろえ、operatorのuser-global Skills / plugins / hooks / memory / output style等からrunnerを隔離します。graderがcondition identityを知る必要がない場合はopaque labelへblindし、position biasを避けるdeterministic per-group permutationを使います。
+
+published resultにはmodel / runner / cases / rubric / policy revision等のidentityを記録し、paid evalにはbudget guardとresumable result identityを持たせます。release gateではblockerをhard failureとし、correctness / safety等のcritical dimensionのnon-regressionをweighted totalより優先します。
 
 latent eval graderには最低限:
 
@@ -507,7 +518,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
 - Bun / ripgrepを標準利用。
 - 新規Python scriptは禁止。
-- significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。
+- significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。baseline / candidateを比較する場合はcondition parity・runner isolation・blind paired judging・critical dimension non-regressionを適用する。
 - orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 - progressive disclosureではalways-loaded root contractのcontext costも測定し、肥大化をreviewする。
 - repeated deterministic reasoningはscript / command / configへcodifyする。

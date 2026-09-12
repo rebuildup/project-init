@@ -33,6 +33,9 @@ Core model:
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
 - The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
+- Separate PR quality/readiness state from merge authorization. Agents, subagents, Coordinators, and Supervisors may perform merge / squash merge / rebase merge / stacked landing / auto-merge enablement / equivalent landing only when the user explicitly authorizes merge/landing for the identified PR or clearly bounded PR set.
+- Review fixes, conflict resolution, validation, green CI, approval, resolved conversations, mergeable/Ready state, or generic requests such as `handle this`, `review this`, or `finish this` are not merge authorization. Without authorization, stop at ready-to-merge and report the target head SHA, gate state, and blockers.
+- Do not carry merge authorization to other PRs. If head/base/target release/scope changes after authorization, revalidate the change and do not reuse old authorization after a material or unexpected change.
 - A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk before Issue close / Project Done.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
@@ -45,6 +48,7 @@ Core model:
 - A fresh agent must be able to reconstruct unfinished work without conversation history.
 - For significant Agent policy / Skill / prompt / routing changes, separate deterministically verifiable behavior from latent behavior that requires fresh-agent judgment.
 - Do not trust a latent policy-eval grader only because a positive example passes; require it to discriminate negative, regression, and positive controls.
+- When comparing baseline and candidate latent behavior, keep cases / model / trials / rubric and other material conditions at parity, isolate the runner from operator user-global configuration, and blind condition identity for paired judging where practical. Record model / runner / cases / rubric / policy revisions, and prioritize non-regression in critical dimensions over weighted total score.
 - Classify the execution profile before orchestration so mechanical/localized tasks do not receive unnecessary fan-out.
 - Measure the always-loaded context cost of the root agent contract as part of progressive disclosure, and review whether conditional workflows can move into Skills.
 
@@ -160,6 +164,7 @@ Ask the user when a genuine unresolved decision remains, such as:
 - canonical sources conflict and product semantics change
 - acceptance criteria allow materially different user-visible behavior
 - irreversible/destructive operations
+- PR merge / landing / auto-merge or another integration side effect that requires explicit user authorization
 - public/external API contract decisions
 - security/privacy/compliance risk acceptance
 - meaningful cost increase
@@ -502,6 +507,23 @@ Create it from `main` at sprint start.
 
 Emergency patches or another explicit release-scope/date decision may use a different duration, but normal planning cadence remains one week. Even emergency fixes use a patch release branch and release PR rather than modifying `main` directly.
 
+### Merge authorization boundary
+
+Making a PR technically ready to merge and being authorized to execute the merge side effect are separate states.
+
+An Agent, subagent, Coordinator, or Supervisor may perform the following only when the user explicitly requests merge/landing for the identified PR or a clearly bounded PR set:
+
+- merge commit / squash merge / rebase merge
+- native stacked-PR or contiguous-stack landing
+- enabling auto-merge
+- directly updating an integration target with ticket changes or another side effect equivalent to merging the PR
+
+Repository policy, Issue/PR metadata, green CI, approvals, resolved reviews, mergeability, Ready state, or a successful release gate do not substitute for authorization. Implementation, push, Draft PR creation, metadata updates, review fixes, conflict resolution, validation, and Ready-for-review transitions may proceed autonomously. Without explicit authorization, stop at ready-to-merge and report the target PR, current head SHA, gate state, and remaining blockers.
+
+Do not infer merge authorization from requests such as `handle this`, `review this`, `resolve the conflicts`, `prepare the release`, or `finish this`. Treat instructions such as `merge this PR` or `if the checks pass, merge #123` as authorization because the target and merge/landing side effect are explicit.
+
+Authorization is scoped to the identified PR/set and task. It does not propagate to other PRs. If expected review fixes change the head SHA, rerun applicable gates on the current SHA. If the base, target release, scope, included changes, or other material integration conditions change, or it is unclear whether the new state remains within the authorized scope, do not reuse the old authorization without confirmation.
+
 ### Public repository main protection
 
 Inspect repository visibility. In public repositories, protect `main` with GitHub branch protection or a branch ruleset.
@@ -715,7 +737,7 @@ If stacked delivery cannot be maintained safely, preserve the dependency SoT and
 
 For non-trivial tasks run:
 
-`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> review -> validate current landing candidate -> update PR/board metadata -> prepare ready-to-merge -> verify explicit merge authorization -> [authorized only: land + verify target-release landing] -> verify release -> prepare release ready-to-merge -> verify explicit release-merge authorization -> [authorized only: merge release] -> replan -> continue`
 
 Do not stop merely because compilation succeeds, one focused test passes, or the first implementation appears plausible.
 
@@ -1143,6 +1165,8 @@ Repository-controlled docs should lead to at least:
 - ADRs / design / Agent Skills
 - troubleshooting
 - release/security/recovery workflow
+
+For public repositories, actively use README badges when they help readers make faster decisions. Treat badges as compact signals/actions rather than decoration: select only project-relevant CI/build/test status, release/package version, license, adoption signals such as downloads/Stars, and deploy/demo/documentation actions. Prefer official provider badges/buttons; use a maintained generic badge service such as Shields.io when needed. Link each badge to the canonical destination matching what it displays, and avoid stale, duplicate, private-only, decorative, or excessive badge rows that reduce README readability.
 
 Use progressive disclosure across README, CONTRIBUTING, `docs/architecture.md`, `docs/development.md`, `docs/troubleshooting.md`, `docs/release.md`, `docs/security.md`, etc. according to project size.
 

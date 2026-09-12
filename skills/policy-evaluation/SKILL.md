@@ -251,7 +251,102 @@ context削減のためにcritical invariantを消さない。
 
 failureだけでなく、繰り返し成功しているmanual flowも自動化候補にする。
 
-## 10. Eval maintenance
+## 10. Comparative latent evaluation
+
+output style、interaction policy、judgment routing等のlatent behaviorを評価する場合、candidate単独のabsolute scoreだけで改善を主張しない。
+
+baselineとcandidateを比較できる場合は、**同じtask distributionに対するpaired comparative eval**を優先する。
+
+### Condition parity
+
+比較するcondition間で最低限そろえる。
+
+- cases / prompts
+- model family / exact model identity when configurable
+- effort / sampling等、behaviorへmaterialなgeneration settings
+- trial count
+- rubric / blocker definition
+- tool availability / sandbox / network policy
+- provider/runtimeの主要version
+
+conditionごとに異なるtask setやrubricを使ったscoreを直接比較しない。
+
+modelやruntimeを意図的に変えるexperimentでは、その差をindependent variableとして明示し、policy差と混同しない。
+
+### Runner isolation
+
+eval runnerはoperatorのpersonal configurationから可能な限り隔離する。
+
+contamination candidate:
+
+- user-level Agent Skills / plugins
+- hooks
+- memory / saved instructions
+- output style / personality
+- local global config
+- unrelated MCP / connector
+- environment variableによるhidden behavior switch
+
+baselineへcandidate policyがuser-global設定経由で注入される状態を許容しない。
+
+runnerが完全隔離できない場合、そのcontamination riskをresultへ明示する。
+
+### Identity pinning
+
+reproducible comparisonではmodel / CLI / runner identityを固定または記録する。
+
+default modelへ暗黙依存しない。CLI updateやprovider default変更で同じcommandのbehaviorが変わり得るため、published resultには少なくとも次を残す。
+
+- model identity
+- runner / CLI version
+- cases revision
+- rubric revision
+- trial count
+- policy revision / SHA
+
+### Blind judging
+
+graderがcandidate identityを知る必要がないtaskでは、condition名をblindする。
+
+推奨:
+
+- `baseline` / `candidate` 等をgrader promptへ直接渡さない
+- `A` / `B` 等のopaque labelへ置換する
+- position biasを避けるためlabel orderをper groupで入れ替える
+- resumeしても同じgroupは同じlabel mappingになるdeterministic permutationを使う
+
+release gateやcondition-specific thresholdはblind judgeへ渡さず、scoring後のseparate deterministic stageで適用する。
+
+### Paired judging
+
+同一case / trialのconditionsは可能なら同じjudge callまたは同じevaluation batchで比較し、task difficulty差をcondition差として誤認しない。
+
+candidateだけを別時点・別judge contextで採点してbaseline scoreと比較する場合は、そのcomparability limitationを明示する。
+
+### Release gate
+
+weighted totalだけでrelease判断しない。
+
+最低限:
+
+- blocker finding = hard failure
+- correctness / safety等のcritical dimensionはnon-regression constraintを持つ
+- overall quality improvementはcritical dimensionを悪化させて相殺しない
+- public competitor / baseline comparison claimはcases / model / trials / rubric等が同条件の場合だけ行う
+
+numeric self-ratingはquality evidenceにしない。
+
+### Budget and resumability
+
+paid model evalでは、意図しないrunaway costを避けるためcondition / run単位のbudgetまたはprovider側hard capを持たせる。
+
+long-running evalは、completed `(case, trial, condition, runner)` をdurable resultとして識別し、provider failureやoperator interruption後にcompleted rowsを再実行せずresumeできる形を優先する。
+
+retryはboundedにし、最終provider errorをsilent dropしない。
+
+特定provider API / runnerをcanonical dependencyにはしない。これらはeval harnessのcontractであり、実装はproject/runtimeに合わせる。
+
+## 11. Eval maintenance
 
 次の場合は関連evalを再実行・更新する。
 
@@ -266,7 +361,7 @@ failureだけでなく、繰り返し成功しているmanual flowも自動化�
 
 fixtureをcurrent answerへ都合よく書き換えてhistoryを消さない。
 
-## 11. Completion evidence
+## 12. Completion evidence
 
 policy change完了時は、該当する範囲で次を示す。
 

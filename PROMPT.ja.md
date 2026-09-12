@@ -33,7 +33,10 @@
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
 - 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進める。
+- PRのquality/readiness stateとmerge authorizationを分離する。Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定されたPR集合について明示的にmerge/landを依頼した場合だけmerge / squash merge / rebase merge / stacked landing / auto-merge有効化 / equivalent landingを実行する。
+- review対応、conflict解消、validation、green CI、approval、conversation resolution、mergeable/Ready state、`対応して`、`レビューして`、`最後まで進めて`等はmerge authorizationではない。authorizationがなければready-to-mergeで停止し、対象head SHA / gate state / blockersを報告する。
+- merge authorizationを別PRへ持ち越さない。authorization後にhead/base/target release/scopeが変わった場合は変更を再検証し、materialまたは想定外の変更なら古いauthorizationを再利用しない。
+- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進める.
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
@@ -45,6 +48,7 @@
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
 - significantなAgent policy / Skill / prompt / routing変更は、deterministicに検証できる部分とfresh agent判断が必要なlatent部分を分離して検証する。
 - latent policy evalのgraderはpositiveだけで信用せず、negative / regression / positive controlsを識別できることを要求する。
+- baseline / candidateのlatent behaviorを比較する場合はcases / model / trials / rubric等のcondition parityを保ち、operatorのuser-global configからrunnerを隔離し、可能ならcondition identityをblindしてpaired judgingする。model / runner / cases / rubric / policy revisionを記録し、critical dimensionのnon-regressionをweighted totalより優先する。
 - orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 - progressive disclosureではroot agent contractのalways-loaded context costも実測し、conditional workflowをSkillへ遅延できるかreviewする。
 
@@ -159,6 +163,7 @@ project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ
 - canonical sources同士が矛盾しproduct semanticsが変わる
 - acceptance criteriaが複数解釈できuser-visible behaviorが変わる
 - irreversible/destructive operation
+- PR merge / landing / auto-merge等、明示的なuser authorizationを必要とするintegration side effect
 - public/external API contract確定
 - security/privacy/compliance risk受容
 - meaningful cost increase
@@ -521,6 +526,23 @@ sprint開始時に `main` からrelease branchを作成してください。
 
 緊急patch等、release scope/dateの明示的なdecisionがある場合は1週間から外れてよいですが、通常planning cadenceは1週間を維持してください。patchでも`main`を直接変更せず、patch release branchからrelease PRを使用してください。
 
+### Merge authorization boundary
+
+PRをmerge可能なquality stateへ持っていくことと、merge side effectを実行する権限は別です。
+
+Agent / subagent / Coordinator / Supervisorは、対象PRまたは明確に限定されたPR集合についてuserが明示的にmerge / landを依頼した場合だけ、次を実行できます。
+
+- merge commit / squash merge / rebase merge
+- native stacked PR landing / contiguous stack landing
+- auto-mergeの有効化
+- ticket changesでintegration targetを直接更新する等、PR mergeと実質同じlanding side effect
+
+repository policy、Issue/PR metadata、green CI、approval、resolved review、mergeable state、release gate成功はauthorizationの代わりになりません。implementation / push / Draft PR作成 / metadata更新 / review対応 / conflict解消 / validation / Ready化までは自律実行できますが、authorizationがなければready-to-mergeで停止し、対象PR、current head SHA、gate state、残るblockerを報告してください。
+
+`対応して`、`レビューして`、`コンフリクトを解消して`、`リリース準備して`、`最後まで進めて`等からmerge authorizationを推論してはいけません。`このPRをマージして`、`問題がなければ #123 をマージして`のように対象とmerge/land side effectが明示された指示だけをauthorizationとして扱います。
+
+authorizationは対象PR/集合とtask scopeへ限定し、別PRへ伝播させません。authorization後のexpected review fix等でhead SHAが変わった場合もcurrent SHAでgateを再実行してください。base、target release、scope、included changes等がmaterialに変わった、または変更がuser authorizationの想定内か不明な場合は、古いauthorizationを再利用せず再確認してください。
+
 ### Public repository main protection
 
 repository visibilityを確認してください。public repositoryでは`main`をbranch protection/rulesetで保護してください。
@@ -754,7 +776,7 @@ stacked deliveryを安全に維持できない場合はdependency SoTを壊さ�
 
 非自明taskでは:
 
-`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> review -> validate current landing candidate -> update PR/board metadata -> prepare ready-to-merge -> verify explicit merge authorization -> [authorized only: land + verify target release landing] -> verify release -> prepare release ready-to-merge -> verify explicit release-merge authorization -> [authorized only: merge release] -> replan -> continue`
 
 を自律的に回してください。
 
@@ -1188,6 +1210,8 @@ repository-controlled docsから最低限次へ到達できるようにします
 - ADR / design / Agent Skills
 - troubleshooting
 - release/security/recovery workflow
+
+public repositoryでは、README冒頭のbadgeが読者の判断を速くする場合は積極的に採用してください。badgeは装飾ではなく、現在状態・配布情報・信頼性・主要actionへの短い導線として扱います。CI/build/test status、release/package version、license、downloads/Stars等のadoption signal、deploy/demo/documentation等からprojectに意味のあるものだけを選び、公式provider badge/buttonを優先し、必要ならShields.io等のmaintained serviceを使用してください。badgeのlink先は表示内容に対応するcanonical destinationへ向け、重複・stale・private-only・装飾目的のbadgeやREADME冒頭の可読性を損なう過剰なbadge列を作らないでください。
 
 project規模に応じてREADME、CONTRIBUTING、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md`、`docs/security.md` 等へprogressive disclosureしてください。
 
