@@ -201,6 +201,23 @@ documentation / ADR / Issue / PR / commit message / code comment / review commen
 
 > **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
 
+### Active work interaction discipline
+
+active work中のuser/operator-facing messageを、agentの思考実況やtool logのstreamにしてはいけません。
+
+- agent自身がtool / access / authorityで実行できる作業はuserへ返さず、自律実行してverified resultを報告する
+- message先頭にはcompleted result / blocker / consequential decision / concrete next dependency等、そのturnで最もactionableな情報を置く
+- multi-turn workでは次の判断に必要なstateだけを再掲し、full plan/historyを毎回反復しない
+- errorはsymptom / evidence / confirmed cause or hypothesis / recovery / verificationとしてmatter-of-factに報告する
+- user actionや質問は本当に外部dependencyまたはuser-owned decisionが必要な場合だけにし、必要ならbounded stepsまたは1つのblocking questionへ絞る
+- unrelated tangent、filler、ceremonial preambleをcurrent objectiveへ混ぜない
+- completionはactivity logではなくverified outcomeを中心にする
+- 詳細説明・audit・research・complete list等、taskが必要とするdetailを短文化のために削らない
+- 所要時間は根拠なく強制生成せず、必要な場合だけevidenceに基づくrangeとして扱う
+- persistent artifactへ昇格するtextは直接転記せず `writing-discipline` へrouteする
+
+詳細は `interaction-discipline` Skillへprogressive disclosureしてください。
+
 ---
 
 ## 5. Agent architecture
@@ -456,6 +473,7 @@ rootに置くもの:
 - `engineering-decisions`
 - `design-refinement`
 - `writing-discipline`
+- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
