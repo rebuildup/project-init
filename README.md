@@ -103,12 +103,14 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
 ├─ evals/
+│  ├─ interaction-discipline/
 │  └─ policy-evaluation/
 └─ skills/
    ├─ agent-recovery/
    ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ interaction-discipline/
    ├─ onboarding/
    ├─ parallel-orchestration/
    ├─ policy-evaluation/
@@ -142,6 +144,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
 - `design-refinement` — implementation前のevidence読解、fact/decision分離、dependency-aware decision frontier
 - `writing-discipline` — contextを直接転写せず、Select → Compose → Rereadでreader-oriented proseへ変換するwriting workflow
+- `interaction-discipline` — active workでagent-owned workを保持し、verified state / blocker / user dependencyをactionableに提示するinteraction workflow
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation、`.tmp/` / `.reference/` / env / `.gitignore` hygiene、fresh-clone audit
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
