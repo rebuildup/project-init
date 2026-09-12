@@ -207,6 +207,23 @@ Apply the same rule to documentation, ADRs, Issues, Pull Requests, commit messag
 
 > **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
 
+### Active work interaction discipline
+
+Do not turn user/operator-facing messages during active work into a stream of agent thoughts or tool logs.
+
+- keep agent-owned work with the agent when available tools, access, and authority can perform it; execute and report verified results instead of delegating it back to the user
+- lead with the most actionable state for that turn: a completed result, blocker, consequential decision, or concrete next dependency
+- in multi-turn work, restate only the state needed for the next decision instead of repeating the full plan or history every turn
+- report errors matter-of-factly as symptom, evidence, confirmed cause or hypothesis, recovery, and verification
+- ask for user action only for a real external dependency or user-owned decision; use bounded steps or one blocking question when needed
+- keep unrelated tangents, filler, and ceremonial preambles out of the current objective
+- center completion messages on verified outcomes rather than activity logs
+- do not sacrifice detail required by explanations, audits, research, or complete lists merely to be brief
+- do not manufacture time estimates; give evidence-based ranges only when an estimate is materially useful
+- route text that becomes a persistent artifact through `writing-discipline` rather than copying the active-work conversation directly
+
+Progressive-disclose the detailed workflow through the `interaction-discipline` Skill.
+
 ---
 
 ## 5. Agent architecture
@@ -442,6 +459,7 @@ Default Skills:
 - `engineering-decisions`
 - `design-refinement`
 - `writing-discipline`
+- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`

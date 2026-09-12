@@ -256,7 +256,9 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/github-delivery/SKILL.md`
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
+- `skills/design-refinement/SKILL.md`
 - `skills/writing-discipline/SKILL.md`
+- `skills/interaction-discipline/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
@@ -390,7 +392,7 @@ current official sourceを確認すべき対象:
 
 - `PROMPT.ja.md` / `PROMPT.en.md` のoperational semantics一致
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
-- full promptと8つの標準Skillの整合
+- full promptと標準Skill群の整合
 - README / CONTRIBUTING / ADR整合
 - broken Markdown structureがない
 - conflicting rulesがない
