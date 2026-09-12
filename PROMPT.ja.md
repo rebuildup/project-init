@@ -45,6 +45,7 @@
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
 - significantなAgent policy / Skill / prompt / routing変更は、deterministicに検証できる部分とfresh agent判断が必要なlatent部分を分離して検証する。
 - latent policy evalのgraderはpositiveだけで信用せず、negative / regression / positive controlsを識別できることを要求する。
+- baseline / candidateのlatent behaviorを比較する場合はcases / model / trials / rubric等のcondition parityを保ち、operatorのuser-global configからrunnerを隔離し、可能ならcondition identityをblindしてpaired judgingする。model / runner / cases / rubric / policy revisionを記録し、critical dimensionのnon-regressionをweighted totalより優先する。
 - orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 - progressive disclosureではroot agent contractのalways-loaded context costも実測し、conditional workflowをSkillへ遅延できるかreviewする。
 

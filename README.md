@@ -135,7 +135,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 通常 task では必要な Skill だけを読み込みます。
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
-- `policy-evaluation` — execution profile、deterministic/latent policy eval、cold review、context budget
+- `policy-evaluation` — execution profile、deterministic/latent policy eval、blind comparative evaluation、cold review、context budget
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency

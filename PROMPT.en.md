@@ -45,6 +45,7 @@ Core model:
 - A fresh agent must be able to reconstruct unfinished work without conversation history.
 - For significant Agent policy / Skill / prompt / routing changes, separate deterministically verifiable behavior from latent behavior that requires fresh-agent judgment.
 - Do not trust a latent policy-eval grader only because a positive example passes; require it to discriminate negative, regression, and positive controls.
+- When comparing baseline and candidate latent behavior, keep cases / model / trials / rubric and other material conditions at parity, isolate the runner from operator user-global configuration, and blind condition identity for paired judging where practical. Record model / runner / cases / rubric / policy revisions, and prioritize non-regression in critical dimensions over weighted total score.
 - Classify the execution profile before orchestration so mechanical/localized tasks do not receive unnecessary fan-out.
 - Measure the always-loaded context cost of the root agent contract as part of progressive disclosure, and review whether conditional workflows can move into Skills.
 
