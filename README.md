@@ -98,7 +98,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ audits/
 │  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0010.md
+│  │  └─ ADR-0001.md ... ADR-0012.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -126,6 +126,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — evidence-first design refinement / decision frontier policy。
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policyをdeterministic checks + cold eval + grader controlsで検証する実行contract。
+- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge/landingをquality readinessと分離し、explicit user authorizationを必須にするintegration boundary。
 - [`evals/`](./evals/) — policy behaviorのcold scenario、deterministic grader、positive/negative/regression controls。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
