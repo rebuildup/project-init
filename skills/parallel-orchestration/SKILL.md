@@ -15,6 +15,7 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - child -> parent はimmutable commit/ref/diff + validation result。
 - sandbox lifecycleはworker外のSupervisorが管理する。
 - worktree単体をexecution isolationとみなさない。
+- WSL/LinuxでSupervisorがlocal branchをworktreeへmaterializeする場合は`worktree-workflow` Skillに従ってWorktrunkを使用できるが、各workerのruntime isolationとimmutable result contractは別に維持する。
 - durable planning unitはGitHub Issue、短命な内部subtaskはSupervisor taskとしてよい。
 - Issue dependency graphがdurable dependency SoTであり、Git branch topologyだけでdependencyを管理しない。
 - child lifecycleはparent model processではなくSupervisorが所有する。

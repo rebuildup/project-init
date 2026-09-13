@@ -72,6 +72,8 @@
 - target release trunkへのactual landing後にIssue close / Project Doneへ進むか
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
+- Worktrunk / `hash_port` / `wt step tether`をruntime isolationの代替として扱っていないか
+- `.config/wt.toml` のdev command / port overrideが実際のproject stackから導出されているか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
@@ -89,6 +91,8 @@
 - ADR-0009: cost-aware GitHub Actions resource efficiency
 - ADR-0010: evidence-first design refinement / decision frontier
 - ADR-0011: evaluated Agent policy contract / execution profile / context budget
+- ADR-0012: explicit PR merge authorization boundary
+- ADR-0013: Worktrunk WSL/Linux worktree operations / deterministic host-port lifecycle
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。

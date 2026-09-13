@@ -8,6 +8,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
+- `skills/worktree-workflow/SKILL.md` — WSL/LinuxでのWorktrunk worktree操作、project-local hook、host port/process lifecycle。
 - `skills/github-delivery/SKILL.md` — Issues / Projects / weekly release sprint / stacked PR / Draft PR / release integration。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
@@ -28,6 +29,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0009.md` — cost-aware GitHub Actions resource efficiency。
 - `ADR-0010.md` — evidence-first design refinement / decision frontier policy。
 - `ADR-0011.md` — Agent policyをevaluated executable contractとして扱う方針。
+- `ADR-0012.md` — PR merge/landingをquality readinessと分離するexplicit authorization boundary。
+- `ADR-0013.md` — WorktrunkをWSL/Linuxの標準worktree操作レイヤーへ採用するdecision。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -44,6 +47,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
+- WSL/Linuxで再現可能なWorktrunk worktree lifecycleとdeterministic host-port allocation
 - GitHub Issues / Projects / Pull Requestsによるweekly ticket-driven release sprint workflow
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + mandatory Draft PR lifecycleとPR metadata management
@@ -83,6 +87,7 @@ Agent Supervisor
 
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree単体をexecution isolationとみなさない
+- WSL/Linuxのlocal worktree操作ではWorktrunkをpreferred frontendとして使用できるが、workspace lifecycleとruntime isolationを混同しない
 - DB / Redis / queue / runtime stateをworker間で共有しない
 - parent -> child はimmutable snapshot
 - child -> parent はimmutable commit/ref/diff
@@ -108,6 +113,8 @@ Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/re
 WSL自体はworker isolationではありません。複数workerをWSL内で動かす場合も各workerにcontainer/VM/sandbox boundaryを設けます。
 
 Docker Desktopは必須前提にしません。
+
+WSL/Linuxで複数のticket/review worktreeを扱う場合はWorktrunkをpreferred frontendとし、repository-specificなhookは`.config/wt.toml`へcommitします。共有hostへ公開するdev serverはproject stackが対応する実際のport overrideへ`{{ branch | hash_port }}`を接続し、long-running processは適切なら`wt step tether`へ結び付けます。これはhost port/process lifecycleの整理であり、DB / Redis / queue / credential等のruntime isolationを置換しません。
 
 ## GitHub agile delivery
 

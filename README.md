@@ -98,7 +98,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ audits/
 │  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0012.md
+│  │  └─ ADR-0001.md ... ADR-0013.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -117,6 +117,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ quality-gate/
    ├─ sandbox-runtime/
    ├─ security-maintenance/
+   ├─ worktree-workflow/
    └─ writing-discipline/
 ```
 
@@ -129,6 +130,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — evidence-first design refinement / decision frontier policy。
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policyをdeterministic checks + cold eval + grader controlsで検証する実行contract。
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge/landingをquality readinessと分離し、explicit user authorizationを必須にするintegration boundary。
+- [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/LinuxでWorktrunkをworktree操作レイヤーに採用し、deterministic host port/process lifecycleを統合する方針。
 - [`evals/`](./evals/) — policy behaviorのcold scenario、deterministic grader、positive/negative/regression controls。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -140,6 +142,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `policy-evaluation` — execution profile、deterministic/latent policy eval、blind comparative evaluation、cold review、context budget
 - `sandbox-runtime` — isolated runtime と cross-platform portability
+- `worktree-workflow` — WSL/Linux向けWorktrunk操作、project-local hooks、deterministic port/process lifecycle
 - `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
