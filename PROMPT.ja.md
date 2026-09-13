@@ -54,6 +54,10 @@
 
 Git worktree自体は禁止ではありません。既にisolatedなsandbox内部のGit実装詳細として使用できますが、worktreeだけでport/process/database等が分離されたとは扱いません。
 
+WSL/Linuxでlocal ticket/review worktreeを使うprojectでは、Worktrunkをpreferred worktree frontendとして扱い、`worktree-workflow` Skillを導入してください。初期化時は実際のframework/runtime/dev commandを調査したうえで、repository-specific hookが必要ならproject-local `.config/wt.toml` を生成・commitします。共有hostへ公開するdev serverのportは、stackがport overrideを許す場合 `{{ branch | hash_port }}` からdeterministically割り当て、long-running processは適切なら `wt step tether` へ結び付けてworktree removal時のorphan processを避けてください。
+
+Worktrunkはbranch/worktree操作とhost port/process lifecycleのadapterです。ticket/release branch naming、Draft PR lifecycle、protected `main`、explicit merge authorizationを変更せず、`wt merge main` 等をGitHub delivery policyの迂回に使ってはいけません。`hash_port`でportが一意になってもDB / Redis / queue / credential / mutable runtime stateのisolation requirementは残ります。
+
 ---
 
 ## 2. `/init` はidempotent reconciliationにする
@@ -473,6 +477,7 @@ rootに置くもの:
 - `parallel-orchestration`
 - `policy-evaluation`
 - `sandbox-runtime`
+- `worktree-workflow`
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
