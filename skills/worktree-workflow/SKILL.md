@@ -107,6 +107,8 @@ url = "http://localhost:{{ branch | hash_port }}"
 
 `{{ branch | hash_port }}`はbranch名からdeterministicなhost portを生成する。共有WSL/Linux hostで複数worktreeのdev serverを並行起動する時の標準候補とする。
 
+ただしhash-based allocationは絶対的なuniqueness guaranteeではない。dev server / runtimeはbind failureを明示的に検出し、必要ならproject-specificなport reservationまたはcollision-resolutionを追加する。既に別processが占有しているportを「自分のbranch用」と仮定して継続してはいけない。
+
 適用境界:
 
 - hostへ直接bindするprocess: dev commandのportへ適用

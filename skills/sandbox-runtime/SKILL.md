@@ -51,7 +51,7 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 WSL/Linuxのlocal workspace materializationではWorktrunkをpreferred frontendとしてよい。
 
 - shared project hookはproject-local `.config/wt.toml`へ置く。
-- shared hostへ公開するdev serverは、実際のframework/runtimeが許すport overrideへ `{{ branch | hash_port }}` を接続して一意化する。
+- shared hostへ公開するdev serverは、実際のframework/runtimeが許すport overrideへ `{{ branch | hash_port }}` を接続してdeterministically割り当てる。`hash_port`自体をuniqueness proofとせず、startup時のbind conflictを検出する。
 - long-running local processは適切なら `wt step tether -- <command>` でworktree lifecycleへ結び付ける。
 - container/sandbox内部portは同一値のままでよく、`hash_port`は必要なhost-published portへ適用する。
 - DB / Redis / queue / socket / container name等のmutable stateは別途runtime adapterで一意化する。必要ならWorktrunkのdeterministic template valueをidentifierへ利用してよい。

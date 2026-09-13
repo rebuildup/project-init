@@ -116,8 +116,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
-   ├─ worktree-workflow/
    ├─ security-maintenance/
+   ├─ worktree-workflow/
    └─ writing-discipline/
 ```
 
