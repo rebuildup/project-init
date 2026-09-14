@@ -945,6 +945,8 @@ Priority:
 
 Evaluate need, reproducibility, maintenance, security, license, context cost, cross-platform behavior, and version pinning.
 
+When OpenCodeReview (`ocr`) is available as a global CLI, agents may use it optionally for large diffs, pre-release review, or other cases where an additional independent review would be useful. It is not a required gate and does not need to be added as a project-local dependency or Skill. When used, provide review-target context and independently validate OCR findings against current source before acting on them. If the CLI is unavailable, do not block the ordinary review flow or add a project dependency solely to obtain it.
+
 Native GitHub stacked-PR features may be used as an implementation mechanism when available, but policy semantics must not depend on temporary preview-specific behavior.
 
 ---

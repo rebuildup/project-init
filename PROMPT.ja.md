@@ -988,6 +988,8 @@ irreversible/destructive operationはengineering-decisionsのuser escalation pol
 
 必要性、再現性、maintenance、security、license、context cost、cross-platform、version pinningを確認してください。
 
+OpenCodeReview (`ocr`) がglobal CLIとして利用可能な環境では、large diff、release前、または追加の独立レビューが有効と判断した場合に任意で使用して構いません。これはrequired gateではなく、project-local dependencyやSkillとして導入する必要もありません。使用時はreview targetのcontextを渡し、OCRのfindingをそのまま権威化せずagent自身でcurrent sourceに対して検証してから対応してください。CLIが存在しない環境では、それだけを理由に通常のreview flowを停止したりprojectへ依存を追加したりしないでください。
+
 GitHub native stacked PR等のplatform featureは利用可能なら実装手段として使って構いませんが、policy semanticsを一時的なpreview feature固有の挙動へ依存させないでください。
 
 ---

@@ -523,7 +523,9 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - project evidenceで解ける自明な判断をuserへ返さない。
 - 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
 - reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
-- Bun / ripgrepを標準利用。exact / exhaustive / freshness-sensitive searchはripgrepを使う。
+- Bun / ripgrepを標準利用。
+
+- OpenCodeReview (`ocr`) はglobal CLIが利用可能な場合のoptional supplementary reviewerとし、large diff / release前等でagent判断により使用できる。required gateやproject-local dependency / Skillにはせず、findingはcurrent sourceで再検証し、未導入でも通常review flowをblockしない。exact / exhaustive / freshness-sensitive searchはripgrepを使う。
 - zvec-grepは利用可能でindexがcurrentな場合のoptional semantic discovery capabilityとし、architecture / cross-file explorationでは優先候補にできる。未導入・stale・failureで作業をblockせずripgrep / source inspectionへfallbackし、global installやuser-global agent config mutationを必須化しない。
 - 新規Python scriptは禁止。
 - significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。baseline / candidateを比較する場合はcondition parity・runner isolation・blind paired judging・critical dimension non-regressionを適用する。
