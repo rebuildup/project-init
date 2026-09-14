@@ -523,7 +523,8 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - project evidenceで解ける自明な判断をuserへ返さない。
 - 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
 - reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
-- Bun / ripgrepを標準利用。
+- Bun / ripgrepを標準利用。exact / exhaustive / freshness-sensitive searchはripgrepを使う。
+- zvec-grepは利用可能でindexがcurrentな場合のoptional semantic discovery capabilityとし、architecture / cross-file explorationでは優先候補にできる。未導入・stale・failureで作業をblockせず、global installやuser-global agent config mutationを必須化しない。
 - 新規Python scriptは禁止。
 - significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。baseline / candidateを比較する場合はcondition parity・runner isolation・blind paired judging・critical dimension non-regressionを適用する。
 - orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
