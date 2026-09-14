@@ -61,6 +61,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 `-g` / `--global` を付けると project-local ではなく user scope に導入できます。
 
+既にSkillが導入済みでも、それだけで「更新不要」と判断しません。明示的にversionをpin/freezeしていない限り、配布元のcurrent revision/contentとの差分を確認し、変更があればproject-local customizationを保持しながらreconcile/updateします。配布元やrevisionを確認できない場合も、agentが独断で据え置き扱いにはしません。
+
 > [!IMPORTANT]
 > `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` / `PROMPT.en.md` は初期化用の包括的 prompt であり、Skills CLI によって自動実行・適用されるものではありません。
 >
