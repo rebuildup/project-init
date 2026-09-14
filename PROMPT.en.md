@@ -10,7 +10,7 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Git is the canonical source-state SoT + GitHub Issues / Projects are the work/dependency-state SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + public repositories protect `main` and update it only through release PRs + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
+> **Git is the canonical source-state SoT + GitHub Issues are the canonical implementation/dependency SoT while release planning uses GitHub Projects or an optional Linear profile with explicit field ownership + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + public repositories protect `main` and update it only through release PRs + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
 
 ---
 
@@ -25,8 +25,9 @@ Core model:
 - In public repositories, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
 - In public repositories, the canonical delivery path to `main` is only `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, require a check that validates `base == main` and `head == release-*` for the intended target release.
 - A normal sprint lasts one week and is represented by `release-<major>-<minor>-<patch>`.
-- Durable tickets are GitHub Issues; durable work/dependency state is GitHub Issues / Projects.
-- The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology.
+- Durable implementation tickets are GitHub Issues; implementation/dependency state is kept in GitHub Issues.
+- Release planning / portfolio control uses GitHub Projects, or Linear Projects / Initiatives when the optional Linear profile is selected. Do not make the same field canonical in multiple systems.
+- The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology or only in Linear.
 - Ticket branch names contain only the Issue number.
 - One top-level Issue normally maps to one durable ticket branch and one ticket PR.
 - Independent ticket PRs target the release branch. A same-release linear hard dependency may instead use the immediate predecessor ticket branch as the dependent PR base.
@@ -87,7 +88,7 @@ At minimum inspect:
 - env examples / `.gitignore`
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / required release-source check
-- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
+- GitHub Issues / selected planning control plane / dependency / PR / stacked PR / release workflow
 - current errors / warnings
 - branch / remote / user uncommitted changes
 
@@ -109,7 +110,7 @@ Canonical state should be representable by at least:
 2. released ref: `main` or an explicitly equivalent branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue / Project work + dependency state
+5. GitHub Issue implementation / dependency state + selected release-planning control plane
 6. project-wide policy / architecture / design / specification / ADRs
 7. repository-controlled operational documentation / Agent Skills
 8. durable recovery checkpoints / immutable worker results
@@ -118,7 +119,8 @@ Source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket/priority/status/version/dependency: GitHub Issues / Projects
+- ticket scope / acceptance criteria / status / target version / dependency: GitHub Issues
+- planning priority / release goal / target date / health / portfolio: GitHub Projects, or Linear Projects / Initiatives when the Linear profile is selected
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset plus required release-source check when needed
@@ -460,6 +462,7 @@ Default Skills:
 - `sandbox-runtime`
 - `worktree-workflow`
 - `github-delivery`
+- `linear-release-control` (only when the Linear profile is selected)
 - `quality-gate`
 - `engineering-decisions`
 - `design-refinement`
@@ -557,15 +560,17 @@ Issue / Project dependency state is the canonical dependency SoT. Do not encode 
 
 Short-lived nested subtasks may remain Supervisor tasks.
 
-### GitHub Projects / Kanban
+### Planning control plane
 
-Minimum status model:
+When GitHub Projects is used as the ticket board, the minimum status model is:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
 Recommended fields include Priority, Size, Target Version, Area/Component, and Blocked/dependency.
 
 Bound WIP by real capacity.
+
+When the Linear profile is selected, do not mirror every GitHub Issue into a Linear Issue. Use `1 release train = 1 Linear Project` by default and place release goal, target date, health, and portfolio grouping in Linear. Keep implementation scope, acceptance criteria, dependency, PR, and CI state canonical in GitHub and load `linear-release-control` for the detailed contract. Do not use Linear Cycles by default as a duplicate of the weekly release sprint.
 
 When useful distinguish dependency execution state as:
 
@@ -943,6 +948,8 @@ Priority:
 4. project-local adapter / protocol integration
 5. plugin / MCP only for a clear benefit
 
+When the Linear profile is selected, consider Linear's official remote MCP as the agent integration. Prefer read-write access for the Coordinator/release manager and no Linear access or the read-only endpoint for implementation workers. Do not make Linear authentication, API keys, or user-global MCP client configuration repository truth.
+
 Evaluate need, reproducibility, maintenance, security, license, context cost, cross-platform behavior, and version pinning.
 
 Native GitHub stacked-PR features may be used as an implementation mechanism when available, but policy semantics must not depend on temporary preview-specific behavior.
@@ -975,6 +982,7 @@ Persist consequential long-lived decisions in ADRs, especially:
 - dependency-aware stacked PR model
 - durable branch / remote-publication / Draft PR / PR metadata lifecycle
 - public-repository main protection / release-only main integration
+- optional Linear release-planning / control-plane boundary
 - environment reproducibility
 - architecture migration
 - package/toolchain migration
