@@ -98,7 +98,7 @@ unknownを「安全側に2倍」等の任意倍率で補完しない。
 id:
 description:
 type:
-weight:
+weight: # positive number (> 0)
 dependencies: []
 parallelizable: true
 human_required: false
@@ -113,6 +113,7 @@ risk:
 ~~~
 
 Work Unitは絶対時間ではなくproject内の相対作業量である。
+`weight` / `original_WU` は必ず正の値とし、0以下のWork Unitを作らない。作業量を持たないgateやmilestoneはWork UnitではなくDAG上のgate / eventとして表現する。
 
 ## Anchor-based WU calibration
 
@@ -236,6 +237,25 @@ calendar durationを単純な total WU / agent count で計算しない。
 - human decision latency
 - external wait
 
+## Throughput accounting
+
+`completed WU / day / week` は既定で **active-work throughput** を意味する。
+
+- 分子: 完了WUの `actual_total_WU` の合計。initial workとreworkを含む
+- 分母: そのWU群に実際に費やしたactive work time。internal queue、human wait、CI/build/deploy wait、external wait、usage-limit cooldownは除外する
+- 単位: `actual_total_WU / active-work day` または `actual_total_WU / active-work week`
+
+残scopeのactive work demandは、各WUの `original_WU` にsampled reworkを反映して `actual_total_WU` 相当へ変換し、active-work throughputで処理時間へ変換する。
+
+```text
+active_duration = sampled_actual_total_WU / sampled_active_work_throughput
+calendar_duration = DAG_schedule(active_duration, sampled_waits, gates, queues)
+```
+
+human / CI / external / usage-limit waitはDAG scheduleで一度だけ加える。active-work throughputの分母から除外したwaitを、別のwait distributionとして重複計上しない。
+
+active work timeを分離できずwall-clock throughputしか得られない場合、そのthroughputはend-to-end baselineとして扱い、同じ観測区間に含まれるhuman / CI / external waitを別途加算しない。waitを分解したforecastが必要なら、active-work / wait splitを追加観測するまでconditionalまたはunavailableとする。
+
 ## Human capacity
 
 AI capacityと人間のcapacityを分離する。
@@ -314,6 +334,8 @@ task mix等が違う期間のthroughput差だけから因果的speedupを決め�
 rework ratio:
 
 (actual_total_WU - original_WU) / original_WU
+
+`original_WU > 0` をschema invariantとするため、この式は常に定義可能である。既存履歴に0-weight recordがある場合は、そのrecordを比率計算へ含めずdata-quality issueとして記録する。
 
 Forecastでは類似taskの経験分布をbootstrapする。
 根拠のない平均rework率を生成しない。
@@ -414,6 +436,34 @@ Work Graphまたは必須capacity evidenceが成立していない。
 - external delay
 
 観測サンプルから復元抽出する。
+
+## Bootstrap observation unit
+
+既定の再標本化単位は、1つのcompleted Work Unitまたは同一execution episodeに紐づく **joint observation** とする。可能な場合は次を同じrecordへ保持する。
+
+- active-work throughput / active duration
+- original_WU / actual_total_WU / rework
+- human gate latency
+- CI queue / execution delay
+- blocked duration
+- external delay
+- agent count / model / usage-limit condition
+- shared gate / queue identity
+
+同一episode・同一shared gate・同一queue等の共通原因を持つ値は、相関を壊さないようjointに再標本化する。独立再標本化してよいのは、観測上も運用上も別mechanismであり、shared gate / queue / episodeを持たないことを説明できる場合だけとし、そのindependence assumptionをforecast evidenceへ記録する。joint dataが必要なのに存在しない場合は、独立と仮定せずmaterial distribution unknownとして扱う。
+
+## DAG aggregation per bootstrap iteration
+
+各反復で次の順序を固定する。
+
+1. Evidence fallback hierarchyとtask characteristicsに従い、各WU / gate / queueに対応するobservationを復元抽出する。
+2. 各WUの `original_WU` にsampled reworkを反映して `sampled_actual_total_WU` を得る。
+3. `sampled_actual_total_WU / sampled_active_work_throughput` でactive durationを得る。
+4. predecessorが複数あるWUのearliest startは、必要なpredecessor completion / stack-ready snapshot availabilityの最大値とする。serial chainは依存順に累積し、parallel branchは同時進行できる範囲で重ねる。
+5. shared human gateはhuman capacityを持つ共通resource queueとして、shared CI queueはCI capacityを持つ共通resource queueとしてscheduleする。同じgate / queue delayを各downstream WUへ重複加算しない。
+6. blocked / external waitは、それを生じさせるedgeまたはgateへ一度だけ配置する。
+7. release completionはterminal WU群のcompletion最大値に、まだDAGへ含まれていないmandatory release gateをscheduleした時点とする。
+8. 反復ごとのrelease completion durationを保存し、その経験分布からP50 / P80 / P95を算出する。
 
 AIが任意のNormal / Uniform等の分布を生成しない。
 
@@ -561,26 +611,73 @@ coverage calibration目安:
 
 最低限以下を返す。
 
+すべての**数値field**は、単独の裸の数値ではなく次のevidence recordで表現する。
+
+~~~yaml
+value:
+unit:
+provenance: measured | derived | external | user-specified-scenario | provisional | unknown
+evidence_ref: []
+~~~
+
+- `evidence_ref` はobservation ID、commit / snapshot、external dataset、user instruction、simulation run ID等、根拠を再取得できる参照を持つ
+- derived valueは入力evidenceに加えて計算 / simulation runを参照する
+- unavailableな値は `value: unavailable`、`provenance: unknown` とし、欠落理由を `evidence_ref` またはUnknownsから追跡可能にする
+- provisionalな値は `provenance: provisional` を維持し、通常のdecision-grade measured valueへ見せかけない
+
 ~~~markdown
 ## Scope
 Remaining work:
 Critical path:
 Parallelizable work:
 WU calibration:
+  value:
+  unit: WU
+  provenance:
+  evidence_ref:
 
 ## Capacity evidence
 Observation window:
 Sample size:
+  value:
+  unit: observations
+  provenance:
+  evidence_ref:
 Evidence quality:
 Active agents:
+  value:
+  unit: agents
+  provenance:
+  evidence_ref:
+Active-work throughput:
+  value:
+  unit: actual_total_WU/active-work-day
+  provenance:
+  evidence_ref:
 Human review capacity:
+  value:
+  unit:
+  provenance:
+  evidence_ref:
 Main bottleneck:
 
 ## Forecast
 Status:
 P50:
+  value:
+  unit: calendar-duration
+  provenance: derived
+  evidence_ref:
 P80:
+  value:
+  unit: calendar-duration
+  provenance: derived
+  evidence_ref:
 P95:
+  value:
+  unit: calendar-duration
+  provenance: derived
+  evidence_ref:
 Evidence confidence:
 
 ## Evidence fallbacks
@@ -595,6 +692,8 @@ Evidence confidence:
 ## Acceleration candidates
 ...
 ~~~
+
+P50 / P80 / P95の各`evidence_ref`は、少なくともforecast input snapshotとbootstrap / simulation runを個別に参照する。WU calibration、throughput、agent count、human capacity等、forecastへ入るcapacity数値にも同じrecord形式を適用する。
 
 sample policy上利用できないquantileは、値を捏造せずunavailable / provisionalと表示する。
 
