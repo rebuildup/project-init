@@ -405,6 +405,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - quality gateはframework/runtime固有のcurrent official guidanceからproject-localにcompileする。
 - unit/smoke/integration/contract/E2Eの責務を区別し、変更riskからrequired verificationを決める。
 - GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
+- 導入済みAgent Skillのpresenceをfreshnessの証拠にしない。明示的なpin/freezeがなければcanonical sourceとの差分を確認し、変更があればproject-local customizationを保持してreconcile/updateする。確認不能をagent判断の据え置き理由にしない。
 - framework/runtime security advisoryをproject reachability込みでpriority化する。
 - fresh contributor/new agentがhidden contextなしで開発開始・復旧できるdocumentationを維持する。
 - significant architecture/tooling/runtime/workflow/quality/security/recovery decisionsはADRへ永続化。
