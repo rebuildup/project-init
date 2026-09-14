@@ -1264,7 +1264,11 @@ branch名はIssue番号またはrelease versionだけを表し、説明責務を
 
 JavaScript / TypeScriptでは具体的な非互換性がなければBunを標準package managerとしてください。
 
-text searchは `rg` / `rg --files` を標準とします。
+text searchは `rg` / `rg --files` を標準とします。exact symbol / path / literal / regex / exhaustive occurrence / freshness-sensitive verificationは `rg` を使用してください。
+
+`zg` (zvec-grep) が利用可能でindexがcurrentな場合、exact terminologyやlocationが不明なsemantic discovery、architecture exploration、cross-file relationshipの探索では優先候補として使用できます。zvec-grepはoptional optimizationであり、未導入・stale index・failureを理由に作業をblockせず、`rg` と通常のsource inspectionへfallbackしてください。重要なfindingはsource fileまたはexact searchで確認してから変更してください。
+
+このpolicyを満たすためだけにzvec-grepのglobal installやuser-global agent config mutationを要求しないでください。project-local index stateはproject truth / correctness dependencyにせず、`.zvec-grep/` を生成する場合はGit ignoreしてください。
 
 新規 `.py` scriptをautomation、generation、migration、validation、build/test support、temporary analysis目的で追加してはいけません。project本来の適切な言語、TypeScript/JavaScript、shell、PowerShell等を使用してください。
 
