@@ -1,6 +1,6 @@
 ---
 name: github-delivery
-description: GitHub Issues / Projects / Pull Requestsを使い、1週間のrelease sprint、dependency-aware stacked PR、durable Draft PR lifecycleでticket-drivenなアジャイル開発を進める時に使用する。
+description: GitHub Issues / Pull Requestsをexecutionの中心に置き、1週間のrelease sprint、dependency-aware stacked PR、durable Draft PR lifecycleでticket-drivenなdeliveryを進める時に使用する。planning control planeはGitHub Projectsまたはoptional Linear profileを使う。
 ---
 
 # GitHub Delivery
@@ -9,8 +9,9 @@ description: GitHub Issues / Projects / Pull Requestsを使い、1週間のrelea
 
 - released source state: `main`
 - active sprint/release integration state: `release-x-y-z`
-- durable work state: GitHub Issues / Projects
-- dependency state: GitHub Issue / Project dependency metadata
+- durable implementation work state: GitHub Issues
+- dependency state: GitHub Issue dependency metadata
+- release planning / portfolio state: GitHub Projects、またはLinear profile採用時はLinear Projects / Initiatives
 - ticket review/integration: Pull Requests
 - transient execution state: Supervisor
 
@@ -103,9 +104,9 @@ Issueのtitle/bodyは日本語を標準とする。
 
 Issue dependency graphはcanonical dependency SoTであり、Git branch topologyだけでdependencyを表現しない。
 
-## Project / Kanban
+## Planning board / control plane
 
-最低限のStatus:
+GitHub Projectsを使う場合の最低限のStatus:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
@@ -119,6 +120,8 @@ Issue dependency graphはcanonical dependency SoTであり、Git branch topology
 
 WIPを無制限に増やさない。
 Readyかつdependency条件を満たすticketからcapacity内で起動する。
+
+Linear profileを採用するprojectでは、GitHub IssueをLinear Issueへ全面mirrorしない。Linearはrelease-level planning / health / portfolio control planeとして使い、詳細は `linear-release-control` Skillに従う。GitHub ProjectsとLinearを併用する場合も同じfieldを両方でcanonicalにしない。
 
 Dependency execution上は必要に応じて次を区別する:
 
@@ -141,8 +144,8 @@ Dependency execution上は必要に応じて次を区別する:
 9. independent ticketまたはstacked ticketをreviewし、current landing candidateを検証する。
 10. ticket/stackをready-to-mergeへ持っていく。
 11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
-12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、Project statusをDoneへ更新する。
-13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。
+12. target release trunkへlandしたticketのlinked Issueを明示的にcloseする。GitHub Projectsをticket boardとして使うprojectではstatusをDoneへ更新する。
+13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。Linear profile採用時はGitHub evidenceからrelease Project health / updateをreconcileする。
 14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeする。
 15. version/release処理を完了する。
 16. 未完了ticketは次releaseへ明示的に再計画する。
@@ -302,7 +305,7 @@ IssueのDone条件:
 - release/stack staleness handled
 - ticket changesがtarget release trunkへland済み
 - linked Issue explicitly closed after successful trunk landing
-- GitHub Project status moved to Done
+- GitHub Projectsをticket boardとして使う場合はProject status moved to Done
 
 independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。ただしAgentがそのmergeを実行できるのは、このPRまたは明確に限定されたPR集合へのexplicit merge authorizationがある場合だけである。authorizationがなければDoneへ進めずready-to-mergeで停止する。
 
@@ -312,7 +315,7 @@ native stacked PRでは、stackはbottom（trunkに最も近いPR）からlandin
 
 native stack landingを使えずordinary nested PRへfallbackする場合、例えば `124 -> 123` の通常mergeはintermediate integrationにすぎない。#124のchangesがtarget `release-x-y-z` へ到達するまでIssue #124をclose/Doneにしない。
 
-contiguous stack groupまたはstack全体を一括landingする場合、含まれるすべてのticketが個別にacceptance criteria / review / current-SHA validationを満たしていることを確認する。landing後に各Issue/Project stateを明示的にreconcileする。
+contiguous stack groupまたはstack全体を一括landingする場合、含まれるすべてのticketが個別にacceptance criteria / review / current-SHA validationを満たしていることを確認する。landing後に各Issueと、利用中のplanning projection（GitHub Projects等）を明示的にreconcileする。Linear profileではticketを全面mirrorしないため、release-level stateだけを必要に応じてreconcileする。
 
 `main`へのmergeをIssue単位のDone条件にはしない。Issue Done boundaryはtarget release trunkである。
 
@@ -347,6 +350,8 @@ public repositoryでは`main` protectionにより、このrelease PR以外の経
 release gate成功はrelease PRをready-to-mergeにするquality evidenceであり、Agentへのmerge authorizationではない。explicit release-merge authorizationがなければ、release PRをReadyにできる状態まで整えて停止し、current head SHA / release gate / blockersを報告する。authorizationがある場合だけmergeを実行する。
 
 release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
+
+Linear profile採用時は、release PR merge後もtag / deploy / package / store等のproject-defined actual availabilityを確認し、final Project Update / `Released` checkpointを反映してからLinear ProjectをCompletedへ進める。
 
 ## Version / tag-triggered release consistency
 
