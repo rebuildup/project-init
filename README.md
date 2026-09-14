@@ -98,7 +98,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ audits/
 │  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0013.md
+│  │  └─ ADR-0001.md ... ADR-0014.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
