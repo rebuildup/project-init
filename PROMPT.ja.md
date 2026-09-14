@@ -88,7 +88,7 @@ Worktrunkはbranch/worktree操作とhost port/process lifecycleのadapterです�
 - env examples / `.gitignore`
 - repository visibility
 - public repositoryの`main` branch protection / ruleset / bypass / required release-source check
-- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
+- GitHub Issues / selected planning control plane / dependency / PR / stacked PR / release workflow
 - current errors / warnings
 - branch / remote / userのuncommitted changes
 
@@ -110,7 +110,7 @@ canonical stateは最低限次で表現してください。
 2. released ref: `main` またはprojectが明示する同等branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue / Project work + dependency state
+5. GitHub Issue implementation / dependency state + selected release planning control plane
 6. project-wide policy / architecture / design / specification / ADR
 7. repository-controlled operational documentation / Agent Skills
 8. durable recovery checkpoint / immutable worker results
@@ -119,7 +119,8 @@ source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket/priority/status/version/dependency: GitHub Issues / Projects
+- ticket scope / acceptance criteria / status / target version / dependency: GitHub Issues
+- planning priority / release goal / target date / health / portfolio: GitHub Projects、またはLinear profile採用時はLinear Projects / Initiatives
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset + required release-source check when needed
