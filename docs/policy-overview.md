@@ -149,7 +149,7 @@ main
 - `main`: リリース済み・統合済みsource state
 - `release-x-y-z`: そのversionを目標とするweekly sprint integration branch / stack trunk
 - `<issue-number>`: 1 ticketのdurable branch
-- GitHub Issue / Project dependency metadata: canonical dependency SoT
+- GitHub Issue dependency metadata: canonical dependency SoT
 - stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
 
 標準ライフサイクル:
