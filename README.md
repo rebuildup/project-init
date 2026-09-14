@@ -111,6 +111,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ engineering-decisions/
    ├─ github-delivery/
    ├─ interaction-discipline/
+   ├─ linear-release-control/
    ├─ onboarding/
    ├─ parallel-orchestration/
    ├─ policy-evaluation/
