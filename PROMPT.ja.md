@@ -81,6 +81,8 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 
 `initialize if missing -> repair if incomplete -> update if stale -> verify if already correct`
 
+Agent Skillsもこのstale判定の対象です。既に同名Skillが存在することだけを更新不要の根拠にしてはいけません。明示的なversion pin / freezeがない限り、canonical source / upstreamのcurrent revisionまたはcontentを確認し、installed copyとの差分があれば更新・再導入・reconcileしてください。project-local customizationがある場合は無条件に上書きせず差分を統合し、source / revision / freshnessを確認できない場合もagent判断で「据え置きでよい」と確定してはいけません。
+
 正しい状態を理由なく再生成しないでください。変更不要も成功です。
 
 public repositoryで`main` protectionが不足し、変更権限がある場合は初期化中に作成・修復してください。権限がなく修復できない場合は未保護状態をblockerとして報告してください。
@@ -417,7 +419,7 @@ rootに置くもの:
 - `onboarding`
 - `agent-recovery`
 
-Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。`--global` を既定にしてはいけません。
+Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。既存Skillを発見した場合もpresenceだけでskipせず、明示的なpin/freezeがなければsource freshnessを確認して差分をreconcileしてください。`--global` を既定にしてはいけません。
 
 通常taskでは必要なSkillだけを読み、このfull promptを再読しない構成にしてください。
 

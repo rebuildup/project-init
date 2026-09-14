@@ -81,6 +81,8 @@ Behavior:
 
 `initialize if missing -> repair if incomplete -> update if stale -> verify if already correct`
 
+Agent Skills are also subject to this stale-state check. The mere presence of an installed Skill is not evidence that it is current. Unless an explicit version pin or freeze exists, inspect the canonical source/upstream current revision or content and update, reinstall, or reconcile the installed copy when it differs. Preserve and reconcile project-local customizations rather than overwriting them blindly. If source, revision, or freshness cannot be verified, do not autonomously conclude that the installed Skill should remain unchanged.
+
 Do not regenerate correct state without reason. No change can be a successful result.
 
 If a public repository lacks the required `main` protection and the initializer has permission, create or repair it during initialization. If permissions are insufficient, report the missing protection as a blocker rather than silently accepting it.
@@ -398,7 +400,7 @@ Default Skills:
 - `onboarding`
 - `agent-recovery`
 
-Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. Do not make `--global` the default.
+Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. When an existing Skill is found, do not skip it merely because it is present; unless it is explicitly pinned or frozen, verify source freshness and reconcile any differences. Do not make `--global` the default.
 
 Normal tasks should load only the Skills they need, not this full prompt.
 
