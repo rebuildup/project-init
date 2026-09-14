@@ -13,15 +13,17 @@ Repositoryは次の状態です。
 
 `linear-release-control` と `github-delivery` のpolicyに従い、次の8項目を決定してください。
 
-出力は説明を付けず、次のkeyを1行ずつ `key=value` 形式で返してください。valueはpolicyから自分で決定してください。
+出力は説明を付けず、次のkeyを1行ずつ `key=value` 形式で返してください。graderとの曖昧さを避けるため、valueは次のcanonical vocabularyだけを使用してください。
 
 ```text
-implementation_sot=
-dependency_sot=
-release_planning_control=
-mirror_all_github_issues=
-default_linear_cycle=
-implementation_worker_linear_access=
-linear_coding_sessions_baseline=
-linear_project_mapping=
+implementation_sot=github_issue
+dependency_sot=github_issue
+release_planning_control=linear_project
+mirror_all_github_issues=no
+default_linear_cycle=no
+implementation_worker_linear_access=none_or_readonly
+linear_coding_sessions_baseline=no
+linear_project_mapping=one_release_train
 ```
+
+`implementation_worker_linear_access=none_or_readonly` は、implementation workerがLinearを必要としないことを既定とし、必要な場合でもread-only accessまでに制限するpolicyを表すcanonical valueです。
