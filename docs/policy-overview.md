@@ -9,7 +9,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
 - `skills/worktree-workflow/SKILL.md` — WSL/LinuxでのWorktrunk worktree操作、project-local hook、host port/process lifecycle。
-- `skills/github-delivery/SKILL.md` — Issues / Projects / weekly release sprint / stacked PR / Draft PR / release integration。
+- `skills/github-delivery/SKILL.md` — GitHub Issues / PRによるweekly release sprint / stacked PR / Draft PR / release integration。
+- `skills/linear-release-control/SKILL.md` — optional Linear release planning / health / portfolio control plane。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
@@ -31,6 +32,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0011.md` — Agent policyをevaluated executable contractとして扱う方針。
 - `ADR-0012.md` — PR merge/landingをquality readinessと分離するexplicit authorization boundary。
 - `ADR-0013.md` — WorktrunkをWSL/Linuxの標準worktree操作レイヤーへ採用するdecision。
+- `ADR-0014.md` — GitHub executionを維持したoptional Linear release control plane。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -48,7 +50,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
 - WSL/Linuxで再現可能なWorktrunk worktree lifecycleとdeterministic host-port allocation
-- GitHub Issues / Projects / Pull Requestsによるweekly ticket-driven release sprint workflow
+- GitHub Issues / Pull Requestsによるweekly ticket-driven release sprint workflow + optional Linear release control plane
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + mandatory Draft PR lifecycleとPR metadata management
 - public repositoryのprotected `main` / release-only main integration
@@ -65,7 +67,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issuesをimplementation/dependency stateのcanonical SoTとし、release planningはGitHub Projectsまたはoptional Linear profileへfield ownershipを分離する + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -147,7 +149,7 @@ main
 - `main`: リリース済み・統合済みsource state
 - `release-x-y-z`: そのversionを目標とするweekly sprint integration branch / stack trunk
 - `<issue-number>`: 1 ticketのdurable branch
-- GitHub Issue / Project dependency metadata: canonical dependency SoT
+- GitHub Issue dependency metadata: canonical dependency SoT
 - stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
 
 標準ライフサイクル:
@@ -487,6 +489,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `policy-evaluation`
 - `sandbox-runtime`
 - `github-delivery`
+- `linear-release-control`（Linear profile採用時のみ）
 - `quality-gate`
 - `engineering-decisions`
 - `design-refinement`
@@ -502,7 +505,9 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
-- GitHub Issues / Projectsをdurable work/dependency SoTとする。
+- GitHub Issuesをdurable implementation/dependency SoTとする。
+- release planning / portfolioはGitHub Projects、またはLinear profile採用時はLinear Projects / Initiativesを使い、同じfieldを二重canonicalにしない。
+- Linear profileではGitHub Issueの全面mirrorをdefaultにせず、`1 release train = 1 Linear Project` を基本とする。
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。

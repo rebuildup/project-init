@@ -1,0 +1,8 @@
+implementation_sot=github_issue
+dependency_sot=linear_issue
+release_planning_control=linear_project
+mirror_all_github_issues=yes
+default_linear_cycle=no
+implementation_worker_linear_access=readwrite
+linear_coding_sessions_baseline=no
+linear_project_mapping=one_release_train
