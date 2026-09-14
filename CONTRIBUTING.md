@@ -52,7 +52,9 @@
 - WSL自体をworker isolationとして扱っていないか
 - `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
-- GitHub Issues / Projectsをdurable work SoTとして維持しているか
+- GitHub Issuesをdurable implementation/dependency SoTとして維持しているか
+- planning control planeをGitHub Projectsまたはoptional Linear profileへ明示し、同じfieldを二重canonicalにしていないか
+- Linear profile採用時にGitHub Issueを全面mirrorせずrelease-level stateへ限定しているか
 - `main`をreleased source stateとして維持しているか
 - public repositoryで`main` protection/rulesetが有効か
 - public repositoryで`main`へのdirect push/editが禁止され、release branchからのrelease PRだけが正規更新経路になっているか
@@ -93,6 +95,7 @@
 - ADR-0011: evaluated Agent policy contract / execution profile / context budget
 - ADR-0012: explicit PR merge authorization boundary
 - ADR-0013: Worktrunk WSL/Linux worktree operations / deterministic host-port lifecycle
+- ADR-0014: optional Linear release planning / control-plane boundary
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -100,8 +103,9 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 ## Multi-agent / delivery invariants
 
 - Git remote / canonical ref = source SoT
-- GitHub Issues / Projects = durable work SoT
+- GitHub Issues = durable implementation/dependency SoT
 - GitHub Issue dependency graph = durable dependency SoT
+- release planning control plane = GitHub Projects or optional Linear Projects / Initiatives, with explicit field ownership
 - `main` = released/integrated source state
 - public repositoryでは`main`をprotected branch/rulesetで保護する
 - public repositoryでは`main`へのdirect push / direct web edit / force push / deletionを通常運用で禁止する
@@ -258,6 +262,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/policy-evaluation/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
+- `skills/linear-release-control/SKILL.md`（Linear profile採用時）
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
 - `skills/design-refinement/SKILL.md`
