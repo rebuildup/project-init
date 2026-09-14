@@ -9,6 +9,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
 - `skills/github-delivery/SKILL.md` — Issues / Projects / weekly release sprint / stacked PR / Draft PR / release integration。
+- `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
@@ -23,6 +24,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0006.md` — decision hierarchy / verification taxonomy / security maintenance / onboarding。
 - `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
 - `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
+- `ADR-0009.md` — quality gateを弱めないcost-aware GitHub Actions resource efficiency。
+- `ADR-0010.md` — evidence-based agent delivery forecasting / capacity estimation。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose

@@ -261,6 +261,20 @@ frameworkが特定領域をE2E/real runtimeで検証することを推奨する�
 4. native agent capability
 5. 明確な優位があるplugin/MCP
 
+## 7.1 Delivery-estimation integration
+
+`agent-delivery-estimation` がdelivery forecastを行う場合、quality gateは次の観測値を提供できる形にする。
+
+- validation level / required gate
+- CI started/completed duration
+- queue / retry / failure
+- E2E / manual verification wait
+- release-only validation cost
+- current-SHA revalidationによる追加round
+
+これらはforecast inputであり、estimateを短縮するためにrequired gateを削除・skip・弱体化してはならない。
+delivery forecastはquality requirementへ従い、逆にquality requirementをforecastへ合わせない。
+
 ## 8. GitHub Actions / CI resource efficiency
 
 GitHub Actionsを使用するprojectではlocal gateとCI gateを同じsemanticsへ揃える。

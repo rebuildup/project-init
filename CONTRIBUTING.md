@@ -69,6 +69,7 @@
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
 - ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
+- 中長期の工期・release date・agent scaling見積もりが `agent-delivery-estimation` のevidence / unknown handlingに従い、AIの主観値で埋められていないか
 
 ## Canonical ADRs
 
@@ -78,6 +79,8 @@
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
+- ADR-0009: cost-aware GitHub Actions without weakening quality gates
+- ADR-0010: evidence-based agent delivery forecasting / capacity estimation
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -216,6 +219,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/parallel-orchestration/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
+- `skills/agent-delivery-estimation/SKILL.md`
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
 - `skills/security-maintenance/SKILL.md`

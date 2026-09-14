@@ -25,6 +25,7 @@ Core model:
 - In public repositories, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
 - In public repositories, the canonical delivery path to `main` is only `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, require a check that validates `base == main` and `head == release-*` for the intended target release.
 - A normal sprint lasts one week and is represented by `release-<major>-<minor>-<patch>`.
+- One week is a planning cadence, not a duration guarantee. For medium/long-term release, roadmap, or milestone estimates, use the `agent-delivery-estimation` Skill with Work Units, dependencies, observed throughput, human/CI/external waits, and usage limits; do not use the agent's subjective day/month estimate as evidence.
 - Durable tickets are GitHub Issues; durable work/dependency state is GitHub Issues / Projects.
 - The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology.
 - Ticket branch names contain only the Issue number.
@@ -394,6 +395,7 @@ Default Skills:
 - `parallel-orchestration`
 - `sandbox-runtime`
 - `github-delivery`
+- `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
 - `security-maintenance`
@@ -434,6 +436,8 @@ main
 
 A normal sprint lasts **one week**.
 One sprint maps 1:1 to one target semantic version and one release integration branch.
+
+This one-week window is a planning cadence, not evidence that the selected scope will finish within one week. When estimating release dates, roadmaps, milestones, capacity, or the benefit of changing agent count, use the `agent-delivery-estimation` Skill. Do not fill material unknowns with arbitrary conservative multipliers; return complete / conditional / unavailable as appropriate.
 
 Release branch:
 
@@ -1194,6 +1198,7 @@ Verify at least:
 - public repositories have effective `main` protection/rulesets that prohibit normal direct push/edit and make release PRs the canonical update path
 - where protection cannot constrain PR source branches, a required release-source check exists
 - normal sprint cadence = one week, and one sprint = one target semantic version
+- medium/long-term release forecasting uses the evidence-based `agent-delivery-estimation` policy rather than subjective calendar estimates or linear agent scaling
 - Issue dependency graph is the canonical dependency SoT
 - independent tickets use release base, and same-release linear hard dependencies may use stacked PRs
 - every active durable ticket branch publishes its first meaningful commit to the canonical remote, verifies the remote-head SHA, and immediately gets a Draft PR, including worker/subagent branches
