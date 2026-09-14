@@ -54,6 +54,18 @@ release branchはsprint開始時に `main` のrelease基準commitから作成す
 
 緊急patchや明示的なrelease判断では1週間から外れてよいが、通常planning cadenceは1週間を基準とする。patchでも`main`を直接変更せず、target patch release branch -> `main` のrelease PRを使用する。
 
+### Delivery forecast / capacity
+
+1週間はplanning cadenceであり、選んだscopeが必ず1週間で完了するというestimateではない。
+
+release / roadmap / milestoneの完了時期、release date、capacity、carry-over、agent数変更による短縮効果を判断する場合は `agent-delivery-estimation` Skillを使用する。
+
+- IssueのSizeをcalendar durationとして扱わない
+- AI自身の「数日・数ヶ月」という主観的estimateをrelease dateの根拠にしない
+- dependency graph、Work Unit、observed throughput、human review capacity、CI/external wait、usage limitを使う
+- material unknownがある場合は `complete / conditional / unavailable` を維持し、日付を捏造してfieldを埋めない
+- sprintごとの実績を次のforecast calibrationへ戻す
+
 ## Issue
 
 durable planning unitは原則GitHub Issueにする。
@@ -104,11 +116,11 @@ Dependency execution上は必要に応じて次を区別する:
 
 ## Sprint / release cycle
 
-1. 次version、1週間のsprint window、release dateを決める。
+1. 次versionと1週間のsprint windowを決める。release dateや中長期commitmentを置く場合は `agent-delivery-estimation` のevidence-backed forecastまたは明示的な外部deadlineと区別する。
 2. `release-x-y-z` branchを `main` から作成する。
 3. sprint goalを定義する。
 4. Ready ticketを選択する。
-5. dependency / stack候補 / capacityを確認する。
+5. dependency / stack候補 / capacityを確認する。中長期capacity判断では `agent-delivery-estimation` のcurrent evidence / bottleneck / forecast statusを参照する。
 6. ticketごとにnumber-only branchを作る。
 7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを必ず作成し、metadataを設定する。
 8. isolated workerをdependency/WIP制約内で並行起動する。
