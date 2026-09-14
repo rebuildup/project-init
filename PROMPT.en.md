@@ -1211,7 +1211,11 @@ Branch names carry only Issue numbers or release versions, not descriptions.
 
 For JavaScript/TypeScript, prefer Bun unless there is a concrete incompatibility.
 
-Use `rg` / `rg --files` for text search.
+Use `rg` / `rg --files` for text search. Use `rg` for exact symbols, paths, literals, regexes, exhaustive occurrence searches, and freshness-sensitive verification.
+
+When `zg` (zvec-grep) is available and its index is current, it may be preferred for semantic discovery, architecture exploration, and cross-file relationship searches where the exact terminology or location is unknown. zvec-grep is an optional optimization: its absence, a stale index, or a failure must not block repository work; fall back to `rg` and normal source inspection. Verify important findings against source files or exact search before making changes.
+
+Do not require a global zvec-grep install or mutate user-global agent configuration solely to satisfy this policy. Project-local index state is not project truth or a correctness dependency; if `.zvec-grep/` is created, Git-ignore it.
 
 Do not add new `.py` scripts for automation, generation, migration, validation, build/test support, or temporary analysis. Use the project's appropriate language, TypeScript/JavaScript, shell, PowerShell, etc.
 
