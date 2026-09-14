@@ -25,6 +25,7 @@
 - public repositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
 - public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする。branch protection/rulesetだけでPR headを制約できない場合はrequired checkで `base=main` かつ `head=release-*` / intended target releaseを検証する。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
+- 1週間はplanning cadenceであって工期保証ではない。release / roadmap / milestoneの中長期見積もりは `agent-delivery-estimation` SkillでWork Unit・dependency・実測throughput・human/CI/external wait・usage limitを評価し、AI自身の主観的な日数/月数を根拠にしない。
 - durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues / Projectsで管理する。
 - Issue dependency graphをcanonical dependency SoTとする。Git branch topologyだけでdependencyを管理しない。
 - ticket branchはIssue番号だけを使用する。
@@ -413,6 +414,7 @@ rootに置くもの:
 - `parallel-orchestration`
 - `sandbox-runtime`
 - `github-delivery`
+- `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
 - `security-maintenance`
@@ -453,6 +455,8 @@ main
 
 通常sprint期間は **1週間** です。
 1 sprint = 1 target semantic version = 1 release integration branchです。
+
+この1週間はplanning cadenceであり、選択したscopeが1週間で完了するというestimateではありません。release date、roadmap、milestone、capacity、agent数変更による短縮効果を見積もる場合は `agent-delivery-estimation` Skillを使用してください。material unknownを任意の保守値で埋めず、必要ならcomplete / conditional / unavailableを返してください。
 
 release branch:
 
@@ -1242,6 +1246,7 @@ project/runtimeが許す範囲で定期的に:
 - public repositoryでは`main` protection/rulesetが有効でdirect push/editを禁止し、release PRだけが正規更新経路
 - branch protection/rulesetだけでsource branchを制限できない場合、required release-source checkが存在
 - 通常sprint cadence = 1週間、1 sprint = 1 target semantic version
+- medium/long-term release forecastは `agent-delivery-estimation` のevidence-based policyを使用し、主観的calendar estimateやlinear agent scalingを採用しない
 - Issue dependency graphがcanonical dependency SoT
 - independent ticketはrelease base、same-release linear hard dependencyはstacked PRを使用可能
 - active durable ticket branchはfirst meaningful commitをcanonical remoteへpublishしてhead SHAを確認した直後にDraft PRを持ち、worker/subagentも例外でない
