@@ -10,7 +10,7 @@
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Gitをsource stateのcanonical SoT、GitHub Issuesをimplementation/dependency stateのcanonical SoTとし、release planning control planeはGitHub Projectsまたはoptional Linear profileとしてfield ownershipを分離する + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
 
 ---
 
@@ -25,8 +25,9 @@
 - public repositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
 - public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする。branch protection/rulesetだけでPR headを制約できない場合はrequired checkで `base=main` かつ `head=release-*` / intended target releaseを検証する。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
-- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues / Projectsで管理する。
-- Issue dependency graphをcanonical dependency SoTとする。Git branch topologyだけでdependencyを管理しない。
+- durable implementation ticketはGitHub Issue、implementation/dependency stateはGitHub Issuesで管理する。
+- release planning / portfolio control planeはGitHub Projects、またはLinear profile採用時はLinear Projects / Initiativesを使用する。同じfieldを複数systemでcanonicalにしない。
+- Issue dependency graphをcanonical dependency SoTとする。Git branch topologyやLinear側だけでdependencyを管理しない。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable ticket branch = 1 ticket PRを基本とする。
 - independent ticket PRはtarget release branch、same-release linear hard dependencyではdependent ticket PRをimmediate predecessor ticket branchへstackしてよい。
@@ -479,6 +480,7 @@ rootに置くもの:
 - `sandbox-runtime`
 - `worktree-workflow`
 - `github-delivery`
+- `linear-release-control`（Linear profile採用時のみ）
 - `quality-gate`
 - `engineering-decisions`
 - `design-refinement`
@@ -576,9 +578,9 @@ Issue / Project dependency stateがcanonical dependency SoTです。branch paren
 
 短命なnested subtaskはSupervisor taskで構いません。
 
-### GitHub Projects / Kanban
+### Planning control plane
 
-最低限:
+GitHub Projectsをticket boardとして使う場合の最低限:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
@@ -591,6 +593,8 @@ Issue / Project dependency stateがcanonical dependency SoTです。branch paren
 - Blocked / dependency
 
 WIPを実capacityに合わせて制限してください。
+
+Linear profileを採用する場合、GitHub IssueをLinear Issueへ全面同期しないでください。`1 release train = 1 Linear Project` をdefaultとし、release goal / target date / health / portfolioをLinearへ置きます。implementation scope / acceptance criteria / dependency / PR / CIはGitHubをcanonicalに維持し、詳細は `linear-release-control` Skillへprogressive disclosureしてください。Cycleはweekly release sprintのduplicate containerとして既定利用しません。
 
 Dependency execution上は必要に応じて:
 
@@ -986,6 +990,8 @@ irreversible/destructive operationはengineering-decisionsのuser escalation pol
 4. project-local adapter / protocol integration
 5. 明確な利点がある場合のみplugin / MCP
 
+Linear profile採用時はLinear公式remote MCPをagent integration候補とする。Coordinator / release managerはread-write endpoint、implementation workerは原則Linear不要で、必要な場合はread-only endpointを優先する。Linear auth / API key / user-global MCP configをrepository truthにしない。
+
 必要性、再現性、maintenance、security、license、context cost、cross-platform、version pinningを確認してください。
 
 GitHub native stacked PR等のplatform featureは利用可能なら実装手段として使って構いませんが、policy semanticsを一時的なpreview feature固有の挙動へ依存させないでください。
@@ -1020,6 +1026,7 @@ Design-first gateが存在する変更はdesign合意後にimplementationへ進�
 - dependency-aware stacked PR model
 - durable branch / remote publication / Draft PR / PR metadata lifecycle
 - public repository main protection / release-only main integration
+- optional Linear release planning / control-plane boundary
 - environment reproducibility
 - architecture migration
 - package/toolchain migration
