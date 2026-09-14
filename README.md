@@ -68,7 +68,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub Issues / Projects / Pull Requestsを中心とした **1週間のrelease sprint** です。
+標準deliveryはGitHub Issues / Pull Requestsをexecutionの中心とした **1週間のrelease sprint** です。release planningはGitHub Projects、またはoptionalなLinear control planeを選択できます。
 
 - `main` = released/integrated source state
 - `release-x-y-z` = 1週間のsprint / target version integration branch
@@ -82,7 +82,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - tag-triggered publishを使う場合はtag version / authoritative project version / release SHAの整合を検証する
 
-詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、Linear採用時は [`skills/linear-release-control/SKILL.md`](./skills/linear-release-control/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`ADR-0014`](./docs/adr/ADR-0014.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
 ## Repository layout
 
@@ -131,6 +131,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policyをdeterministic checks + cold eval + grader controlsで検証する実行contract。
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge/landingをquality readinessと分離し、explicit user authorizationを必須にするintegration boundary。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/LinuxでWorktrunkをworktree操作レイヤーに採用し、deterministic host port/process lifecycleを統合する方針。
+- [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub executionを維持しながらLinearをoptional release planning / health / portfolio control planeとして使う方針。
 - [`evals/`](./evals/) — policy behaviorのcold scenario、deterministic grader、positive/negative/regression controls。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -143,7 +144,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `policy-evaluation` — execution profile、deterministic/latent policy eval、blind comparative evaluation、cold review、context budget
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `worktree-workflow` — WSL/Linux向けWorktrunk操作、project-local hooks、deterministic port/process lifecycle
-- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
+- `github-delivery` — GitHub Issues / PR / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
+- `linear-release-control` — optional Linear Project / Initiative / Milestone / MCPによるrelease planning / health reconciliation
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
 - `design-refinement` — implementation前のevidence読解、fact/decision分離、dependency-aware decision frontier
@@ -163,4 +165,4 @@ policy sectionを削除・統合・Skillへ移動する場合は、各normative 
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues / Projects を work/dependency state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues を implementation/dependency state の canonical SoT とし、release planning は GitHub Projects または optional Linear profile へ責務分離する。mutable execution state は agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
