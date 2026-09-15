@@ -22,12 +22,12 @@ description: GitHub Issues / Pull Requestsをexecutionの中心に置き、1週�
 
 PRのquality/readinessとmerge side effectのauthorizationを分離する。
 
-Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、次を実行できる。
+Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、landing authorization handlingまで進める。実行できる **landing role** は状況によって次の通り分岐する:
 
-- merge / squash merge / rebase merge
-- native stacked PR / contiguous stack landing
-- auto-merge有効化
-- integration targetへの直接反映等、PR mergeと実質同じlanding side effect
+- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge / squash merge / rebase merge / stacked PR landing / auto-merge 有効化 / integration target への直接反映等を landing 操作として実行できる。
+- **orchestrated 状況（`parallel-orchestration` の landing handoff boundary 下で shared durable integration state へ ordered landing が必要な場合）**: Coordinator / Supervisor だけが landing 操作を実行する。Agent / subagent / worker は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。
+
+authorization handling 自体は standalone / orchestrated のどちらの状況でも Agent / subagent が進めてよいが、landing 操作は上表の role gating に従う。
 
 次はauthorizationではない。
 
@@ -42,7 +42,7 @@ authorizationがなければ、implementation / push / Draft PR / metadata / rev
 
 authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PRへ伝播させない。authorization後にexpected review fixでhead SHAが変わった場合はcurrent SHAでrequired validationを再実行する。base / target release / scope / included changes等がmaterialに変わった、unrelated changesが入った、またはauthorization scope内か曖昧になった場合は古いauthorizationを再利用せずuserへ再確認する。
 
-quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「Agentがmerge操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
+quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「landing 操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
 
 #### Orchestrated workflow landing boundary
 
