@@ -1,0 +1,7 @@
+parity=same-cases-model-trials-rubric
+runner=isolated
+identity=pin-or-record
+judge=blind-paired
+labels=deterministic-per-group
+gate=critical-nonregression
+run=budgeted-resumable

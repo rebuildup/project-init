@@ -1,0 +1,8 @@
+A owner=agent lead=result user_action=none
+B owner=agent lead=blocker error=operational next=agent-fix
+C owner=user lead=decision user_action=one-question
+D detail=preserve brevity=task-controlled
+E tangent=defer
+F route=writing-discipline
+estimate=evidence-only
+completion=verified-outcome

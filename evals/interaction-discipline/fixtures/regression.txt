@@ -1,0 +1,8 @@
+A owner=agent lead=result user_action=none
+B owner=user lead=blocker error=operational next=delegate-user
+C owner=user lead=decision user_action=one-question
+D detail=preserve brevity=task-controlled
+E tangent=mix-in
+F route=direct-copy
+estimate=always-give
+completion=verified-outcome

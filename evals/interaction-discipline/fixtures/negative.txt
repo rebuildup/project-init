@@ -1,0 +1,8 @@
+A owner=user lead=ceremony user_action=manual-steps
+B owner=user lead=ceremony error=emotional next=delegate-user
+C owner=agent lead=result user_action=none
+D detail=truncate brevity=always-short
+E tangent=mix-in
+F route=direct-copy
+estimate=always-give
+completion=activity-log

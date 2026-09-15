@@ -18,6 +18,12 @@
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
 - deterministic verificationを主観的判断へ置き換えていないか
+- deterministicに検証できるpolicy behaviorをlatent LLM judgmentだけへ残していないか
+- latent policy evalにnegative / regression / positive controlsがあり、grader自体の識別能力を確認できるか
+- mechanical / localized taskへ不要なmulti-agent fan-outを強制していないか
+- judgment-heavy reviewへbuilderのprivate reasoningやnumeric self-ratingをquality evidenceとして持ち込んでいないか
+- root / always-loaded agent contextの肥大化を測らずprogressive disclosureを名目化していないか
+- `bash evals/policy-evaluation/context-budget.sh` がchecked-in baselineに対してroot/always-loaded contextと各conditional Skillの回帰を検出できるか
 - unit / smoke / integration / contract / E2Eの責務が混同されていないか
 - change riskからrequired verification levelを決めるmodelが維持されているか
 - quality gateを固定bundleへ戻していないか
@@ -29,6 +35,8 @@
 - framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
 - vulnerability priorityがseverityだけの機械判定に戻っていないか
 - onboarding knowledgeがchat/private memory依存になっていないか
+- reader-facing textをconversation / task / execution contextのserializationとして書いていないか
+- textをSelect -> Compose -> Rereadでreader-oriented artifactへ編集しているか
 - documented commandがfresh environmentで再現可能か
 - session/thread resumeを唯一のrecovery mechanismにしていないか
 - unfinished workが会話履歴やSupervisor local DBだけに残らないか
@@ -44,7 +52,9 @@
 - WSL自体をworker isolationとして扱っていないか
 - `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
-- GitHub Issues / Projectsをdurable work SoTとして維持しているか
+- GitHub Issuesをdurable implementation/dependency SoTとして維持しているか
+- planning control planeをGitHub Projectsまたはoptional Linear profileへ明示し、同じfieldを二重canonicalにしていないか
+- Linear profile採用時にGitHub Issueを全面mirrorせずrelease-level stateへ限定しているか
 - `main`をreleased source stateとして維持しているか
 - public repositoryで`main` protection/rulesetが有効か
 - public repositoryで`main`へのdirect push/editが禁止され、release branchからのrelease PRだけが正規更新経路になっているか
@@ -61,9 +71,11 @@
 - stacked dependent ticketがexact predecessor snapshotへpinされているか
 - predecessor変更後にaffected downstream validationをcurrent SHAで再実行するか
 - stacked ticketをintermediate predecessor branchへのmergeだけでDoneにしていないか
-- target release trunkへのactual landing後にIssue close / Project Doneへ進むか
+- target release trunkへのactual landing後にIssue close している。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新する。optional Linear profile を採用した repository では Linear が ticket を全面 mirror しないため per-ticket Project status 更新は行わず、release-level Linear Project Completed/Doneness は release 完了時の release-level reconciliation で別途更新する
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
+- Worktrunk / `hash_port` / `wt step tether`をruntime isolationの代替として扱っていないか
+- `.config/wt.toml` のdev command / port overrideが実際のproject stackから導出されているか
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
@@ -81,6 +93,10 @@
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
 - ADR-0009: cost-aware GitHub Actions without weakening quality gates
 - ADR-0010: evidence-based agent delivery forecasting / capacity estimation
+- ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
+- ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
+- ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
+- ADR-0014: optional Linear release control plane over GitHub execution state (mirror禁止 / SoT明確化)
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -88,8 +104,9 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 ## Multi-agent / delivery invariants
 
 - Git remote / canonical ref = source SoT
-- GitHub Issues / Projects = durable work SoT
+- GitHub Issues = durable implementation/dependency SoT
 - GitHub Issue dependency graph = durable dependency SoT
+- release planning control plane = GitHub Projects or optional Linear Projects / Initiatives, with explicit field ownership
 - `main` = released/integrated source state
 - public repositoryでは`main`をprotected branch/rulesetで保護する
 - public repositoryでは`main`へのdirect push / direct web edit / force push / deletionを通常運用で禁止する
@@ -111,7 +128,7 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
-- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked Issueを明示的にcloseし、Project Doneへ移す = ticket Done
+- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked Issueを明示的にcloseする。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新 = ticket Done。optional Linear profile を採用した repository では Linear が ticket を全面 mirror しないため per-ticket Project status 更新は行わず、GitHub Issue close のみで Done とみなす。Linear Project Completed/Doneness は release-level reconciliation で別途更新
 - release branchは`main`とzero-diffの間だけDraft release PR不要
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
@@ -138,6 +155,18 @@ project evidenceで実質一意に決まる、可逆・局所的なimplementatio
 
 userへ確認するのは、canonical source conflict、product semantics、public API、security/privacy risk acceptance、meaningful cost、release scope/date、irreversible operation、explicit design approval等、本物の意思決定が残る場合に限定します。
 
+## Merge authorization invariant
+
+PRのquality/readinessとmerge authorizationは別stateです。
+
+Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけ、merge / squash / rebase / stacked landing / auto-merge有効化 / equivalent landingを実行します。
+
+authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
+
+review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
+
+authorizationを別PRへ伝播させません。authorization後にexpected fixでheadが変わればcurrent SHAを再検証し、base / target release / scope / included changes等がmaterialに変わった場合やscope内か曖昧な場合は古いauthorizationを再利用しません。
+
 ## Verification / quality invariants
 
 `quality-gate` Skillは固定check listではなくproject-specific quality profile compilerです。
@@ -159,6 +188,22 @@ coverage等のmetricはproject-specific signalとして設計し、固定数値�
 
 validation resultはvalidated SHA/snapshotへpinします。stack rebase/update等でSHAが変わった場合、影響したrequired validationを再実行し、古いgreen resultをcurrent codeへ流用しません。
 
+## Agent policy evaluation invariants
+
+- policy behaviorをdeterministic spaceとlatent spaceへ分離する
+- stable inputから同じ結果を要求できる処理はscript / command / parser / configへ寄せる
+- latent evalはfresh agentへ必要最小限のpolicyとscenarioだけを渡す
+- latent graderはnegative / regression / positive controlsを区別できなければquality evidenceとして使わない
+- critical must-notをaggregate scoreで相殺しない
+- execution profileは `mechanical / localized / cross-boundary / judgment-heavy` を標準とする
+- execution profileはorchestration/review強度を決め、quality-gateのverification risk taxonomyとは分離する
+- cross-boundary / judgment-heavy workではcompleted artifactに対するbuilderと分離したindependent cold reviewを必須とする
+- `cross-boundary` と `judgment-heavy` が重なる場合は、dependency decompositionとevidence/rubric-first executionの両方を適用し、orchestration前にcombined routingを記録する
+- numeric self-ratingをrequired quality signalにしない
+- root agent contract変更時はalways-loaded context costを測り、conditional workflowをSkillへ移せないかreviewする
+- repeated deterministic reasoningはfailure時だけでなく成功時もcodification candidateとする
+- real regressionを修正した場合、可能ならbroken behaviorをregression fixtureとして残す
+
 ## Security maintenance invariants
 
 security source priority:
@@ -178,7 +223,7 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 
 - native conversation/thread/subagent resumeはoptimizationでありcanonical SoTではない
 - fresh agentがchat historyなしでunfinished taskを再構成できる
-- durable recovery sourcesはIssue / Project / PR / Git refs / committed docs / immutable results / structured checkpoint
+- durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。release planning control plane（GitHub ProjectsまたはLinear）は補助boardでcanonical SoTではない
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
 - active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとDraft PRを追跡できる
@@ -217,14 +262,21 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 標準Skill:
 
 - `skills/parallel-orchestration/SKILL.md`
+- `skills/policy-evaluation/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
 - `skills/agent-delivery-estimation/SKILL.md`
+- `skills/linear-release-control/SKILL.md`（Linear profile採用時）
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
+- `skills/design-refinement/SKILL.md`
+- `skills/writing-discipline/SKILL.md`
+- `skills/interaction-discipline/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
+- `skills/correctness-assurance/SKILL.md`
+- `skills/worktree-workflow/SKILL.md`
 
 通常taskでは必要なSkillだけをcontextへ入れます。
 
@@ -272,13 +324,17 @@ PR title/body/review discussionは日本語です。
 - acceptance criteria
 - target release
 - stack context if any
-- current validation / blockers
+- reviewに必要なvalidation evidence / durable limitations
 
-meaningful reviewerがいない場合、自己reviewerを形式的に指定せず、その事実とreview automation / CI等の代替pathをPR bodyへ明記します。
+PR bodyはreview artifactとして必要な内容へ整え、current head SHA、ahead/behind、bot status、branch同期履歴、trial-and-error等を作業contextに存在するという理由だけで転写しません。native GitHub metadata / checksで表現できるmutable stateは、そのsurfaceをcanonicalにします。
+
+meaningful reviewerがいない場合、自己reviewerを形式的に指定しません。reviewer不在がreview/merge semanticsへ影響する場合だけ、readerに必要な形で説明します。
 
 Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
 
-stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
+Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
+
+stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseします。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新、optional Linear profile を採用した repository では per-ticket Project status 更新は行わず、release-level Linear Project Completed/Doneness は release 完了時の release-level reconciliation で別途更新します。
 
 ### Subagent / worker branches
 
@@ -291,7 +347,7 @@ ephemeral immutable result refはこのruleの対象外です。
 ### Release Pull Request
 
 最初のrelease差分が入った時点でDraft release PRを開き、sprint中維持します。
-release gate通過後にReadyへ移し、`release-x-y-z -> main` をmergeします。
+release gate通過後にReadyへ移します。`release-x-y-z -> main` のmergeは、このrelease PRへのexplicit user authorizationがある場合だけAgentが実行します。authorizationがなければready-to-mergeで停止します。
 
 ## Language policy
 
@@ -335,6 +391,7 @@ current official sourceを確認すべき対象:
 - public repository main protection / release-only main integration変更
 - decision precedence / user escalation model変更
 - verification taxonomy / quality compiler変更
+- Agent policy eval / execution profile / grader control / context-budget model変更
 - security advisory prioritization model変更
 - onboarding/documentation strategy変更
 - recovery checkpoint / fencing / side-effect reconciliation model変更
@@ -350,7 +407,7 @@ current official sourceを確認すべき対象:
 
 - `PROMPT.ja.md` / `PROMPT.en.md` のoperational semantics一致
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
-- full promptと8つの標準Skillの整合
+- full promptと標準Skill群の整合
 - README / CONTRIBUTING / ADR整合
 - broken Markdown structureがない
 - conflicting rulesがない

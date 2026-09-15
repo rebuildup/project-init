@@ -13,6 +13,7 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 - host Docker socket、root-equivalent host capability、master credentialをworkerへ渡さない。
 - immutable/cacheable stateのみ共有する。
 - provider差はadapterへ閉じ込め、project semanticsを変えない。
+- Worktrunkはworkspace/worktree lifecycle adapterであり、sandbox/runtime isolation boundaryとして扱わない。
 
 ## Isolate
 
@@ -43,6 +44,20 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 - WSL自体をworker isolationとみなさない。
 - permission / symlink / executable bit / line ending差を検証する。
 - port forwardingはSupervisor/runtime側で抽象化する。
+- WSL/Linuxでlocal worktreeを複数扱う場合は`worktree-workflow` Skillを適用し、worktree pathはLinux filesystemを優先する。
+
+## Worktrunk integration
+
+WSL/Linuxのlocal workspace materializationではWorktrunkをpreferred frontendとしてよい。
+
+- shared project hookはproject-local `.config/wt.toml`へ置く。
+- shared hostへ公開するdev serverは、実際のframework/runtimeが許すport overrideへ `{{ branch | hash_port }}` を接続してdeterministically割り当てる。`hash_port`自体をuniqueness proofとせず、startup時のbind conflictを検出する。
+- long-running local processは適切なら `wt step tether -- <command>` でworktree lifecycleへ結び付ける。
+- container/sandbox内部portは同一値のままでよく、`hash_port`は必要なhost-published portへ適用する。
+- DB / Redis / queue / socket / container name等のmutable stateは別途runtime adapterで一意化する。必要ならWorktrunkのdeterministic template valueをidentifierへ利用してよい。
+- `wt merge main` 等をGitHub delivery policyの代替integration pathとして使わない。
+
+詳細な操作は `worktree-workflow` Skillに置き、このSkillではisolation semanticsをcanonicalに保つ。
 
 ## Portability
 

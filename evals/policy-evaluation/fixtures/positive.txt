@@ -1,0 +1,6 @@
+A profile=mechanical space=deterministic execution=solo review=none
+B profile=cross-boundary space=mixed execution=decompose review=cold
+C profile=judgment-heavy space=latent execution=evidence-first review=cold
+D profile=mechanical space=deterministic execution=codify review=none
+reviewer_context=artifact-only
+self_rating=not-a-gate

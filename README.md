@@ -70,7 +70,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub Issues / Projects / Pull Requestsを中心とした **1週間のrelease sprint** です。
+標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示し、両方を二重canonicalにしません。
 
 - `main` = released/integrated source state
 - `release-x-y-z` = 1週間のsprint / target version integration branch
@@ -97,20 +97,27 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ docs/
 │  ├─ policy-overview.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0010.md
+│  │  └─ ADR-0001.md ... ADR-0014.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
 └─ skills/
    ├─ agent-delivery-estimation/
    ├─ agent-recovery/
+   ├─ correctness-assurance/
+   ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ interaction-discipline/
+   ├─ linear-release-control/
    ├─ onboarding/
    ├─ parallel-orchestration/
+   ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
-   └─ security-maintenance/
+   ├─ security-maintenance/
+   ├─ worktree-workflow/
+   └─ writing-discipline/
 ```
 
 ## Documentation
@@ -119,6 +126,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — AI agent delivery の evidence-based forecasting / capacity estimation policy。
+- [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policy を eval 可能な executable contract として扱う policy evaluation model。
+- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
+- [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
+- [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -128,14 +139,21 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle
+- `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
+- `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
+- `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
+- `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
+- `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
+- `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
+- `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
+- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues / Projects を work/dependency state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、release planning control plane を GitHub Projects または optional Linear profile のどちらかに明示する（同じ field を二重 canonical にしない）とし、mutable execution state を agent ごとに隔離する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
