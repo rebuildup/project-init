@@ -38,6 +38,25 @@ orchestration strengthはtask sizeの印象ではなくexecution profileから�
 
 execution profileは `quality-gate` のverification risk taxonomyを置換しない。orchestration/review強度とtest levelを別々に決定する。
 
+## Capacity / delivery-estimation coupling
+
+scheduleやroadmapを理由にWIP / spawn数 / agent数を増減する場合は、`agent-delivery-estimation` Skillを参照する。
+
+orchestration側から少なくとも次の観測可能情報を提供する。
+
+- active agent count / WIP
+- Ready / blocked / stack-ready node数
+- task type / risk / Work Unit when calibrated
+- retry / reassignment / generation change
+- blocked duration
+- human-review queue
+- CI / integration wait
+- usage-limit / provider resource constraint
+
+agent数増加を線形speedupとみなさない。task mixやhuman/CI bottleneckが異なる期間のthroughput差をagent数の因果効果と断定しない。
+
+estimate達成のためにisolation、snapshot/result、generation fencing、WIP/resource safetyを弱めてはならない。安全なorchestration invariantはforecastより優先する。
+
 ## Dependency readiness
 
 nodeは次のどちらかを満たす場合にspawn可能:

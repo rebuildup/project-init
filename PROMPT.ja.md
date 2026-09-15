@@ -10,7 +10,7 @@
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issuesをimplementation/dependency stateのcanonical SoTとし、release planning control planeはGitHub Projectsまたはoptional Linear profileとしてfield ownershipを分離する + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
 
 ---
 
@@ -25,19 +25,16 @@
 - public repositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
 - public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする。branch protection/rulesetだけでPR headを制約できない場合はrequired checkで `base=main` かつ `head=release-*` / intended target releaseを検証する。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
-- durable implementation ticketはGitHub Issue、implementation/dependency stateはGitHub Issuesで管理する。
-- release planning / portfolio control planeはGitHub Projects、またはLinear profile採用時はLinear Projects / Initiativesを使用する。同じfieldを複数systemでcanonicalにしない。
-- Issue dependency graphをcanonical dependency SoTとする。Git branch topologyやLinear側だけでdependencyを管理しない。
+- 1週間はplanning cadenceであって工期保証ではない。release / roadmap / milestoneの中長期見積もりは `agent-delivery-estimation` SkillでWork Unit・dependency・実測throughput・human/CI/external wait・usage limitを評価し、AI自身の主観的な日数/月数を根拠にしない。
+- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues / Projectsで管理する。
+- Issue dependency graphをcanonical dependency SoTとする。Git branch topologyだけでdependencyを管理しない。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable ticket branch = 1 ticket PRを基本とする。
 - independent ticket PRはtarget release branch、same-release linear hard dependencyではdependent ticket PRをimmediate predecessor ticket branchへstackしてよい。
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
 - 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
-- PRのquality/readiness stateとmerge authorizationを分離する。Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定されたPR集合について明示的にmerge/landを依頼した場合だけmerge / squash merge / rebase merge / stacked landing / auto-merge有効化 / equivalent landingを実行する。
-- review対応、conflict解消、validation、green CI、approval、conversation resolution、mergeable/Ready state、`対応して`、`レビューして`、`最後まで進めて`等はmerge authorizationではない。authorizationがなければready-to-mergeで停止し、対象head SHA / gate state / blockersを報告する。
-- merge authorizationを別PRへ持ち越さない。authorization後にhead/base/target release/scopeが変わった場合は変更を再検証し、materialまたは想定外の変更なら古いauthorizationを再利用しない。
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進める.
+- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進める。
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
@@ -47,17 +44,8 @@
 - project evidenceで解ける自明な判断をuserへ返さない。
 - native session/thread resumeを唯一のrecovery mechanismにしない。
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
-- significantなAgent policy / Skill / prompt / routing変更は、deterministicに検証できる部分とfresh agent判断が必要なlatent部分を分離して検証する。
-- latent policy evalのgraderはpositiveだけで信用せず、negative / regression / positive controlsを識別できることを要求する。
-- baseline / candidateのlatent behaviorを比較する場合はcases / model / trials / rubric等のcondition parityを保ち、operatorのuser-global configからrunnerを隔離し、可能ならcondition identityをblindしてpaired judgingする。model / runner / cases / rubric / policy revisionを記録し、critical dimensionのnon-regressionをweighted totalより優先する。
-- orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
-- progressive disclosureではroot agent contractのalways-loaded context costも実測し、conditional workflowをSkillへ遅延できるかreviewする。
 
 Git worktree自体は禁止ではありません。既にisolatedなsandbox内部のGit実装詳細として使用できますが、worktreeだけでport/process/database等が分離されたとは扱いません。
-
-WSL/Linuxでlocal ticket/review worktreeを使うprojectでは、Worktrunkをpreferred worktree frontendとして扱い、`worktree-workflow` Skillを導入してください。初期化時は実際のframework/runtime/dev commandを調査したうえで、repository-specific hookが必要ならproject-local `.config/wt.toml` を生成・commitします。共有hostへ公開するdev serverのportは、stackがport overrideを許す場合 `{{ branch | hash_port }}` からdeterministically割り当て、long-running processは適切なら `wt step tether` へ結び付けてworktree removal時のorphan processを避けてください。`hash_port`を絶対的なuniqueness guaranteeとは扱わず、startup時のbind conflictを検出し、必要ならproject-specificなreservation/collision-resolutionを追加してください。
-
-Worktrunkはbranch/worktree操作とhost port/process lifecycleのadapterです。ticket/release branch naming、Draft PR lifecycle、protected `main`、explicit merge authorizationを変更せず、`wt merge main` 等をGitHub delivery policyの迂回に使ってはいけません。`hash_port`でportが一意になってもDB / Redis / queue / credential / mutable runtime stateのisolation requirementは残ります。
 
 ---
 
@@ -70,9 +58,7 @@ Worktrunkはbranch/worktree操作とhost port/process lifecycleのadapterです�
 最低限確認:
 
 - root agent instructions
-- root / always-loaded instructionのcontext budget
 - Agent Skills / adapters
-- policy eval scenarios / deterministic graders / controls
 - plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
 - Supervisor integration / execution state model
@@ -88,13 +74,15 @@ Worktrunkはbranch/worktree操作とhost port/process lifecycleのadapterです�
 - env examples / `.gitignore`
 - repository visibility
 - public repositoryの`main` branch protection / ruleset / bypass / required release-source check
-- GitHub Issues / selected planning control plane / dependency / PR / stacked PR / release workflow
+- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
 - current errors / warnings
 - branch / remote / userのuncommitted changes
 
 振る舞い:
 
 `initialize if missing -> repair if incomplete -> update if stale -> verify if already correct`
+
+Agent Skillsもこのstale判定の対象です。既に同名Skillが存在することだけを更新不要の根拠にしてはいけません。明示的なversion pin / freezeがない限り、canonical source / upstreamのcurrent revisionまたはcontentを確認し、installed copyとの差分があれば更新・再導入・reconcileしてください。project-local customizationがある場合は無条件に上書きせず差分を統合し、source / revision / freshnessを確認できない場合もagent判断で「据え置きでよい」と確定してはいけません。
 
 正しい状態を理由なく再生成しないでください。変更不要も成功です。
 
@@ -110,7 +98,7 @@ canonical stateは最低限次で表現してください。
 2. released ref: `main` またはprojectが明示する同等branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue implementation / dependency state + selected release planning control plane
+5. GitHub Issue / Project work + dependency state
 6. project-wide policy / architecture / design / specification / ADR
 7. repository-controlled operational documentation / Agent Skills
 8. durable recovery checkpoint / immutable worker results
@@ -119,8 +107,7 @@ source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket scope / acceptance criteria / status / target version / dependency: GitHub Issues
-- planning priority / release goal / target date / health / portfolio: GitHub Projects、またはLinear profile採用時はLinear Projects / Initiatives
+- ticket/priority/status/version/dependency: GitHub Issues / Projects
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset + required release-source check when needed
@@ -169,7 +156,6 @@ project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ
 - canonical sources同士が矛盾しproduct semanticsが変わる
 - acceptance criteriaが複数解釈できuser-visible behaviorが変わる
 - irreversible/destructive operation
-- PR merge / landing / auto-merge等、明示的なuser authorizationを必要とするintegration side effect
 - public/external API contract確定
 - security/privacy/compliance risk受容
 - meaningful cost increase
@@ -177,57 +163,6 @@ project evidenceで解けるのに「A/Bどちらが良いですか」とuserへ
 - explicit design-first approval gate
 
 質問する場合も、調査可能なfactを先に確認し、選択肢・影響・推奨案を整理してから聞いてください。
-
-### Implementation前のevidence-first design refinement
-
-非自明なfeature / architecture / product designでは、planningやimplementationへ進む前に `design-refinement` Skillを使い、質問を作る前にrepository-controlled evidenceを読んでください。
-
-最低限:
-
-- task / Issue / acceptance criteria、canonical policy / architecture、design/spec、relevant ADR / Skillを確認
-- relevant code / tests / schema / contractを複数箇所確認
-- version-sensitiveなfactはcurrent official sourceで確認
-- unknownをfact / project evidenceで決まるdecision / unresolved consequential decisionへ分類
-- factはagentが調査し、project evidenceで決まるdecisionは `engineering-decisions` に従って自律決定
-- implementationを左右するhidden assumptionを検出
-- unresolved decisionに依存関係がある場合はdecision graphを作り、上流が未確定なまま下流質問を先にしない
-- userへは現在のdecision frontierにある本物のproduct/architecture decisionだけを、evidence・影響・推奨案付きで聞く
-- long-livedなdecision/domain knowledgeだけをdesign/spec、ADR、Skill、glossary/domain context等へ永続化
-
-目的は大量interviewではなく **read relentlessly, ask minimally** です。domain vocabulary documentは必要なprojectだけに導入し、固定の `CONTEXT.md` を全projectへ強制しないでください。
-
-### Reader-facing writing discipline
-
-persistentまたは他者向けの文章を、conversation / task / investigation / execution contextのserializationとして生成してはいけません。
-
-文章を書くときは次を明示的に分離してください。
-
-1. **Select**: audienceとpurposeを決め、readerに必要なfact / decision / constraint / rationaleだけを選ぶ。作業順・会話順・tool output等のscaffoldingは捨てる。
-2. **Compose**: 選んだcommunicative contentを、readerが理解する順序のstandalone proseへ再構成する。raw contextの要約を完成文章とみなさない。
-3. **Reread**: 元のtaskやconversationを知らないreaderとして全文を読み直し、接続・冗長・referent・context依存・不自然なchronologyを編集する。
-
-temporal/history/execution informationは一律禁止しません。version compatibility、migration、audit、reproducibility等、artifactの意味やreaderの判断に必要な場合だけ含めてください。
-
-documentation / ADR / Issue / PR / commit message / code comment / review commentには同じ原則を適用し、詳細は `writing-discipline` Skillへprogressive disclosureしてください。
-
-> **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
-
-### Active work interaction discipline
-
-active work中のuser/operator-facing messageを、agentの思考実況やtool logのstreamにしてはいけません。
-
-- agent自身がtool / access / authorityで実行できる作業はuserへ返さず、自律実行してverified resultを報告する
-- message先頭にはcompleted result / blocker / consequential decision / concrete next dependency等、そのturnで最もactionableな情報を置く
-- multi-turn workでは次の判断に必要なstateだけを再掲し、full plan/historyを毎回反復しない
-- errorはsymptom / evidence / confirmed cause or hypothesis / recovery / verificationとしてmatter-of-factに報告する
-- user actionや質問は本当に外部dependencyまたはuser-owned decisionが必要な場合だけにし、必要ならbounded stepsまたは1つのblocking questionへ絞る
-- unrelated tangent、filler、ceremonial preambleをcurrent objectiveへ混ぜない
-- completionはactivity logではなくverified outcomeを中心にする
-- 詳細説明・audit・research・complete list等、taskが必要とするdetailを短文化のために削らない
-- 所要時間は根拠なく強制生成せず、必要な場合だけevidenceに基づくrangeとして扱う
-- persistent artifactへ昇格するtextは直接転記せず `writing-discipline` へrouteする
-
-詳細は `interaction-discipline` Skillへprogressive disclosureしてください。
 
 ---
 
@@ -477,21 +412,16 @@ rootに置くもの:
 標準Skill候補:
 
 - `parallel-orchestration`
-- `policy-evaluation`
 - `sandbox-runtime`
-- `worktree-workflow`
 - `github-delivery`
-- `linear-release-control`（Linear profile採用時のみ）
+- `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
-- `design-refinement`
-- `writing-discipline`
-- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
 
-Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。`--global` を既定にしてはいけません。
+Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。既存Skillを発見した場合もpresenceだけでskipせず、明示的なpin/freezeがなければsource freshnessを確認して差分をreconcileしてください。`--global` を既定にしてはいけません。
 
 通常taskでは必要なSkillだけを読み、このfull promptを再読しない構成にしてください。
 
@@ -526,6 +456,8 @@ main
 通常sprint期間は **1週間** です。
 1 sprint = 1 target semantic version = 1 release integration branchです。
 
+この1週間はplanning cadenceであり、選択したscopeが1週間で完了するというestimateではありません。release date、roadmap、milestone、capacity、agent数変更による短縮効果を見積もる場合は `agent-delivery-estimation` Skillを使用してください。material unknownを任意の保守値で埋めず、必要ならcomplete / conditional / unavailableを返してください。
+
 release branch:
 
 `release-<major>-<minor>-<patch>`
@@ -533,23 +465,6 @@ release branch:
 sprint開始時に `main` からrelease branchを作成してください。
 
 緊急patch等、release scope/dateの明示的なdecisionがある場合は1週間から外れてよいですが、通常planning cadenceは1週間を維持してください。patchでも`main`を直接変更せず、patch release branchからrelease PRを使用してください。
-
-### Merge authorization boundary
-
-PRをmerge可能なquality stateへ持っていくことと、merge side effectを実行する権限は別です。
-
-Agent / subagent / Coordinator / Supervisorは、対象PRまたは明確に限定されたPR集合についてuserが明示的にmerge / landを依頼した場合だけ、次を実行できます。
-
-- merge commit / squash merge / rebase merge
-- native stacked PR landing / contiguous stack landing
-- auto-mergeの有効化
-- ticket changesでintegration targetを直接更新する等、PR mergeと実質同じlanding side effect
-
-repository policy、Issue/PR metadata、green CI、approval、resolved review、mergeable state、release gate成功はauthorizationの代わりになりません。implementation / push / Draft PR作成 / metadata更新 / review対応 / conflict解消 / validation / Ready化までは自律実行できますが、authorizationがなければready-to-mergeで停止し、対象PR、current head SHA、gate state、残るblockerを報告してください。
-
-`対応して`、`レビューして`、`コンフリクトを解消して`、`リリース準備して`、`最後まで進めて`等からmerge authorizationを推論してはいけません。`このPRをマージして`、`問題がなければ #123 をマージして`のように対象とmerge/land side effectが明示された指示だけをauthorizationとして扱います。
-
-authorizationは対象PR/集合とtask scopeへ限定し、別PRへ伝播させません。authorization後のexpected review fix等でhead SHAが変わった場合もcurrent SHAでgateを再実行してください。base、target release、scope、included changes等がmaterialに変わった、または変更がuser authorizationの想定内か不明な場合は、古いauthorizationを再利用せず再確認してください。
 
 ### Public repository main protection
 
@@ -579,9 +494,9 @@ Issue / Project dependency stateがcanonical dependency SoTです。branch paren
 
 短命なnested subtaskはSupervisor taskで構いません。
 
-### Planning control plane
+### GitHub Projects / Kanban
 
-GitHub Projectsをticket boardとして使う場合の最低限:
+最低限:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
@@ -594,8 +509,6 @@ GitHub Projectsをticket boardとして使う場合の最低限:
 - Blocked / dependency
 
 WIPを実capacityに合わせて制限してください。
-
-Linear profileを採用する場合、GitHub IssueをLinear Issueへ全面同期しないでください。`1 release train = 1 Linear Project` をdefaultとし、release goal / target date / health / portfolioをLinearへ置きます。implementation scope / acceptance criteria / dependency / PR / CIはGitHubをcanonicalに維持し、詳細は `linear-release-control` Skillへprogressive disclosureしてください。Cycleはweekly release sprintのduplicate containerとして既定利用しません。
 
 Dependency execution上は必要に応じて:
 
@@ -786,7 +699,7 @@ stacked deliveryを安全に維持できない場合はdependency SoTを壊さ�
 
 非自明taskでは:
 
-`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> review -> validate current landing candidate -> update PR/board metadata -> prepare ready-to-merge -> verify explicit merge authorization -> [authorized only: land + verify target release landing] -> verify release -> prepare release ready-to-merge -> verify explicit release-merge authorization -> [authorized only: merge release] -> replan -> continue`
+`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 を自律的に回してください。
 
@@ -991,11 +904,7 @@ irreversible/destructive operationはengineering-decisionsのuser escalation pol
 4. project-local adapter / protocol integration
 5. 明確な利点がある場合のみplugin / MCP
 
-Linear profile採用時はLinear公式remote MCPをagent integration候補とする。Coordinator / release managerはread-write endpoint、implementation workerは原則Linear不要で、必要な場合はread-only endpointを優先する。Linear auth / API key / user-global MCP configをrepository truthにしない。
-
 必要性、再現性、maintenance、security、license、context cost、cross-platform、version pinningを確認してください。
-
-OpenCodeReview (`ocr`) がglobal CLIとして利用可能な環境では、large diff、release前、または追加の独立レビューが有効と判断した場合に任意で使用して構いません。これはrequired gateではなく、project-local dependencyやSkillとして導入する必要もありません。使用時はreview targetのcontextを渡し、OCRのfindingをそのまま権威化せずagent自身でcurrent sourceに対して検証してから対応してください。CLIが存在しない環境では、それだけを理由に通常のreview flowを停止したりprojectへ依存を追加したりしないでください。
 
 GitHub native stacked PR等のplatform featureは利用可能なら実装手段として使って構いませんが、policy semanticsを一時的なpreview feature固有の挙動へ依存させないでください。
 
@@ -1029,7 +938,6 @@ Design-first gateが存在する変更はdesign合意後にimplementationへ進�
 - dependency-aware stacked PR model
 - durable branch / remote publication / Draft PR / PR metadata lifecycle
 - public repository main protection / release-only main integration
-- optional Linear release planning / control-plane boundary
 - environment reproducibility
 - architecture migration
 - package/toolchain migration
@@ -1226,8 +1134,6 @@ repository-controlled docsから最低限次へ到達できるようにします
 - troubleshooting
 - release/security/recovery workflow
 
-public repositoryでは、README冒頭のbadgeが読者の判断を速くする場合は積極的に採用してください。badgeは装飾ではなく、現在状態・配布情報・信頼性・主要actionへの短い導線として扱います。CI/build/test status、release/package version、license、downloads/Stars等のadoption signal、deploy/demo/documentation等からprojectに意味のあるものだけを選び、公式provider badge/buttonを優先し、必要ならShields.io等のmaintained serviceを使用してください。badgeのlink先は表示内容に対応するcanonical destinationへ向け、重複・stale・private-only・装飾目的のbadgeやREADME冒頭の可読性を損なう過剰なbadge列を作らないでください。
-
 project規模に応じてREADME、CONTRIBUTING、`docs/architecture.md`、`docs/development.md`、`docs/troubleshooting.md`、`docs/release.md`、`docs/security.md` 等へprogressive disclosureしてください。
 
 必要ならMermaid等でarchitecture/data flow/trust boundariesを可視化してください。
@@ -1266,11 +1172,7 @@ branch名はIssue番号またはrelease versionだけを表し、説明責務を
 
 JavaScript / TypeScriptでは具体的な非互換性がなければBunを標準package managerとしてください。
 
-text searchは `rg` / `rg --files` を標準とします。exact symbol / path / literal / regex / exhaustive occurrence / freshness-sensitive verificationは `rg` を使用してください。
-
-`zg` (zvec-grep) が利用可能でindexがcurrentな場合、exact terminologyやlocationが不明なsemantic discovery、architecture exploration、cross-file relationshipの探索では優先候補として使用できます。zvec-grepはoptional optimizationであり、未導入・stale index・failureを理由に作業をblockせず、`rg` と通常のsource inspectionへfallbackしてください。重要なfindingはsource fileまたはexact searchで確認してから変更してください。
-
-このpolicyを満たすためだけにzvec-grepのglobal installやuser-global agent config mutationを要求しないでください。project-local index stateはproject truth / correctness dependencyにせず、`.zvec-grep/` を生成する場合はGit ignoreしてください。
+text searchは `rg` / `rg --files` を標準とします。
 
 新規 `.py` scriptをautomation、generation、migration、validation、build/test support、temporary analysis目的で追加してはいけません。project本来の適切な言語、TypeScript/JavaScript、shell、PowerShell等を使用してください。
 
@@ -1344,6 +1246,7 @@ project/runtimeが許す範囲で定期的に:
 - public repositoryでは`main` protection/rulesetが有効でdirect push/editを禁止し、release PRだけが正規更新経路
 - branch protection/rulesetだけでsource branchを制限できない場合、required release-source checkが存在
 - 通常sprint cadence = 1週間、1 sprint = 1 target semantic version
+- medium/long-term release forecastは `agent-delivery-estimation` のevidence-based policyを使用し、主観的calendar estimateやlinear agent scalingを採用しない
 - Issue dependency graphがcanonical dependency SoT
 - independent ticketはrelease base、same-release linear hard dependencyはstacked PRを使用可能
 - active durable ticket branchはfirst meaningful commitをcanonical remoteへpublishしてhead SHAを確認した直後にDraft PRを持ち、worker/subagentも例外でない

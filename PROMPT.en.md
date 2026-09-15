@@ -10,7 +10,7 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Git is the canonical source-state SoT + GitHub Issues are the canonical implementation/dependency SoT while release planning uses GitHub Projects or an optional Linear profile with explicit field ownership + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + public repositories protect `main` and update it only through release PRs + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
+> **Git is the canonical source-state SoT + GitHub Issues / Projects are the work/dependency-state SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + public repositories protect `main` and update it only through release PRs + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
 
 ---
 
@@ -25,18 +25,15 @@ Core model:
 - In public repositories, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
 - In public repositories, the canonical delivery path to `main` is only `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, require a check that validates `base == main` and `head == release-*` for the intended target release.
 - A normal sprint lasts one week and is represented by `release-<major>-<minor>-<patch>`.
-- Durable implementation tickets are GitHub Issues; implementation/dependency state is kept in GitHub Issues.
-- Release planning / portfolio control uses GitHub Projects, or Linear Projects / Initiatives when the optional Linear profile is selected. Do not make the same field canonical in multiple systems.
-- The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology or only in Linear.
+- One week is a planning cadence, not a duration guarantee. For medium/long-term release, roadmap, or milestone estimates, use the `agent-delivery-estimation` Skill with Work Units, dependencies, observed throughput, human/CI/external waits, and usage limits; do not use the agent's subjective day/month estimate as evidence.
+- Durable tickets are GitHub Issues; durable work/dependency state is GitHub Issues / Projects.
+- The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology.
 - Ticket branch names contain only the Issue number.
 - One top-level Issue normally maps to one durable ticket branch and one ticket PR.
 - Independent ticket PRs target the release branch. A same-release linear hard dependency may instead use the immediate predecessor ticket branch as the dependent PR base.
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
 - The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
-- Separate PR quality/readiness state from merge authorization. Agents, subagents, Coordinators, and Supervisors may perform merge / squash merge / rebase merge / stacked landing / auto-merge enablement / equivalent landing only when the user explicitly authorizes merge/landing for the identified PR or clearly bounded PR set.
-- Review fixes, conflict resolution, validation, green CI, approval, resolved conversations, mergeable/Ready state, or generic requests such as `handle this`, `review this`, or `finish this` are not merge authorization. Without authorization, stop at ready-to-merge and report the target head SHA, gate state, and blockers.
-- Do not carry merge authorization to other PRs. If head/base/target release/scope changes after authorization, revalidate the change and do not reuse old authorization after a material or unexpected change.
 - A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk before Issue close / Project Done.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
@@ -47,17 +44,8 @@ Core model:
 - Do not escalate self-evident decisions that project evidence already resolves.
 - Do not make native session/thread resume the only recovery mechanism.
 - A fresh agent must be able to reconstruct unfinished work without conversation history.
-- For significant Agent policy / Skill / prompt / routing changes, separate deterministically verifiable behavior from latent behavior that requires fresh-agent judgment.
-- Do not trust a latent policy-eval grader only because a positive example passes; require it to discriminate negative, regression, and positive controls.
-- When comparing baseline and candidate latent behavior, keep cases / model / trials / rubric and other material conditions at parity, isolate the runner from operator user-global configuration, and blind condition identity for paired judging where practical. Record model / runner / cases / rubric / policy revisions, and prioritize non-regression in critical dimensions over weighted total score.
-- Classify the execution profile before orchestration so mechanical/localized tasks do not receive unnecessary fan-out.
-- Measure the always-loaded context cost of the root agent contract as part of progressive disclosure, and review whether conditional workflows can move into Skills.
 
 Git worktrees are not forbidden. They may be an implementation detail inside an already isolated sandbox, but a worktree alone does not isolate ports, processes, databases, or other runtime state.
-
-For projects that use local ticket/review worktrees on WSL/Linux, prefer Worktrunk as the worktree frontend and install the `worktree-workflow` Skill. During initialization, inspect the actual framework/runtime/dev command and, when repository-specific hooks are useful, generate and commit project-local `.config/wt.toml`. For dev servers exposed on a shared host, connect `{{ branch | hash_port }}` to the stack's real port override when supported, and use `wt step tether` for appropriate long-running processes so worktree removal does not leave orphaned process groups. Do not treat `hash_port` as an absolute uniqueness guarantee: detect bind conflicts at startup and add project-specific reservation/collision resolution when strict uniqueness is required.
-
-Worktrunk is an adapter for branch/worktree operations and host port/process lifecycle. It does not change ticket/release branch naming, the Draft PR lifecycle, protected `main`, or explicit merge authorization, and commands such as `wt merge main` must not bypass the GitHub delivery policy. A unique `hash_port` does not remove the requirement to isolate databases, Redis, queues, credentials, or other mutable runtime state.
 
 ---
 
@@ -70,9 +58,7 @@ Inspect current state first and change only what differs from the desired state.
 At minimum inspect:
 
 - root agent instructions
-- root / always-loaded instruction context budget
 - Agent Skills / adapters
-- policy-eval scenarios / deterministic graders / controls
 - plugin / MCP / ACP / protocol settings
 - runtime / sandbox / devcontainer / Containerfile / Nix
 - Supervisor integration / execution-state model
@@ -88,13 +74,15 @@ At minimum inspect:
 - env examples / `.gitignore`
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / required release-source check
-- GitHub Issues / selected planning control plane / dependency / PR / stacked PR / release workflow
+- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
 - current errors / warnings
 - branch / remote / user uncommitted changes
 
 Behavior:
 
 `initialize if missing -> repair if incomplete -> update if stale -> verify if already correct`
+
+Agent Skills are also subject to this stale-state check. The mere presence of an installed Skill is not evidence that it is current. Unless an explicit version pin or freeze exists, inspect the canonical source/upstream current revision or content and update, reinstall, or reconcile the installed copy when it differs. Preserve and reconcile project-local customizations rather than overwriting them blindly. If source, revision, or freshness cannot be verified, do not autonomously conclude that the installed Skill should remain unchanged.
 
 Do not regenerate correct state without reason. No change can be a successful result.
 
@@ -110,7 +98,7 @@ Canonical state should be representable by at least:
 2. released ref: `main` or an explicitly equivalent branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue implementation / dependency state + selected release-planning control plane
+5. GitHub Issue / Project work + dependency state
 6. project-wide policy / architecture / design / specification / ADRs
 7. repository-controlled operational documentation / Agent Skills
 8. durable recovery checkpoints / immutable worker results
@@ -119,8 +107,7 @@ Source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket scope / acceptance criteria / status / target version / dependency: GitHub Issues
-- planning priority / release goal / target date / health / portfolio: GitHub Projects, or Linear Projects / Initiatives when the Linear profile is selected
+- ticket/priority/status/version/dependency: GitHub Issues / Projects
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset plus required release-source check when needed
@@ -170,7 +157,6 @@ Ask the user when a genuine unresolved decision remains, such as:
 - canonical sources conflict and product semantics change
 - acceptance criteria allow materially different user-visible behavior
 - irreversible/destructive operations
-- PR merge / landing / auto-merge or another integration side effect that requires explicit user authorization
 - public/external API contract decisions
 - security/privacy/compliance risk acceptance
 - meaningful cost increase
@@ -178,57 +164,6 @@ Ask the user when a genuine unresolved decision remains, such as:
 - an explicit design-first approval gate
 
 Investigate discoverable facts first, then present options, impact, and a recommendation.
-
-### Evidence-first design refinement before implementation
-
-For non-trivial feature, architecture, or product design work, use the `design-refinement` Skill before planning or implementation. Read repository-controlled evidence before forming questions.
-
-At minimum:
-
-- inspect the task / Issue / acceptance criteria, canonical policy / architecture, design/spec, and relevant ADRs / Skills
-- inspect multiple relevant code, test, schema, and contract locations
-- verify version-sensitive facts against current official sources
-- classify unknowns as facts, decisions determined by project evidence, or unresolved consequential decisions
-- investigate facts autonomously and resolve determined decisions through `engineering-decisions`
-- detect hidden assumptions that could change implementation
-- when unresolved decisions depend on one another, build a decision graph and do not ask downstream questions before their prerequisites are resolved
-- ask the user only about genuine product/architecture decisions on the current decision frontier, with evidence, consequences, and a recommendation
-- persist only long-lived decisions/domain knowledge into design/spec, ADRs, Skills, glossary/domain context, or another canonical project location
-
-The goal is not a large interview. The rule is **read relentlessly, ask minimally**. Add domain-vocabulary documentation only when the project benefits from it; do not require a fixed `CONTEXT.md` in every repository.
-
-### Reader-facing writing discipline
-
-Do not generate persistent or reader-facing prose by serializing conversation, task, investigation, or execution context.
-
-Use an explicit writing pipeline:
-
-1. **Select**: define the audience and purpose, then select only the facts, decisions, constraints, and rationale the reader needs. Discard scaffolding such as work order, conversation order, and raw tool output.
-2. **Compose**: reorganize the selected communicative content into standalone prose in the reader's order of understanding. Do not treat a compressed context dump as finished writing.
-3. **Reread**: read the entire draft as a reader who does not know the original task or conversation, then edit transitions, redundancy, referents, context dependence, and unnecessary chronology.
-
-Do not ban temporal, historical, or execution information categorically. Include it only when the artifact's meaning or the reader's decision requires it, such as version compatibility, migration, auditability, or reproducibility.
-
-Apply the same rule to documentation, ADRs, Issues, Pull Requests, commit messages, code comments, and review comments. Progressive-disclose the detailed workflow through the `writing-discipline` Skill.
-
-> **Think in context. Select for purpose. Compose for the reader. Reread without the context.**
-
-### Active work interaction discipline
-
-Do not turn user/operator-facing messages during active work into a stream of agent thoughts or tool logs.
-
-- keep agent-owned work with the agent when available tools, access, and authority can perform it; execute and report verified results instead of delegating it back to the user
-- lead with the most actionable state for that turn: a completed result, blocker, consequential decision, or concrete next dependency
-- in multi-turn work, restate only the state needed for the next decision instead of repeating the full plan or history every turn
-- report errors matter-of-factly as symptom, evidence, confirmed cause or hypothesis, recovery, and verification
-- ask for user action only for a real external dependency or user-owned decision; use bounded steps or one blocking question when needed
-- keep unrelated tangents, filler, and ceremonial preambles out of the current objective
-- center completion messages on verified outcomes rather than activity logs
-- do not sacrifice detail required by explanations, audits, research, or complete lists merely to be brief
-- do not manufacture time estimates; give evidence-based ranges only when an estimate is materially useful
-- route text that becomes a persistent artifact through `writing-discipline` rather than copying the active-work conversation directly
-
-Progressive-disclose the detailed workflow through the `interaction-discipline` Skill.
 
 ---
 
@@ -458,21 +393,16 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 Default Skills:
 
 - `parallel-orchestration`
-- `policy-evaluation`
 - `sandbox-runtime`
-- `worktree-workflow`
 - `github-delivery`
-- `linear-release-control` (only when the Linear profile is selected)
+- `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
-- `design-refinement`
-- `writing-discipline`
-- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
 
-Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. Do not make `--global` the default.
+Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. When an existing Skill is found, do not skip it merely because it is present; unless it is explicitly pinned or frozen, verify source freshness and reconcile any differences. Do not make `--global` the default.
 
 Normal tasks should load only the Skills they need, not this full prompt.
 
@@ -507,6 +437,8 @@ main
 A normal sprint lasts **one week**.
 One sprint maps 1:1 to one target semantic version and one release integration branch.
 
+This one-week window is a planning cadence, not evidence that the selected scope will finish within one week. When estimating release dates, roadmaps, milestones, capacity, or the benefit of changing agent count, use the `agent-delivery-estimation` Skill. Do not fill material unknowns with arbitrary conservative multipliers; return complete / conditional / unavailable as appropriate.
+
 Release branch:
 
 `release-<major>-<minor>-<patch>`
@@ -514,23 +446,6 @@ Release branch:
 Create it from `main` at sprint start.
 
 Emergency patches or another explicit release-scope/date decision may use a different duration, but normal planning cadence remains one week. Even emergency fixes use a patch release branch and release PR rather than modifying `main` directly.
-
-### Merge authorization boundary
-
-Making a PR technically ready to merge and being authorized to execute the merge side effect are separate states.
-
-An Agent, subagent, Coordinator, or Supervisor may perform the following only when the user explicitly requests merge/landing for the identified PR or a clearly bounded PR set:
-
-- merge commit / squash merge / rebase merge
-- native stacked-PR or contiguous-stack landing
-- enabling auto-merge
-- directly updating an integration target with ticket changes or another side effect equivalent to merging the PR
-
-Repository policy, Issue/PR metadata, green CI, approvals, resolved reviews, mergeability, Ready state, or a successful release gate do not substitute for authorization. Implementation, push, Draft PR creation, metadata updates, review fixes, conflict resolution, validation, and Ready-for-review transitions may proceed autonomously. Without explicit authorization, stop at ready-to-merge and report the target PR, current head SHA, gate state, and remaining blockers.
-
-Do not infer merge authorization from requests such as `handle this`, `review this`, `resolve the conflicts`, `prepare the release`, or `finish this`. Treat instructions such as `merge this PR` or `if the checks pass, merge #123` as authorization because the target and merge/landing side effect are explicit.
-
-Authorization is scoped to the identified PR/set and task. It does not propagate to other PRs. If expected review fixes change the head SHA, rerun applicable gates on the current SHA. If the base, target release, scope, included changes, or other material integration conditions change, or it is unclear whether the new state remains within the authorized scope, do not reuse the old authorization without confirmation.
 
 ### Public repository main protection
 
@@ -560,17 +475,15 @@ Issue / Project dependency state is the canonical dependency SoT. Do not encode 
 
 Short-lived nested subtasks may remain Supervisor tasks.
 
-### Planning control plane
+### GitHub Projects / Kanban
 
-When GitHub Projects is used as the ticket board, the minimum status model is:
+Minimum status model:
 
 `Backlog -> Ready -> In Progress -> In Review -> Done`
 
 Recommended fields include Priority, Size, Target Version, Area/Component, and Blocked/dependency.
 
 Bound WIP by real capacity.
-
-When the Linear profile is selected, do not mirror every GitHub Issue into a Linear Issue. Use `1 release train = 1 Linear Project` by default and place release goal, target date, health, and portfolio grouping in Linear. Keep implementation scope, acceptance criteria, dependency, PR, and CI state canonical in GitHub and load `linear-release-control` for the detailed contract. Do not use Linear Cycles by default as a duplicate of the weekly release sprint.
 
 When useful distinguish dependency execution state as:
 
@@ -747,7 +660,7 @@ If stacked delivery cannot be maintained safely, preserve the dependency SoT and
 
 For non-trivial tasks run:
 
-`inspect -> refine design/requirements -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> review -> validate current landing candidate -> update PR/board metadata -> prepare ready-to-merge -> verify explicit merge authorization -> [authorized only: land + verify target-release landing] -> verify release -> prepare release ready-to-merge -> verify explicit release-merge authorization -> [authorized only: merge release] -> replan -> continue`
+`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 Do not stop merely because compilation succeeds, one focused test passes, or the first implementation appears plausible.
 
@@ -948,11 +861,7 @@ Priority:
 4. project-local adapter / protocol integration
 5. plugin / MCP only for a clear benefit
 
-When the Linear profile is selected, consider Linear's official remote MCP as the agent integration. Prefer read-write access for the Coordinator/release manager and no Linear access or the read-only endpoint for implementation workers. Do not make Linear authentication, API keys, or user-global MCP client configuration repository truth.
-
 Evaluate need, reproducibility, maintenance, security, license, context cost, cross-platform behavior, and version pinning.
-
-When OpenCodeReview (`ocr`) is available as a global CLI, agents may use it optionally for large diffs, pre-release review, or other cases where an additional independent review would be useful. It is not a required gate and does not need to be added as a project-local dependency or Skill. When used, provide review-target context and independently validate OCR findings against current source before acting on them. If the CLI is unavailable, do not block the ordinary review flow or add a project dependency solely to obtain it.
 
 Native GitHub stacked-PR features may be used as an implementation mechanism when available, but policy semantics must not depend on temporary preview-specific behavior.
 
@@ -984,7 +893,6 @@ Persist consequential long-lived decisions in ADRs, especially:
 - dependency-aware stacked PR model
 - durable branch / remote-publication / Draft PR / PR metadata lifecycle
 - public-repository main protection / release-only main integration
-- optional Linear release-planning / control-plane boundary
 - environment reproducibility
 - architecture migration
 - package/toolchain migration
@@ -1181,8 +1089,6 @@ Repository-controlled docs should lead to at least:
 - troubleshooting
 - release/security/recovery workflow
 
-For public repositories, actively use README badges when they help readers make faster decisions. Treat badges as compact signals/actions rather than decoration: select only project-relevant CI/build/test status, release/package version, license, adoption signals such as downloads/Stars, and deploy/demo/documentation actions. Prefer official provider badges/buttons; use a maintained generic badge service such as Shields.io when needed. Link each badge to the canonical destination matching what it displays, and avoid stale, duplicate, private-only, decorative, or excessive badge rows that reduce README readability.
-
 Use progressive disclosure across README, CONTRIBUTING, `docs/architecture.md`, `docs/development.md`, `docs/troubleshooting.md`, `docs/release.md`, `docs/security.md`, etc. according to project size.
 
 Use Mermaid or similar diagrams when they improve architecture/data-flow/trust-boundary understanding.
@@ -1221,11 +1127,7 @@ Branch names carry only Issue numbers or release versions, not descriptions.
 
 For JavaScript/TypeScript, prefer Bun unless there is a concrete incompatibility.
 
-Use `rg` / `rg --files` for text search. Use `rg` for exact symbols, paths, literals, regexes, exhaustive occurrence searches, and freshness-sensitive verification.
-
-When `zg` (zvec-grep) is available and its index is current, it may be preferred for semantic discovery, architecture exploration, and cross-file relationship searches where the exact terminology or location is unknown. zvec-grep is an optional optimization: its absence, a stale index, or a failure must not block repository work; fall back to `rg` and normal source inspection. Verify important findings against source files or exact search before making changes.
-
-Do not require a global zvec-grep install or mutate user-global agent configuration solely to satisfy this policy. Project-local index state is not project truth or a correctness dependency; if `.zvec-grep/` is created, Git-ignore it.
+Use `rg` / `rg --files` for text search.
 
 Do not add new `.py` scripts for automation, generation, migration, validation, build/test support, or temporary analysis. Use the project's appropriate language, TypeScript/JavaScript, shell, PowerShell, etc.
 
@@ -1296,6 +1198,7 @@ Verify at least:
 - public repositories have effective `main` protection/rulesets that prohibit normal direct push/edit and make release PRs the canonical update path
 - where protection cannot constrain PR source branches, a required release-source check exists
 - normal sprint cadence = one week, and one sprint = one target semantic version
+- medium/long-term release forecasting uses the evidence-based `agent-delivery-estimation` policy rather than subjective calendar estimates or linear agent scaling
 - Issue dependency graph is the canonical dependency SoT
 - independent tickets use release base, and same-release linear hard dependencies may use stacked PRs
 - every active durable ticket branch publishes its first meaningful commit to the canonical remote, verifies the remote-head SHA, and immediately gets a Draft PR, including worker/subagent branches

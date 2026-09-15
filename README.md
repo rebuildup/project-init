@@ -61,6 +61,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 `-g` / `--global` を付けると project-local ではなく user scope に導入できます。
 
+既にSkillが導入済みでも、それだけで「更新不要」と判断しません。明示的にversionをpin/freezeしていない限り、配布元のcurrent revision/contentとの差分を確認し、変更があればproject-local customizationを保持しながらreconcile/updateします。配布元やrevisionを確認できない場合も、agentが独断で据え置き扱いにはしません。
+
 > [!IMPORTANT]
 > `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` / `PROMPT.en.md` は初期化用の包括的 prompt であり、Skills CLI によって自動実行・適用されるものではありません。
 >
@@ -68,7 +70,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub Issues / Pull Requestsをexecutionの中心とした **1週間のrelease sprint** です。release planningはGitHub Projects、またはoptionalなLinear control planeを選択できます。
+標準deliveryはGitHub Issues / Projects / Pull Requestsを中心とした **1週間のrelease sprint** です。
 
 - `main` = released/integrated source state
 - `release-x-y-z` = 1週間のsprint / target version integration branch
@@ -80,9 +82,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
 - stack predecessor変更後はcurrent SHAでaffected validationを再実行する
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
-- tag-triggered publishを使う場合はtag version / authoritative project version / release SHAの整合を検証する
 
-詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、Linear採用時は [`skills/linear-release-control/SKILL.md`](./skills/linear-release-control/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`ADR-0014`](./docs/adr/ADR-0014.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
 ## Repository layout
 
@@ -95,45 +96,29 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ LICENSE
 ├─ docs/
 │  ├─ policy-overview.md
-│  ├─ audits/
-│  │  └─ 2026-09-09-lost-rule-audit.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0014.md
+│  │  └─ ADR-0001.md ... ADR-0010.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
-├─ evals/
-│  ├─ interaction-discipline/
-│  └─ policy-evaluation/
 └─ skills/
+   ├─ agent-delivery-estimation/
    ├─ agent-recovery/
-   ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
-   ├─ interaction-discipline/
-   ├─ linear-release-control/
    ├─ onboarding/
    ├─ parallel-orchestration/
-   ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
-   ├─ security-maintenance/
-   ├─ worktree-workflow/
-   └─ writing-discipline/
+   └─ security-maintenance/
 ```
 
 ## Documentation
 
 - [`docs/policy-overview.md`](./docs/policy-overview.md) — policy 全体の背景、実行モデル、GitHub delivery、quality/security/recovery 方針。
-- [`docs/audits/2026-09-09-lost-rule-audit.md`](./docs/audits/2026-09-09-lost-rule-audit.md) — 初期版から現行版へのsemantic audit。意図的revisionとsilent lossを分類し、復元対象を追跡します。
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
-- [`ADR-0010`](./docs/adr/ADR-0010.md) — evidence-first design refinement / decision frontier policy。
-- [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policyをdeterministic checks + cold eval + grader controlsで検証する実行contract。
-- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge/landingをquality readinessと分離し、explicit user authorizationを必須にするintegration boundary。
-- [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/LinuxでWorktrunkをworktree操作レイヤーに採用し、deterministic host port/process lifecycleを統合する方針。
-- [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub executionを維持しながらLinearをoptional release planning / health / portfolio control planeとして使う方針。
-- [`evals/`](./evals/) — policy behaviorのcold scenario、deterministic grader、positive/negative/regression controls。
+- [`ADR-0010`](./docs/adr/ADR-0010.md) — AI agent delivery の evidence-based forecasting / capacity estimation policy。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -142,28 +127,15 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 通常 task では必要な Skill だけを読み込みます。
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
-- `policy-evaluation` — execution profile、deterministic/latent policy eval、blind comparative evaluation、cold review、context budget
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `worktree-workflow` — WSL/Linux向けWorktrunk操作、project-local hooks、deterministic port/process lifecycle
-- `github-delivery` — GitHub Issues / PR / weekly release sprint / stacked PR / Draft PR lifecycle / release version consistency
-- `linear-release-control` — optional Linear Project / Initiative / Milestone / MCPによるrelease planning / health reconciliation
-- `quality-gate` — stack-aware quality profile、current-SHA revalidation、dependency/static analysis、UI/rendered/deliverable verification、GitHub Actions resource efficiency
-- `engineering-decisions` — project 内の判断優先順位、naming/design/ADR/dependency adoption、compatibility、trust/escalation policy
-- `design-refinement` — implementation前のevidence読解、fact/decision分離、dependency-aware decision frontier
-- `writing-discipline` — contextを直接転写せず、Select → Compose → Rereadでreader-oriented proseへ変換するwriting workflow
-- `interaction-discipline` — active workでagent-owned workを保持し、verified state / blocker / user dependencyをactionableに提示するinteraction workflow
+- `github-delivery` — Issues / Projects / weekly release sprint / stacked PR / Draft PR lifecycle
+- `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
+- `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
+- `engineering-decisions` — project 内の判断優先順位と escalation policy
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
-- `onboarding` — fresh contributor 向け documentation、`.tmp/` / `.reference/` / env / `.gitignore` hygiene、fresh-clone audit
+- `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
-
-## Policy integrity
-
-このrepositoryでは、文書の大規模な再構成でline countが増えていてもoperational ruleが失われ得ることを前提にします。
-
-policy sectionを削除・統合・Skillへ移動する場合は、各normative ruleについて **new canonical location / explicit revision / intentional removal** のいずれかを追跡できるようにし、どれにも該当しないsilent semantic deletionを許容しません。
-
-2026-09-09のbaseline監査は [`docs/audits/2026-09-09-lost-rule-audit.md`](./docs/audits/2026-09-09-lost-rule-audit.md) を参照してください。
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues を implementation/dependency state の canonical SoT とし、release planning は GitHub Projects または optional Linear profile へ責務分離する。mutable execution state は agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues / Projects を work/dependency state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
