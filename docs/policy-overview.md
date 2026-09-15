@@ -15,6 +15,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
+- `skills/correctness-assurance/SKILL.md` — 正しい答えを作る前提 / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene。
+- `skills/policy-evaluation/SKILL.md` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard。
+- `skills/design-refinement/SKILL.md` — 実装前evidence-first design / unknown分解 / scope-risk調整 / trade-off documentation。
+- `skills/writing-discipline/SKILL.md` — reader-oriented writing / context serialization分離 / required-section enforcement。
+- `skills/interaction-discipline/SKILL.md` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing。
+- `skills/linear-release-control/SKILL.md` — Linearをoptional release planning / health / portfolio control planeとして使う契約（採用時のみ）。
+- `skills/worktree-workflow/SKILL.md` — WorktrunkをWSL/Linuxのworktree操作layerとして使う契約 / branch base / port allocation。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
@@ -26,6 +33,10 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
 - `ADR-0009.md` — quality gateを弱めないcost-aware GitHub Actions resource efficiency。
 - `ADR-0010.md` — evidence-based agent delivery forecasting / capacity estimation。
+- `ADR-0011.md` — agent policyをeval可能なexecutable contractとして扱うpolicy evaluation model。
+- `ADR-0012.md` — PR mergeをexplicitなhuman-authorized side effectとして扱う境界。
+- `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
+- `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -377,6 +388,13 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
+- `correctness-assurance`
+- `policy-evaluation`
+- `design-refinement`
+- `writing-discipline`
+- `interaction-discipline`
+- `linear-release-control`（Linear profile採用時）
+- `worktree-workflow`
 
 project固有のarchitecture / UI / release / debugging等は必要に応じて追加します。
 

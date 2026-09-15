@@ -93,6 +93,10 @@
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
 - ADR-0009: cost-aware GitHub Actions without weakening quality gates
 - ADR-0010: evidence-based agent delivery forecasting / capacity estimation
+- ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
+- ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
+- ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
+- ADR-0014: optional Linear release control plane over GitHub execution state (mirror禁止 / SoT明確化)
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -271,6 +275,8 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
+- `skills/correctness-assurance/SKILL.md`
+- `skills/worktree-workflow/SKILL.md`
 
 通常taskでは必要なSkillだけをcontextへ入れます。
 

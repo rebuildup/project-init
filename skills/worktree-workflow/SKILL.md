@@ -50,10 +50,16 @@ wt switch release-0-2-0
 Issue #123用ticket branch/worktreeを作成:
 
 ```bash
-wt switch --create 123
+wt switch --create 123 --base=release-0-2-0
 ```
 
-作成元はcurrent expected baseでなければならない。stacked ticketではimmediate predecessor snapshot/branchとの関係を`github-delivery` / `parallel-orchestration` policyに従って決める。
+`wt switch --create <name>` は `--base` を指定しないとdefault branch（通常 `main`）をbaseにするため、release branchやpredecessor branchから派生させたい場合は必ず `--base` を明示する。
+
+- current HEADから派生: `wt switch --create <name> --base=@`
+- 指定release branchから派生: `wt switch --create <name> --base=release-x-y-z`
+- stacked ticketでimmediate predecessor branchから派生: `wt switch --create <dependent-issue> --base=<predecessor-issue>`
+
+default branchからの派生はtarget release trunkへ直接stackできないticketを作るため、`github-delivery` policy違反になる。作成元はcurrent expected baseでなければならない。stacked ticketではimmediate predecessor snapshot/branchとの関係を`github-delivery` / `parallel-orchestration` policyに従って決める。
 
 worktree一覧:
 
@@ -154,7 +160,7 @@ Worktrunk commandはGitHub deliveryのergonomic frontendに限定する。
 
 ```text
 wt switch release-x-y-z
--> wt switch --create <issue-number>
+-> wt switch --create <issue-number> --base=release-x-y-z
 -> implementation / commit / publish
 -> immediate Draft PR
 -> review / validation

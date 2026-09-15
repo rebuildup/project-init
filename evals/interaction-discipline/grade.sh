@@ -10,7 +10,21 @@ MISS=0
 VIOL=0
 SCHEMA=0
 DUPLICATE=0
-LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
+# Count records directly off the file (not off the substituted T, which
+# silently drops trailing newlines). The previous form let an answer with 8
+# records plus a trailing blank line slip through as LINE_COUNT=8 because
+# command substitution "A\nB\n\n" -> "A\nB\n" -> printf '%s\n' -> "A\nB\n\n"
+# counted only 2 records via wc -l.
+TRAILING_BLANK=0
+if [ "$(tail -c 1 "$A" | wc -l | tr -d ' ')" = "1" ]; then
+  # File ends with \n. If the last line is empty (i.e. the file ends with
+  # two consecutive newlines, "X\n\n"), that empty line must still count.
+  if [ "$(awk 'END{print length($0)}' "$A")" = "0" ]; then
+    TRAILING_BLANK=1
+  fi
+fi
+LINE_COUNT=$(awk 'END{print NR}' "$A")
+EFFECTIVE_LINES=$((LINE_COUNT - TRAILING_BLANK))
 
 must_exact() {
   # printf is used so a leading -n/-e/-- in $T cannot be misread as a flag.
@@ -80,9 +94,9 @@ do
 done
 
 echo
-echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE"
+echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE   trailing_blank: $TRAILING_BLANK"
 
-if [ "$HIT" -eq 8 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 8 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
+if [ "$HIT" -eq 8 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$EFFECTIVE_LINES" -eq 8 ] && [ "$TRAILING_BLANK" -eq 0 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi

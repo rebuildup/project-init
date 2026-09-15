@@ -119,6 +119,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`docs/adr/`](./docs/adr/) — 長期的な architecture / workflow / quality / recovery decisions。
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — AI agent delivery の evidence-based forecasting / capacity estimation policy。
+- [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policy を eval 可能な executable contract として扱う policy evaluation model。
+- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
+- [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
+- [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
