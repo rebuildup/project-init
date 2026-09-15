@@ -97,20 +97,27 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ docs/
 │  ├─ policy-overview.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0010.md
+│  │  └─ ADR-0001.md ... ADR-0014.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
 └─ skills/
    ├─ agent-delivery-estimation/
    ├─ agent-recovery/
+   ├─ correctness-assurance/
+   ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ interaction-discipline/
+   ├─ linear-release-control/
    ├─ onboarding/
    ├─ parallel-orchestration/
+   ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
-   └─ security-maintenance/
+   ├─ security-maintenance/
+   ├─ worktree-workflow/
+   └─ writing-discipline/
 ```
 
 ## Documentation
@@ -139,6 +146,13 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
 - `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
+- `correctness-assurance` — 正しい答えを作る前提 / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene
+- `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
+- `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
+- `writing-discipline` — reader-oriented writing / context serialization 分離 / required-section enforcement
+- `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
+- `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
+- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
 
 ## Core principle
 

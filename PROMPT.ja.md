@@ -420,6 +420,13 @@ rootに置くもの:
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
+- `correctness-assurance` — 正しい答えを作る前提 / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene
+- `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
+- `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
+- `writing-discipline` — reader-oriented writing / context serialization 分離 / required-section enforcement
+- `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
+- `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
+- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
 
 Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。既存Skillを発見した場合もpresenceだけでskipせず、明示的なpin/freezeがなければsource freshnessを確認して差分をreconcileしてください。`--global` を既定にしてはいけません。
 

@@ -401,6 +401,13 @@ Default Skills:
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
+- `correctness-assurance` — preconditions for producing correct answers / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene
+- `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
+- `design-refinement` — pre-implementation evidence-first design / unknown decomposition / scope-risk adjustment / trade-off documentation
+- `writing-discipline` — reader-oriented writing / context serialization separation / required-section enforcement
+- `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
+- `linear-release-control` — Linear as optional release planning / health / portfolio control plane contract (only when adopted)
+- `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation contract
 
 Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. When an existing Skill is found, do not skip it merely because it is present; unless it is explicitly pinned or frozen, verify source freshness and reconcile any differences. Do not make `--global` the default.
 
