@@ -255,7 +255,7 @@ hunterはpeer-owned coverageへ無秩序に広がらない。別boundaryを発�
 
 ## 7. Attack classes
 
-projectに存在するsurfaceだけを選択する。
+詳細な選定観点は [`ATTACK-CLASSES.md`](./ATTACK-CLASSES.md) をcanonical catalogとして使用する。projectに存在するsurfaceだけを選択する。
 
 標準class:
 
@@ -406,7 +406,7 @@ confirmed findingは `security-maintenance` のproject-aware prioritizationへha
 
 ## 12. Phase 4 — Structured output
 
-repository/project conventionに合わせてmachine-readable audit artifactsを残す。
+repository/project conventionに合わせてmachine-readable audit artifactsを残す。標準contractは [`coverage-ledger.schema.json`](./coverage-ledger.schema.json) と [`findings.schema.json`](./findings.schema.json) を使用し、project固有extensionはcore verdict semanticsを弱めない。
 
 推奨:
 
