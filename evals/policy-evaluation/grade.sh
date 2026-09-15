@@ -11,7 +11,17 @@ VIOL=0
 SCHEMA=0
 DUPLICATE=0
 ORDER=0
-LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
+# Count records directly off the file so trailing blank lines are
+# correctly classified into TRAILING_BLANK rather than silently vanishing
+# via command substitution.
+TRAILING_BLANK=0
+if [ "$(tail -c 1 "$A" | wc -l | tr -d ' ')" = "1" ]; then
+  if [ "$(awk 'END{print length($0)}' "$A")" = "0" ]; then
+    TRAILING_BLANK=1
+  fi
+fi
+LINE_COUNT=$(awk 'END{print NR}' "$A")
+EFFECTIVE_LINES=$((LINE_COUNT - TRAILING_BLANK))
 
 # Assert that one required record is present; multiplicity is checked by the schema gate below.
 must_exact() {
@@ -108,9 +118,9 @@ while IFS= read -r line; do
 done <<< "$T"
 
 echo
-echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE   out_of_order: $ORDER"
+echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   effective: $EFFECTIVE_LINES   invalid: $SCHEMA   duplicates: $DUPLICATE   out_of_order: $ORDER   trailing_blank: $TRAILING_BLANK"
 
-if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 6 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ] && [ "$ORDER" -eq 0 ]; then
+if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$EFFECTIVE_LINES" -eq 6 ] && [ "$TRAILING_BLANK" -eq 0 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ] && [ "$ORDER" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi

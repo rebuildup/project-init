@@ -509,6 +509,6 @@ case studyから一般化した主な点:
 - verifiableな整数の骨格を、浮動小数点等のmodel外領域から分離できる
 - mathematical integer modelとmachine integerの差はproofのsoundness interpretationに直結する
 - specificationの不足はsolverでは救えない
-- proofはtestの置き換えではなく、見落とすfailure classを変える手段である。finite test suiteは当該failure classを取り逃し得る一方、proofはそれを検出し、両者は相互に補完する
+- proofはtestの置き換えではなく、testでは見落とし得るfailure classを検出する手段である。finite test suite が見落とすfailure classをproofは補完的に検出し、両者は相互補完の関係にある
 
 MoonBit固有の制約を他toolへ一般化してはならない。実際のprojectでは採用するlanguage/verifier/modelのcurrent behaviorを個別に確認する。

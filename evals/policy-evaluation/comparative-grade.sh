@@ -10,7 +10,18 @@ MISS=0
 VIOL=0
 SCHEMA=0
 DUPLICATE=0
-LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
+ORDER=0
+# Count records directly off the file so trailing blank lines are
+# correctly classified into TRAILING_BLANK rather than silently vanishing
+# via command substitution.
+TRAILING_BLANK=0
+if [ "$(tail -c 1 "$A" | wc -l | tr -d ' ')" = "1" ]; then
+  if [ "$(awk 'END{print length($0)}' "$A")" = "0" ]; then
+    TRAILING_BLANK=1
+  fi
+fi
+LINE_COUNT=$(awk 'END{print NR}' "$A")
+EFFECTIVE_LINES=$((LINE_COUNT - TRAILING_BLANK))
 
 must_exact() {
   # printf is used so a leading -n/-e/-- in $T cannot be misread as a flag.
@@ -77,10 +88,38 @@ do
   fi
 done
 
-echo
-echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE"
+# Verify the answer preserves the canonical line ordering of the seven
+# required records. must_exact() and the duplicate counter above only
+# check presence and multiplicity, so an answer that emits the right
+# records in the wrong order would otherwise pass the gate.
+echo "ordering:"
+expected_order=(
+  "parity=same-cases-model-trials-rubric"
+  "runner=isolated"
+  "identity=pin-or-record"
+  "judge=blind-paired"
+  "labels=deterministic-per-group"
+  "gate=critical-nonregression"
+  "run=budgeted-resumable"
+)
+i=0
+while IFS= read -r line; do
+  i=$((i + 1))
+  expected="${expected_order[$((i - 1))]:-}"
+  if [ -n "$expected" ] && [ "$line" = "$expected" ]; then
+    printf '  ord %d ok: %s\n' "$i" "$line"
+  elif [ -n "$expected" ]; then
+    ORDER=$((ORDER + 1))
+    printf '  OUT-OF-ORDER line %d: got %q expected %q\n' "$i" "$line" "$expected"
+  else
+    printf '  ord %d extra: %s\n' "$i" "$line"
+  fi
+done <<< "$T"
 
-if [ "$HIT" -eq 7 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 7 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
+echo
+echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   effective: $EFFECTIVE_LINES   invalid: $SCHEMA   duplicates: $DUPLICATE   out_of_order: $ORDER   trailing_blank: $TRAILING_BLANK"
+
+if [ "$HIT" -eq 7 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$EFFECTIVE_LINES" -eq 7 ] && [ "$TRAILING_BLANK" -eq 0 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ] && [ "$ORDER" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi
