@@ -34,6 +34,9 @@
 - user escalation boundaryを曖昧にしていないか
 - framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
 - vulnerability priorityがseverityだけの機械判定に戻っていないか
+- active security auditでcoverage gapをsilentにcovered扱いしていないか
+- candidateをhunter自身がconfirmedへ昇格できる設計に戻していないか
+- source外deployment/provider factを推測してfinding化していないか
 - onboarding knowledgeがchat/private memory依存になっていないか
 - reader-facing textをconversation / task / execution contextのserializationとして書いていないか
 - textをSelect -> Compose -> Rereadでreader-oriented artifactへ編集しているか
@@ -272,6 +275,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/design-refinement/SKILL.md`
 - `skills/writing-discipline/SKILL.md`
 - `skills/interaction-discipline/SKILL.md`
+- `skills/security-audit/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
@@ -425,6 +429,7 @@ current official sourceを確認すべき対象:
 - decision precedence / escalation boundaryが一貫
 - unit/smoke/integration/contract/E2E責務が一貫
 - security source/priority policyが一貫
+- security auditのcoverage-led discovery / structured verdict / fresh verifier / remediation handoffが一貫
 - onboarding docs generation/verification policyが一貫
 - session loss / parent loss / sandbox lossからdurable recovery pathが存在する
 - execution fencing / side-effect retry policyが一貫
