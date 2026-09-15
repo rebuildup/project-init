@@ -23,6 +23,7 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
 - validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
+- `security-audit` のcandidate validationではhunterとverifierを同一agentにせず、fresh verifierへimmutable candidate/evidenceを渡す。final record verificationが必要なprofileでも同じseparationを維持する。
 - spawn前に `policy-evaluation` Skillのexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 
 ## Execution profile routing
