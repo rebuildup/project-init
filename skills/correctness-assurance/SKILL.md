@@ -395,6 +395,8 @@ contractがcompile artifactへ残らないtoolでは、必要ならruntime safet
 
 assuranceの結果は最低限次で報告する。
 
+**既知のmodel gapが存在する場合、`Known model gaps`項目に必ず記載する。** gapがないと確認できる場合のみ「なし」と明記する。
+
 ```text
 Correctness properties
 - P1: ...
@@ -455,7 +457,7 @@ AI agentは:
 4. model/runtime差を確認する
 5. proofを通すためだけにpreconditionを強めない
 6. unsupported領域を隠さない
-7. verified / not verified / assumptionsを分離する
+7. verified / Not verified / assumptionsを分離する
 8. contract変更をbehavior変更と同じくreview対象にする
 
 contractはAIにとってもmachine-readable specificationとして扱う。
@@ -490,7 +492,8 @@ contractはAIにとってもmachine-readable specificationとして扱う。
 - verification modelとruntime modelの差を確認した
 - formal verificationを使う場合、unsupported領域を明示した
 - specificationへcounterexample challengeを行った
-- verified / runtime-tested / assumptions / not-verifiedを分離した
+- verified / runtime-tested / assumptions / Not verifiedを分離した
+- Known model gapsを明示している
 - evidenceがcurrent code revisionへ紐づいている
 
 ## 19. Source case
@@ -506,6 +509,6 @@ case studyから一般化した主な点:
 - verifiableな整数の骨格を、浮動小数点等のmodel外領域から分離できる
 - mathematical integer modelとmachine integerの差はproofのsoundness interpretationに直結する
 - specificationの不足はsolverでは救えない
-- proofはtestの置き換えではなく、見落とすfailure classを変える手段である
+- proofはtestの置き換えではなく、見落とすfailure classを変える手段である。finite test suiteは当該failure classを取り逃し得る一方、proofはそれを検出し、両者は相互に補完する
 
 MoonBit固有の制約を他toolへ一般化してはならない。実際のprojectでは採用するlanguage/verifier/modelのcurrent behaviorを個別に確認する。
