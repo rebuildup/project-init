@@ -40,6 +40,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
 - `policy-evaluation/comparative-scenario.md` — condition parity / runner isolation / identity pinning / blind paired judging / release gate / budgeted resumability
+- `linear-release-control/scenario.md` — GitHub / Linear間のsource-of-truth / mirror / worker access / coding session baseline / project mappingのcanonical rule
 - `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
 controls:
@@ -48,6 +49,7 @@ controls:
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
 bash evals/policy-evaluation/comparative-controls.sh
+bash evals/linear-release-control/controls.sh
 bash evals/policy-evaluation/context-budget.sh
 ```
 
@@ -57,4 +59,5 @@ fresh agentのanswerを採点:
 bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
 bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
 bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
+bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
 ```

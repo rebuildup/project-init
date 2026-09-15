@@ -10,6 +10,7 @@ MISS=0
 VIOL=0
 SCHEMA=0
 DUPLICATE=0
+ORDER=0
 LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
 
 # Assert that one required record is present; multiplicity is checked by the schema gate below.
@@ -76,10 +77,40 @@ do
   fi
 done
 
-echo
-echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE"
+# Verify the answer preserves the canonical line ordering of the six required
+# records. must_exact() and the duplicate counter above only check presence and
+# multiplicity, so an answer that emits the right records in the wrong order
+# would otherwise pass the gate. The fixture's ordering is the canonical one;
+# any deviation is a regression we want to surface.
+echo "ordering:"
+expected_order=(
+  "A profile=mechanical space=deterministic execution=solo review=none"
+  "B profile=cross-boundary space=mixed execution=decompose review=cold"
+  "C profile=judgment-heavy space=latent execution=evidence-first review=cold"
+  "D profile=mechanical space=deterministic execution=codify review=none"
+  "reviewer_context=artifact-only"
+  "self_rating=not-a-gate"
+)
+i=0
+while IFS= read -r line; do
+  i=$((i + 1))
+  expected="${expected_order[$((i - 1))]:-}"
+  if [ -n "$expected" ] && [ "$line" = "$expected" ]; then
+    printf '  ord %d ok: %s\n' "$i" "$line"
+  elif [ -n "$expected" ]; then
+    ORDER=$((ORDER + 1))
+    printf '  OUT-OF-ORDER line %d: got %q expected %q\n' "$i" "$line" "$expected"
+  else
+    # Extra line beyond the 6 canonical records is already flagged by the
+    # schema check above, so just note it for the operator here.
+    printf '  ord %d extra: %s\n' "$i" "$line"
+  fi
+done <<< "$T"
 
-if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 6 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
+echo
+echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE   out_of_order: $ORDER"
+
+if [ "$HIT" -eq 6 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 6 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ] && [ "$ORDER" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi

@@ -50,15 +50,19 @@ always_on_words() {
 }
 
 # Emit the canonical machine-readable snapshot used to create or compare a baseline.
-# Root instruction files are always emitted (at 0 bytes when absent) so the
-# baseline can keep tracking "expected-if-present" files across regenerations.
-# Skill files are only emitted when they actually exist on disk, so the
-# comparison loop can distinguish a deletion from a present-but-empty file.
+# Root instruction files are only emitted when they actually exist on disk,
+# so the comparison loop can distinguish "file missing from the tree" (DELETED)
+# from "file present but empty" (current=0 PASS at base=0). The earlier form
+# emitted root rows at 0 bytes when absent, which made deletions invisible:
+# the snapshot always contained the row, current=0 matched base=0, and the
+# entry silently PASSed instead of surfacing as DELETED.
 snapshot() {
   local path
   printf 'kind\tpath\tbytes\n'
   for path in "${ROOT_FILES[@]}"; do
-    printf 'root\t%s\t%s\n' "$path" "$(bytes_for "$path")"
+    if [ -f "$R/$path" ]; then
+      printf 'root\t%s\t%s\n' "$path" "$(bytes_for "$path")"
+    fi
   done
   printf 'always_on_total\t__always_on_total__\t%s\n' "$(always_on_bytes)"
   # Guard against missing or unreadable skills dir so the snapshot stays usable
@@ -98,9 +102,16 @@ while IFS=$'\t' read -r kind path base; do
   # Differentiate "absent from snapshot" from "present with 0 bytes":
   # the previous awk fallback printed 0 for both, which silently PASSed any
   # deletion of a tracked skill/root file as if the file had merely shrunk.
-  # A missing tracked entry is only a semantic regression when the baseline
-  # already recorded a non-zero size; root instruction files baseline'd at 0
-  # are tracked as "expected to be absent", so their continued absence is OK.
+  #
+  # Deletion policy by kind:
+  #   root           - root instruction files are tracked as canonical
+  #                    agent context; absence is always a regression,
+  #                    regardless of base size.
+  #   skill          - skill files are tracked when present; absence at
+  #                    base > 0 is DELETED, absence at base = 0 is the
+  #                    "never tracked as present" baseline contract.
+  #   always_on_total- synthetic; absence is a snapshot/script bug, not
+  #                    a real-world regression.
   if awk -F '\t' -v k="$kind" -v p="$path" '$1 == k && $2 == p { found=1; exit } END { exit !found }' "$TMP"; then
     current=$(awk -F '\t' -v k="$kind" -v p="$path" '$1 == k && $2 == p { print $3 }' "$TMP")
     percent_growth=$(( (base * MAX_GROWTH_PERCENT + 99) / 100 ))
@@ -125,10 +136,10 @@ while IFS=$'\t' read -r kind path base; do
     fi
 
     printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n'     "$status" "$kind" "$path" "$base" "$current" "$delta" "$limit" "$words" "$tokens"
-  elif [ "$base" -gt 0 ]; then
-    # Baseline had a real file at non-zero size; its disappearance is a
-    # semantic regression (lost rule, missing skill, dropped root file)
-    # and must surface as DELETED with a non-zero exit.
+  elif [ "$kind" = "root" ] || [ "$base" -gt 0 ]; then
+    # Tracked entry vanished from the snapshot. Root instruction files and
+    # any baseline record above zero bytes both surface as DELETED so the
+    # regression cannot silently pass the gate.
     if [ "$kind" = "always_on_total" ]; then
       words=$(always_on_words)
     else
@@ -138,9 +149,10 @@ while IFS=$'\t' read -r kind path base; do
     printf 'DELETED\t%s\t%s\t%s\t0\t%s\t%s\t%s\t0\n' "$kind" "$path" "$base" "$delta" "$base" "$words"
     RC=1
   else
-    # Baseline already recorded 0 bytes for this entry; continued absence
-    # matches the baseline and is not a regression. Emit a PASS row so the
-    # audit log shows the file was checked and intentionally absent.
+    # Baseline already recorded 0 bytes for this skill entry; continued
+    # absence matches the baseline and is not a regression. Emit a PASS
+    # row so the audit log shows the file was checked and intentionally
+    # absent.
     if [ "$kind" = "always_on_total" ]; then
       words=$(always_on_words)
     else

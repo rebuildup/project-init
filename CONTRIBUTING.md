@@ -71,7 +71,7 @@
 - stacked dependent ticketがexact predecessor snapshotへpinされているか
 - predecessor変更後にaffected downstream validationをcurrent SHAで再実行するか
 - stacked ticketをintermediate predecessor branchへのmergeだけでDoneにしていないか
-- target release trunkへのactual landing後にIssue close / Project Doneへ進むか
+- target release trunkへのactual landing後にIssue close + 選択されたrelease planning control planeのproject status Doneへ進んでいるか（Linear profileを採用しないrepositoryはIssue closeのみ）
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - Worktrunk / `hash_port` / `wt step tether`をruntime isolationの代替として扱っていないか
@@ -124,7 +124,7 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
-- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked Issueを明示的にcloseし、Project Doneへ移す = ticket Done
+- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked Issueを明示的にcloseし、選択されたrelease planning control plane（GitHub Projects / optional Linear profile）のticket / project statusをDoneへ更新 = ticket Done。Linear profileを採用しないrepositoryではProject status更新は不要（GitHub Issue closeのみでDoneとみなす）
 - release branchは`main`とzero-diffの間だけDraft release PR不要
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
@@ -328,7 +328,7 @@ Ready前にacceptance criteria、required verification level、current SHA valid
 
 Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
 
-stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseしProject statusをDoneへ更新します。
+stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseし、選択されたrelease planning control plane（GitHub Projects / optional Linear profile）のticket / project statusをDoneへ更新します。Linear profileを採用しないrepositoryではProject status更新は不要です（GitHub Issue closeのみ）。
 
 ### Subagent / worker branches
 
