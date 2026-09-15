@@ -223,7 +223,7 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 
 - native conversation/thread/subagent resumeはoptimizationでありcanonical SoTではない
 - fresh agentがchat historyなしでunfinished taskを再構成できる
-- durable recovery sourcesはIssue / Project / PR / Git refs / committed docs / immutable results / structured checkpoint
+- durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。release planning control plane（GitHub ProjectsまたはLinear）は補助boardでcanonical SoTではない
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
 - active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとDraft PRを追跡できる

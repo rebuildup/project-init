@@ -159,6 +159,23 @@ current `execution_generation` と一致しないresultは自動統合しない�
 
 recorded predecessor/base snapshotとcurrent expected baseが異なるresultはstale candidateとしてreconcileし、盲目的に統合しない。
 
+## Landing handoff boundary
+
+worker / subagent の **shared durable integration state への ordered landing**（`release-x-y-z` への merge / landing、`release-x-y-z -> main` release PR の merge、`main` への直接反映等）は **Coordinator / Supervisor だけが実行する**。
+
+- worker / subagent は target release trunk / `main` への merge / landing 操作を実行しない。
+- worker / subagent は Draft PR 作成・remote publication・branch head verify までを完了して、result identity + Draft PR identity + validation evidence + known issues を immutable handoff artifact として Supervisor へ返す。
+- Coordinator / Supervisor は landing 順序、再validation、target release trunk への merge / contiguous stack landing のみを実行できる。
+
+user explicit merge / land authorization を Agent / subagent が受け取った場合でも、orchestrated workflow 下では landing 操作は **Coordinator / Supervisor 経由でのみ** 実行する。worker / subagent は landing を実行せず、authorization scope を伴った immutable handoff を Supervisor へ渡す。
+
+この境界を越えて worker / subagent が landing 操作を実行した場合:
+
+- 直近 landing は stale candidate として扱う。
+- 自動rollback は前提としない。integration state への影響と reconciliation 必要性を Supervisor が reassess し、必要なら new landing 候補で再実行する。
+
+単独で `release-x-y-z -> main` release PR を扱う状況ではこの限りではない。worker が release PR の merge authorization を直接 landing 操作として実行できる。
+
 ## Review handoff
 
 Reviewer inputはclean candidate snapshotへpinする。

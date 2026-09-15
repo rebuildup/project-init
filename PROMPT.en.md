@@ -74,7 +74,7 @@ At minimum inspect:
 - env examples / `.gitignore`
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / required release-source check
-- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
+- GitHub Issues / dependency / PR / stacked PR / release workflow (release planning control plane must declare GitHub Projects or the optional Linear profile as the sole plane — never both)
 - current errors / warnings
 - branch / remote / user uncommitted changes
 
@@ -98,16 +98,18 @@ Canonical state should be representable by at least:
 2. released ref: `main` or an explicitly equivalent branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue / Project work + dependency state
-6. project-wide policy / architecture / design / specification / ADRs
-7. repository-controlled operational documentation / Agent Skills
-8. durable recovery checkpoints / immutable worker results
+5. GitHub Issue work + dependency state (canonical SoT)
+6. release planning control plane — GitHub Projects or the optional Linear profile, declared as the sole plane
+7. project-wide policy / architecture / design / specification / ADRs
+8. repository-controlled operational documentation / Agent Skills
+9. durable recovery checkpoints / immutable worker results
 
 Source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket/priority/status/version/dependency: GitHub Issues / Projects
+- ticket/priority/status/version/dependency: GitHub Issues (canonical SoT)
+- release planning control plane: GitHub Projects or the optional Linear profile, whichever the project declares — not a durable SoT
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset plus required release-source check when needed
@@ -401,10 +403,10 @@ Default Skills:
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
-- `correctness-assurance` — preconditions for producing correct answers / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene
+- `correctness-assurance` — preconditions for producing correct answers / extraction of invariants and pre/post-conditions / minimal-sufficient assurance mechanism design drawn from types, static analysis, runtime assertion, tests, property/differential testing, formal verification, and review
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — pre-implementation evidence-first design / unknown decomposition / scope-risk adjustment / trade-off documentation
-- `writing-discipline` — reader-oriented writing / context serialization separation / required-section enforcement
+- `writing-discipline` — reader-oriented writing / reconstruction into standalone artifacts decoupled from working context / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear as optional release planning / health / portfolio control plane contract (only when adopted)
 - `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation contract
@@ -478,7 +480,7 @@ Issue title/body are Japanese.
 
 Include purpose, acceptance criteria, scope/non-scope, dependency, priority, size, area/component, target version, release date, and accountable assignee when relevant.
 
-Issue / Project dependency state is the canonical dependency SoT. Do not encode dependency only through branch parentage.
+GitHub Issue dependency state is the canonical dependency SoT. Do not encode dependency only through branch parentage. GitHub Projects and Linear are planning control planes for project status / owner / target version; they do not hold dependency metadata that other artifacts treat as canonical.
 
 Short-lived nested subtasks may remain Supervisor tasks.
 
@@ -675,7 +677,9 @@ If stacked delivery cannot be maintained safely, preserve the dependency SoT and
 
 For non-trivial tasks run:
 
-`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> design-refinement (only before planning for non-trivial feature / architecture / product design) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+
+`design-refinement` is **mandatory before any non-trivial feature / architecture / product design reaches `plan weekly release`**. Trivial tasks (mechanical typos, localized bug fixes) may skip it; tasks whose scope touches an interface, data model, or public contract may not. Follow the `design-refinement` Skill: read the relevant repository / ADR / Skills / existing implementation / official guidance, separate facts from unresolved decisions, and only then enter planning.
 
 Do not stop merely because compilation succeeds, one focused test passes, or the first implementation appears plausible.
 
@@ -710,7 +714,7 @@ Define RPO/RTO up to machine/provider loss when project/provider requirements ju
 
 Prefer:
 
-1. GitHub Issue / Project / dependency state
+1. GitHub Issue / dependency state (canonical SoT); the release planning control plane (GitHub Projects or Linear) is an auxiliary board
 2. target release branch
 3. ticket branch / remote commit graph
 4. Draft/Ready PR / assignee / reviewer / labels / review / CI state

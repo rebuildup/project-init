@@ -44,6 +44,17 @@ authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PR�
 
 quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「Agentがmerge操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
 
+#### Orchestrated workflow landing boundary
+
+`parallel-orchestration` の execution model 下では、Agent / subagent / worker は **target release integration branch (`release-x-y-z`) や `main` への shared durable integration state への ordered landing を直接実行しない**。landing は Coordinator / Supervisor が durable integration の責務として行う。
+
+Agent / subagent が merge / land authorization を受け取る経路は次のいずれかに限定する:
+
+1. 単独で `release-x-y-z -> main` の release PR を扱う状況では、authorization を **直接 landing 操作として実行できる**。
+2. 並列オーケストレーション下では、Agent / subagent の authorization は **Coordinator / Supervisor への明示的 handoff** を経由する。worker / subagent は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。Supervisor だけが landing 操作を行う。
+
+この境界を越えて worker / subagent が landing 操作を実行した場合、result は stale candidate として扱う。
+
 ## Public repository main protection
 
 public repositoryでは`main`をprotected branch / branch rulesetで必ず保護する。

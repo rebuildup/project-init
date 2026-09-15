@@ -74,7 +74,7 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - env examples / `.gitignore`
 - repository visibility
 - public repositoryの`main` branch protection / ruleset / bypass / required release-source check
-- GitHub Issues / Projects / dependency / PR / stacked PR / release workflow
+- GitHub Issues / dependency / PR / stacked PR / release workflow（release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示）
 - current errors / warnings
 - branch / remote / userのuncommitted changes
 
@@ -98,16 +98,18 @@ canonical stateは最低限次で表現してください。
 2. released ref: `main` またはprojectが明示する同等branch
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
-5. GitHub Issue / Project work + dependency state
-6. project-wide policy / architecture / design / specification / ADR
-7. repository-controlled operational documentation / Agent Skills
-8. durable recovery checkpoint / immutable worker results
+5. GitHub Issue work + dependency state（canonical SoT）
+6. release planning control plane（GitHub Projectsまたはoptional Linear profileのいずれか一方を明示）
+7. project-wide policy / architecture / design / specification / ADR
+8. repository-controlled operational documentation / Agent Skills
+9. durable recovery checkpoint / immutable worker results
 
 source/work state:
 
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
-- ticket/priority/status/version/dependency: GitHub Issues / Projects
+- ticket/priority/status/version/dependency: GitHub Issues（canonical SoT）
+- release planning control plane: GitHub Projects（採用時）またはoptional Linear profile（採用時）のいずれか一方。durable SoTではない
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset + required release-source check when needed
@@ -420,10 +422,10 @@ rootに置くもの:
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
-- `correctness-assurance` — 正しい答えを作る前提 / cold evaluation / build-vs-buy / worktree hygiene / source trust / input hygiene
+- `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
-- `writing-discipline` — reader-oriented writing / context serialization 分離 / required-section enforcement
+- `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
 - `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
@@ -497,7 +499,7 @@ Issue title/bodyは日本語です。
 
 必要に応じて目的、acceptance criteria、scope/non-scope、dependency、priority、size、area/component、target version、release date、accountable assigneeを持たせてください。
 
-Issue / Project dependency stateがcanonical dependency SoTです。branch parent-child relationだけでdependencyを表現してはいけません。
+GitHub Issue dependency stateがcanonical dependency SoTです。branch parent-child relationだけでdependencyを表現してはいけません。GitHub ProjectsとLinearはplanning control planeとしてproject status / owner / target versionを扱う補助boardで、dependency metadataのcanonical sourceではありません。
 
 短命なnested subtaskはSupervisor taskで構いません。
 
@@ -715,9 +717,11 @@ stacked deliveryを安全に維持できない場合はdependency SoTを壊さ�
 
 非自明taskでは:
 
-`inspect -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> design-refinement (non-trivial feature / architecture / product design のplanning前のみ) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 を自律的に回してください。
+
+`design-refinement` は **非自明な feature / architecture / product design を `plan weekly release` へ渡す前に** 必ず実行します。mechanical typo や localized bug fix など trivial な task では省略可能ですが、scope や acceptance criteria が interface / data model / public contract に触れる場合は省略不可です。`design-refinement` Skill に従い、関連 repository / ADR / Skills / existing implementation / 公式 guidance を読み、fact と未決定事項を分離してから planning に進みます。
 
 compile成功、focused test 1件成功、first implementationがもっともらしい、というだけで完了扱いしないでください。
 
@@ -752,7 +756,7 @@ project/provider要件に応じてmachine/provider lossまでのRPO/RTOも定義
 
 優先するevidence:
 
-1. GitHub Issue / Project / dependency state
+1. GitHub Issue / dependency state（canonical SoT）。release planning control plane（GitHub ProjectsまたはLinear）は補助board
 2. target release branch
 3. ticket branch / remote commit graph
 4. Draft/Ready PR / assignee / reviewer / labels / review / CI state
