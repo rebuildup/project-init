@@ -619,10 +619,10 @@ Create the release branch at sprint start.
 
 GitHub cannot create a PR while the release branch is identical to `main`, so a zero-diff release branch is the explicit exception to the Draft-release-PR invariant. **Open a Draft release PR immediately after the first meaningful integrated release difference appears**.
 
-Set assignee, reviewer, labels, release goal, included Issues, and a validated SHA pinned reference on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Validation evidence in the release PR body is handled **conditionally** on the repository's CI posture:
+Set assignee, reviewer, labels, release goal, and included Issues on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Validation evidence in the release PR body is handled **conditionally** on the repository's CI posture:
 
-- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: native checks ARE the canonical evidence, and `github-delivery` ready-to-merge semantics are evaluated from the required-check status on the GitHub UI. Do not make the workflow run status / SHA pin in the PR body a mandatory rule; only transcribe it when a reader genuinely needs the pointer to re-fetch the evidence.
-- **Repositories without CI (e.g. policy / docs-only)**: include the current canonical control reproduction block from the `evals/` controls (re-fetched by a fresh agent / reviewer / CI runner on demand) together with the validated SHA pinned reference, as the release evidence.
+- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: native checks ARE the canonical evidence, and `github-delivery` ready-to-merge semantics are evaluated from the required-check status on the GitHub UI. Do not make the validated SHA pinned reference or the workflow run status pin in the PR body a Draft -> Ready / merge candidate mandatory rule; only transcribe them when a reader genuinely needs the pointer to re-fetch the evidence.
+- **Repositories without CI (e.g. policy / docs-only)**: include the validated SHA pinned reference together with the current canonical control reproduction block from the `evals/` controls (re-fetched by a fresh agent / reviewer / CI runner on demand) as the release evidence.
 
 In both cases, follow `writing-discipline` and avoid unconditionally serializing full validation snapshots in the PR body; let the reader re-fetch evidence on demand via the pointer in the body.
 
@@ -632,7 +632,7 @@ Release PR:
 
 `release-x-y-z -> main`
 
-Release PR title/body are Japanese and should summarize release goal, included Issues/PRs, breaking changes, migration notes, a validated SHA pinned reference plus (CI-configured repos) workflow run status or (no-CI repos) the current canonical control reproduction block from `evals/`, known limitations, and version/release metadata.
+Release PR title/body are Japanese and should summarize release goal, included Issues/PRs, breaking changes, migration notes, (CI-configured repos) an optional pointer to a validated SHA pinned reference and workflow run status when a reader needs to re-fetch the evidence (not a ready-to-merge mandatory rule), (no-CI repos) the validated SHA pinned reference plus the current canonical control reproduction block from `evals/`, known limitations, and version/release metadata.
 
 In public repositories, protected `main` must not be changed through any path other than this release PR.
 

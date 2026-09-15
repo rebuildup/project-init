@@ -646,10 +646,10 @@ release branchはsprint開始時に作成します。
 
 GitHubは`main`と差分がないrelease branchにはPRを作れないため、zero-diff release branchはDraft release PR invariantの例外です。**最初のmeaningful integrated release differenceが入った直後にDraft release PRを作成**してください。
 
-Draft release PRにはassignee / reviewer / labels / release goal / included Issues / validated SHA pinned referenceを設定し、sprint中のdurable release surfaceとして維持してください。release PR 本文の validation evidence は repository の CI 形態に応じて **条件付き** で扱います:
+Draft release PRにはassignee / reviewer / labels / release goal / included Issues を設定し、sprint中のdurable release surfaceとして維持してください。release PR 本文の validation evidence は repository の CI 形態に応じて **条件付き** で扱います:
 
-- **native CI checks（GitHub Actions / workflow run）が available な repository**: native checks を canonical evidence とし、`github-delivery` の ready-to-merge semantic は GitHub UI上のrequired check status で判定する。PR 本文への workflow run status / SHA の恒常的な pin / 転写は **readerが evidence を再 fetch する必要が生じた場合に限り** 行い、rule として必須化しない。
-- **CI が configured でない repository（policy/docs only など）**: `evals/` 配下の controls を fresh agent / reviewer / CI runner から再取得できる形（canonical control reproduction block + validated SHA pinned reference）を release evidence として本文へ残す。
+- **native CI checks（GitHub Actions / workflow run）が available な repository**: native checks を canonical evidence とし、`github-delivery` の ready-to-merge semantic は GitHub UI上のrequired check status で判定する。validated SHA pinned reference と workflow run status の PR 本文への pin / 転写は **readerが evidence を再 fetch する必要が生じた場合に限り** 行い、Draft → Ready / merge candidate の必須 rule として固定化しない。
+- **CI が configured でない repository（policy/docs only など）**: validated SHA pinned reference と `evals/` 配下の canonical control reproduction block を release evidence として本文へ残す（`evals/` controls を fresh agent / reviewer / CI runner から再取得できる形）。
 
 いずれの場合も `writing-discipline` に従い full snapshot の無条件 serialize は避け、reader が必要時に evidence を再 fetch できる pointer を本文に残す方針は共通です。
 
@@ -667,7 +667,8 @@ release PR title/bodyは日本語です。
 - included Issues / PRs
 - breaking changes
 - migration notes
-- validated SHA pinned reference + （CIがconfiguredなら）workflow run status または （CIが未configuredなら）`evals/` controls の current canonical control reproduction block
+- （CIがconfigured な repository）必要に応じて validated SHA pinned reference と workflow run status の pointer。ready-to-merge の必須 rule としては固定化しない
+- （CIが未configured な repository）validated SHA pinned reference と `evals/` controls の current canonical control reproduction block
 - known limitations
 - version/release metadata
 
