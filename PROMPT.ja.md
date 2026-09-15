@@ -34,7 +34,7 @@
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
 - 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてから、GitHub Issueを明示closeし、選択されたrelease planning control planeのproject statusをDoneへ更新する。Linear profileを採用しないrepositoryではGitHub Issue closeのみでDoneとみなす。
+- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてから、GitHub Issueを明示closeする。**GitHub Projectsを planning control plane に使う repository** ではticket Done境界として Project の ticket status を更新する。**optional Linear profile を採用した repository** ではLinearがticket を全面mirrorしない契約（ADR-0014 / `linear-release-control` Skill）のため、ticket Done 境界は GitHub Issue close のみで成立する。Linear Project status の Done / Completed 更新はrelease-level reconciliationで別途行い、個々の ticket Done 境界に含めない。
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
@@ -631,7 +631,8 @@ Ticket Done:
 - blocking review resolved
 - ticket changesがtarget release trunkへland済み
 - Issue explicitly closed after successful target release-trunk landing
-- 選択されたrelease planning control plane（GitHub Projects または optional Linear profile）のproject statusをDoneへ更新。Linear profileを採用しないrepositoryではproject status更新は不要（GitHub Issue closeのみでDoneとみなす）。
+- **GitHub Projects を planning control plane に使う場合**: Project の ticket status を更新
+- **optional Linear profile を採用した場合**: ticket status 更新は行わない（Linearがticket を全面mirrorしないため）。release-level Project status の Completed / Done 更新は release 完了時の release-level reconciliation で別途実施し、個々の ticket Done 境界には含めない
 
 native stacked PRではcontiguous stack landingでtarget release trunkへ到達したticketだけをDoneにしてください。ordinary nested PR fallbackでは `124 -> 123` のようなintermediate predecessor branch mergeだけでIssue #124をclose/Doneにしてはいけません。
 
@@ -645,7 +646,12 @@ release branchはsprint開始時に作成します。
 
 GitHubは`main`と差分がないrelease branchにはPRを作れないため、zero-diff release branchはDraft release PR invariantの例外です。**最初のmeaningful integrated release differenceが入った直後にDraft release PRを作成**してください。
 
-Draft release PRにはassignee / reviewer / labels / release goal / included Issues / validated SHA pinned referenceを設定し、sprint中のdurable release surfaceとして維持してください。validation result本文は無条件にfull snapshotをserializeせず、`writing-discipline` に従いreaderが必要時にreproduceできるvalidated SHA reference + canonical control blockで十分とします。
+Draft release PRにはassignee / reviewer / labels / release goal / included Issues / validated SHA pinned referenceを設定し、sprint中のdurable release surfaceとして維持してください。release PR 本文の validation evidence は repository の CI 形態に応じて **条件付き** で扱います:
+
+- **native CI checks（GitHub Actions / workflow run）が available な repository**: workflow runの status / SHA pinning を canonical evidence として release PR 本文へ pinする。`evals/` の local control block を追加で必須化しない。
+- **CI が configured でない repository（policy/docs only など）**: `evals/` 配下の controls を fresh agent / reviewer / CI runner から再取得できる形（canonical control reproduction block + validated SHA pinned reference）を release evidence として本文へ残す。
+
+いずれの場合も `writing-discipline` に従い full snapshot の無条件 serialize は避け、reader が必要時に evidence を再 fetch できる pointer を本文に残す方針は共通です。
 
 sprint対象ticketをrelease branchへ統合後、release gateを実行してください。
 
@@ -661,13 +667,13 @@ release PR title/bodyは日本語です。
 - included Issues / PRs
 - breaking changes
 - migration notes
-- validated SHA pinned reference + current canonical control reproduction block（`evals/` 配下のcontrolsを実行した結果、release evidenceとしてはcurrent headのlocal control再取得を根拠とする）
+- validated SHA pinned reference + （CIがconfiguredなら）workflow run status または （CIが未configuredなら）`evals/` controls の current canonical control reproduction block
 - known limitations
 - version/release metadata
 
 public repositoryではprotected `main`に対し、このrelease PR以外の経路で変更を入れないでください。
 
-`release-x-y-z -> main` を含むPR mergeは **explicit human authorization境界**（ADR-0012）に従い、ready-to-merge状態でもAgentが自律実行しません。release-wide verification完了 + release gate green + reviewer authorization確認後にのみmergeを実行してください。authorizationが確認できない場合はready-to-mergeで停止し、userに確認を要求します。
+`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。reviewer / CODEOWNERS approval は merge の前提条件ですが、merge を実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + release gate green + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / required checks / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。
 
 merge後 `main` がそのversionのreleased stateです。
 

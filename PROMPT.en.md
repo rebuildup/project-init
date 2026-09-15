@@ -34,7 +34,7 @@ Core model:
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
 - The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
-- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, the GitHub Issue must be explicitly closed, and the project status on the chosen release planning control plane (GitHub Projects or optional Linear profile) must be updated to Done. Repositories that do not adopt the Linear profile may treat GitHub Issue close as the Done boundary on its own.
+- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. In **repositories using GitHub Projects as the planning control plane**, update the Project ticket status as part of the Done boundary. In **repositories that adopt the optional Linear profile**, the Linear contract (ADR-0014 / `linear-release-control` Skill) does NOT mirror tickets, so the per-ticket Done boundary is GitHub Issue close alone. Linear Project-status Completed/Doneness is updated at release-level reconciliation, not at the per-ticket Done boundary.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
 - Quality gates are compiled per project rather than using one fixed bundle.
@@ -604,7 +604,8 @@ Ticket Done requires:
 - blocking review resolved
 - ticket changes have landed on the target release trunk
 - Issue explicitly closed only after successful target-release-trunk landing
-- project status moved to Done on the chosen release planning control plane (GitHub Projects or optional Linear profile). Repositories that do not adopt the Linear profile may skip the project-status update (GitHub Issue close alone is sufficient)
+- **Repositories using GitHub Projects**: update the Project ticket status
+- **Repositories adopting the optional Linear profile**: do NOT update Linear ticket status (Linear does not mirror tickets). Linear Project status Completed/Doneness happens at release-level reconciliation, not as part of the per-ticket Done boundary
 
 For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`.
 
@@ -618,7 +619,12 @@ Create the release branch at sprint start.
 
 GitHub cannot create a PR while the release branch is identical to `main`, so a zero-diff release branch is the explicit exception to the Draft-release-PR invariant. **Open a Draft release PR immediately after the first meaningful integrated release difference appears**.
 
-Set assignee, reviewer, labels, release goal, included Issues, and a validated SHA pinned reference on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Do not unconditionally serialize full validation snapshots in the PR body; per `writing-discipline`, a validated SHA reference plus a canonical control reproduction block is sufficient and lets the reader re-fetch current evidence on demand.
+Set assignee, reviewer, labels, release goal, included Issues, and a validated SHA pinned reference on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Validation evidence in the release PR body is handled **conditionally** on the repository's CI posture:
+
+- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: pin the workflow run status plus SHA as the canonical evidence. Do not additionally mandate the `evals/` local control block.
+- **Repositories without CI (e.g. policy / docs-only)**: include the current canonical control reproduction block from the `evals/` controls (re-fetched by a fresh agent / reviewer / CI runner on demand) together with the validated SHA pinned reference, as the release evidence.
+
+In both cases, follow `writing-discipline` and avoid unconditionally serializing full validation snapshots in the PR body; let the reader re-fetch evidence on demand via the pointer in the body.
 
 After sprint tickets are integrated, run the release gate on the release branch.
 
@@ -626,11 +632,11 @@ Release PR:
 
 `release-x-y-z -> main`
 
-Release PR title/body are Japanese and should summarize release goal, included Issues/PRs, breaking changes, migration notes, a validated SHA pinned reference plus a current canonical control reproduction block (the `evals/` controls at the current head; release evidence is the local control re-fetch at the current head, not a stale attached log), known limitations, and version/release metadata.
+Release PR title/body are Japanese and should summarize release goal, included Issues/PRs, breaking changes, migration notes, a validated SHA pinned reference plus (CI-configured repos) workflow run status or (no-CI repos) the current canonical control reproduction block from `evals/`, known limitations, and version/release metadata.
 
 In public repositories, protected `main` must not be changed through any path other than this release PR.
 
-PR merges that include `release-x-y-z -> main` sit behind the **explicit human authorization boundary** defined by ADR-0012: even when the release PR is ready-to-merge, the Agent does not autonomously execute the merge. The merge runs only after release-wide verification, the release gate, and a reviewer authorization are all confirmed; if authorization cannot be confirmed, the Agent stops at ready-to-merge and asks the user.
+PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. Reviewer / CODEOWNERS approval is a prerequisite for merge, but the actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification, the release gate, and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, required checks, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it.
 
 After merge, `main` represents the released state for that version.
 
