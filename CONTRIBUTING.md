@@ -160,6 +160,8 @@ PRのquality/readinessとmerge authorizationは別stateです。
 
 Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけ、merge / squash / rebase / stacked landing / auto-merge有効化 / equivalent landingを実行します。
 
+authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
+
 review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
 
 authorizationを別PRへ伝播させません。authorization後にexpected fixでheadが変わればcurrent SHAを再検証し、base / target release / scope / included changes等がmaterialに変わった場合やscope内か曖昧な場合は古いauthorizationを再利用しません。

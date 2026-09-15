@@ -2,9 +2,12 @@
 set -euo pipefail
 
 answer=${1:?usage: bash grade.sh <answer-file>}
+[ -f "$answer" ] || { printf 'no answer file at %s\n' "$answer"; exit 1; }
 
 require_exact() {
-  local expected=$1
+  # Quote the assignment so whitespace in $1 survives; the previous form
+  # silently truncated multi-word expected values to the first word.
+  local expected="$1"
   grep -Fxq -- "$expected" "$answer" || {
     printf 'FAIL missing-or-wrong: %s\n' "$expected"
     exit 1

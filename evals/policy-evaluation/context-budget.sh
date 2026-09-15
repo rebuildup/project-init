@@ -50,6 +50,10 @@ always_on_words() {
 }
 
 # Emit the canonical machine-readable snapshot used to create or compare a baseline.
+# Root instruction files are always emitted (at 0 bytes when absent) so the
+# baseline can keep tracking "expected-if-present" files across regenerations.
+# Skill files are only emitted when they actually exist on disk, so the
+# comparison loop can distinguish a deletion from a present-but-empty file.
 snapshot() {
   local path
   printf 'kind\tpath\tbytes\n'
@@ -57,10 +61,17 @@ snapshot() {
     printf 'root\t%s\t%s\n' "$path" "$(bytes_for "$path")"
   done
   printf 'always_on_total\t__always_on_total__\t%s\n' "$(always_on_bytes)"
-  while IFS= read -r full; do
-    path=${full#"$R/"}
-    printf 'skill\t%s\t%s\n' "$path" "$(bytes_for "$path")"
-  done < <(find "$R/skills" -mindepth 2 -maxdepth 2 -type f -name SKILL.md -print | LC_ALL=C sort)
+  # Guard against missing or unreadable skills dir so the snapshot stays usable
+  # even when the repo layout is mid-bootstrap; the main loop will still flag
+  # every baselined skill as DELETED, which is the correct semantic.
+  if [ -d "$R/skills" ]; then
+    while IFS= read -r full; do
+      path=${full#"$R/"}
+      if [ -f "$full" ]; then
+        printf 'skill\t%s\t%s\n' "$path" "$(bytes_for "$path")"
+      fi
+    done < <(find "$R/skills" -mindepth 2 -maxdepth 2 -type f -name SKILL.md -print | LC_ALL=C sort)
+  fi
 }
 
 if [ "${1:-}" = "--snapshot" ]; then
@@ -84,29 +95,59 @@ RC=0
 while IFS=$'\t' read -r kind path base; do
   [ "$kind" = "kind" ] && continue
 
-  current=$(awk -F '\t' -v k="$kind" -v p="$path" '$1 == k && $2 == p { print $3; found=1 } END { if (!found) print 0 }' "$TMP")
-  percent_growth=$(( (base * MAX_GROWTH_PERCENT + 99) / 100 ))
-  allowance=$MAX_GROWTH_BYTES
-  if [ "$percent_growth" -gt "$allowance" ]; then
-    allowance=$percent_growth
-  fi
-  limit=$((base + allowance))
-  delta=$((current - base))
+  # Differentiate "absent from snapshot" from "present with 0 bytes":
+  # the previous awk fallback printed 0 for both, which silently PASSed any
+  # deletion of a tracked skill/root file as if the file had merely shrunk.
+  # A missing tracked entry is only a semantic regression when the baseline
+  # already recorded a non-zero size; root instruction files baseline'd at 0
+  # are tracked as "expected to be absent", so their continued absence is OK.
+  if awk -F '\t' -v k="$kind" -v p="$path" '$1 == k && $2 == p { found=1; exit } END { exit !found }' "$TMP"; then
+    current=$(awk -F '\t' -v k="$kind" -v p="$path" '$1 == k && $2 == p { print $3 }' "$TMP")
+    percent_growth=$(( (base * MAX_GROWTH_PERCENT + 99) / 100 ))
+    allowance=$MAX_GROWTH_BYTES
+    if [ "$percent_growth" -gt "$allowance" ]; then
+      allowance=$percent_growth
+    fi
+    limit=$((base + allowance))
+    delta=$((current - base))
 
-  if [ "$kind" = "always_on_total" ]; then
-    words=$(always_on_words)
-  else
-    words=$(words_for "$path")
-  fi
-  tokens=$(( (current + 3) / 4 ))
+    if [ "$kind" = "always_on_total" ]; then
+      words=$(always_on_words)
+    else
+      words=$(words_for "$path")
+    fi
+    tokens=$(( (current + 3) / 4 ))
 
-  status=PASS
-  if [ "$current" -gt "$limit" ]; then
-    status=FAIL
+    status=PASS
+    if [ "$current" -gt "$limit" ]; then
+      status=FAIL
+      RC=1
+    fi
+
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n'     "$status" "$kind" "$path" "$base" "$current" "$delta" "$limit" "$words" "$tokens"
+  elif [ "$base" -gt 0 ]; then
+    # Baseline had a real file at non-zero size; its disappearance is a
+    # semantic regression (lost rule, missing skill, dropped root file)
+    # and must surface as DELETED with a non-zero exit.
+    if [ "$kind" = "always_on_total" ]; then
+      words=$(always_on_words)
+    else
+      words=0
+    fi
+    delta=$((-base))
+    printf 'DELETED\t%s\t%s\t%s\t0\t%s\t%s\t%s\t0\n' "$kind" "$path" "$base" "$delta" "$base" "$words"
     RC=1
+  else
+    # Baseline already recorded 0 bytes for this entry; continued absence
+    # matches the baseline and is not a regression. Emit a PASS row so the
+    # audit log shows the file was checked and intentionally absent.
+    if [ "$kind" = "always_on_total" ]; then
+      words=$(always_on_words)
+    else
+      words=0
+    fi
+    printf 'PASS\t%s\t%s\t0\t0\t0\t0\t%s\t0\n' "$kind" "$path" "$words"
   fi
-
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n'     "$status" "$kind" "$path" "$base" "$current" "$delta" "$limit" "$words" "$tokens"
 done < "$BASELINE"
 
 while IFS=$'\t' read -r kind path current; do
