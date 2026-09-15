@@ -40,6 +40,7 @@ Core model:
 - Quality gates are compiled per project rather than using one fixed bundle.
 - Required verification levels are selected from change surface/risk.
 - Continuously triage framework/runtime security information.
+- For unknown source-code security defects, use `security-audit` to make principal / trust-boundary / entry-surface / attack-class coverage explicit, and confirm a finding only after a fresh verifier independent from the hunter has tried to refute it.
 - Persist project knowledge in repository-controlled docs rather than chat/private memory.
 - Do not escalate self-evident decisions that project evidence already resolves.
 - Do not make native session/thread resume the only recovery mechanism.
@@ -400,6 +401,7 @@ Default Skills:
 - `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
+- `security-audit`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -1061,6 +1063,10 @@ Convert meaningful advisories into GitHub Issues and assign a target release. A 
 
 When appropriate add/repair dependency review, code scanning, secret scanning, container scanning, SBOM, or equivalent controls.
 
+### Active source audit
+
+For projects that require active discovery of unknown security defects, install the `security-audit` Skill and derive coverage units from source-visible principals, trust boundaries, entry surfaces, and applicable attack classes. A hunter never confirms its own candidate: use a fresh verifier, and when a decisive deployment/provider/runtime fact is not source-visible, retain `needs_validation` instead of guessing. Target-controlled audit execution must use bounded local isolation from `sandbox-runtime`; confirmed findings flow through `security-maintenance` for project-aware priority and then through the ordinary Issue / remediation / quality / release workflow.
+
 ---
 
 ## 26. Reviewer separation
@@ -1230,6 +1236,7 @@ Verify at least:
 - current-SHA revalidation after stack updates is explicit
 - a stack-aware quality profile and deterministic validation entry points exist
 - framework/runtime security-advisory intake/prioritization exists
+- projects using active source audit define coverage-ledger / structured-verdict / independent-verifier / delivery-handoff semantics
 - fresh-contributor/new-agent documentation exists
 - after session/context loss, a fresh agent can recover the task from Issue/PR/Git/checkpoint state
 - a hard-checkpoint boundary exists for provider/sandbox loss

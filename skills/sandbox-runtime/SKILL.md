@@ -14,6 +14,7 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 - immutable/cacheable stateのみ共有する。
 - provider差はadapterへ閉じ込め、project semanticsを変えない。
 - Worktrunkはworkspace/worktree lifecycle adapterであり、sandbox/runtime isolation boundaryとして扱わない。
+- `security-audit` がtarget-controlled codeを実行する場合も本Skillのnetwork / environment / writable state / resource isolationを満たす。必要controlをenforceできない環境ではhost executionへfallbackせず `needs_validation` とする。
 
 ## Isolate
 
