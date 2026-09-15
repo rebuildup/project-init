@@ -8,16 +8,13 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/worktree-workflow/SKILL.md` — WSL/LinuxでのWorktrunk worktree操作、project-local hook、host port/process lifecycle。
-- `skills/github-delivery/SKILL.md` — GitHub Issues / PRによるweekly release sprint / stacked PR / Draft PR / release integration。
-- `skills/linear-release-control/SKILL.md` — optional Linear release planning / health / portfolio control plane。
+- `skills/github-delivery/SKILL.md` — Issues / Projects / weekly release sprint / stacked PR / Draft PR / release integration。
+- `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
-- `skills/policy-evaluation/SKILL.md` — policy behaviorのdeterministic/latent分離、execution profile、blind comparative evaluation、cold review、context budget。
-- `evals/` — cold policy scenariosとdeterministic grader / controls。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
@@ -27,12 +24,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0006.md` — decision hierarchy / verification taxonomy / security maintenance / onboarding。
 - `ADR-0007.md` — durable agent interruption recovery / fencing / side-effect reconciliation。
 - `ADR-0008.md` — weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle。
-- `ADR-0009.md` — cost-aware GitHub Actions resource efficiency。
-- `ADR-0010.md` — evidence-first design refinement / decision frontier policy。
-- `ADR-0011.md` — Agent policyをevaluated executable contractとして扱う方針。
-- `ADR-0012.md` — PR merge/landingをquality readinessと分離するexplicit authorization boundary。
-- `ADR-0013.md` — WorktrunkをWSL/Linuxの標準worktree操作レイヤーへ採用するdecision。
-- `ADR-0014.md` — GitHub executionを維持したoptional Linear release control plane。
+- `ADR-0009.md` — quality gateを弱めないcost-aware GitHub Actions resource efficiency。
+- `ADR-0010.md` — evidence-based agent delivery forecasting / capacity estimation。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -49,8 +42,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- WSL/Linuxで再現可能なWorktrunk worktree lifecycleとdeterministic host-port allocation
-- GitHub Issues / Pull Requestsによるweekly ticket-driven release sprint workflow + optional Linear release control plane
+- GitHub Issues / Projects / Pull Requestsによるweekly ticket-driven release sprint workflow
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + mandatory Draft PR lifecycleとPR metadata management
 - public repositoryのprotected `main` / release-only main integration
@@ -61,13 +53,10 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - vulnerability intake / triage / patch-release workflow
 - fresh contributor向けonboarding / architecture / development documentation
 - architecture / ADR / CI/CD / release rules
-- Agent policyのdeterministic checks / cold eval / grader controls
-- execution profileによるorchestration強度の調整
-- always-loaded root contractのcontext budget
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issuesをimplementation/dependency stateのcanonical SoTとし、release planningはGitHub Projectsまたはoptional Linear profileへfield ownershipを分離する + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Supervisor経由でagent lifecycleを管理する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -89,7 +78,6 @@ Agent Supervisor
 
 - 1 implementation worker = 1 isolated mutable runtime
 - worktree単体をexecution isolationとみなさない
-- WSL/Linuxのlocal worktree操作ではWorktrunkをpreferred frontendとして使用できるが、workspace lifecycleとruntime isolationを混同しない
 - DB / Redis / queue / runtime stateをworker間で共有しない
 - parent -> child はimmutable snapshot
 - child -> parent はimmutable commit/ref/diff
@@ -115,8 +103,6 @@ Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/re
 WSL自体はworker isolationではありません。複数workerをWSL内で動かす場合も各workerにcontainer/VM/sandbox boundaryを設けます。
 
 Docker Desktopは必須前提にしません。
-
-WSL/Linuxで複数のticket/review worktreeを扱う場合はWorktrunkをpreferred frontendとし、repository-specificなhookは`.config/wt.toml`へcommitします。共有hostへ公開するdev serverはproject stackが対応する実際のport overrideへ`{{ branch | hash_port }}`を接続し、long-running processは適切なら`wt step tether`へ結び付けます。これはhost port/process lifecycleの整理であり、DB / Redis / queue / credential等のruntime isolationを置換しません。
 
 ## GitHub agile delivery
 
@@ -149,7 +135,7 @@ main
 - `main`: リリース済み・統合済みsource state
 - `release-x-y-z`: そのversionを目標とするweekly sprint integration branch / stack trunk
 - `<issue-number>`: 1 ticketのdurable branch
-- GitHub Issue dependency metadata: canonical dependency SoT
+- GitHub Issue / Project dependency metadata: canonical dependency SoT
 - stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
 
 標準ライフサイクル:
@@ -175,9 +161,7 @@ Isolated parallel workers
         ↓
 Verification + CI + Review
         ↓
-Ready for review / ready-to-merge
-        ↓
-Explicit user merge authorization
+Ready for review
         ↓
 Ticket / contiguous stack landing
         ↓
@@ -185,9 +169,7 @@ target release trunk reached
         ↓
 Issue close + Project: Done
         ↓
-Release-wide verification + release ready-to-merge
-        ↓
-Explicit user release-merge authorization
+Release-wide verification
         ↓
 release-x-y-z -> protected main
         ↓
@@ -216,13 +198,10 @@ Release complete
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定する
 - predecessor変更でdownstream SHAが変わったらaffected validationを再実行する
 - acceptance criteriaとticket quality gateを満たしてからReady for reviewへ移す
-- quality/readinessとmerge authorizationを分離し、identified PR / bounded PR setへのexplicit user merge/land requestがない限りAgentはready-to-mergeで停止する
-- green CI / approval / mergeable / resolved review / generic completion requestからmerge authorizationを推論しない。auto-merge enablement / stacked landing / equivalent landingも同じauthorization boundaryに含める
-- authorizationを別PRへ持ち越さず、materialなbase / target release / scope / included-change変化後は古いauthorizationを盲目的に再利用しない
 - stacked ticketはintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue close + board updateを行う
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
-- sprint完了時にrelease branch全体を検証してrelease PRをready-to-mergeにし、explicit release-merge authorizationがある場合だけAgentが`release-x-y-z -> main`をmergeする
+- sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
 
 ### Public repository main protection
 
@@ -258,68 +237,6 @@ project-wide policy / canonical architecture
 project evidenceから実質一意に決まる可逆・局所的な判断を、agentが毎回userへ質問してはいけません。
 
 user escalationは、product semantics、public contract、security/privacy、meaningful cost、release scope、irreversible operation、canonical source間の矛盾など、本物の意思決定が残る場合に限定します。
-
-## Evidence-first design refinement
-
-非自明なfeature / architecture / product designでは、planning / implementation前にrepository-controlled evidenceを読み、unknownとhidden assumptionを整理します。
-
-標準workflow:
-
-```text
-inspect evidence
-  -> classify facts / decisions
-  -> investigate facts
-  -> resolve project-determined decisions
-  -> build unresolved decision graph
-  -> ask only consequential decision frontier
-  -> persist significant results
-  -> plan / implement
-```
-
-factはrepository、official source、executable probe等からagentが調査し、userへ返しません。project evidenceから実質一意に決まるdecisionは `engineering-decisions` のprecedenceで自律決定します。
-
-複数のmeaningful optionが残り、product semantics / architecture / public contract / risk / cost / release scope等が変わるdecisionだけをuser escalation候補にします。
-
-decision同士に依存関係がある場合はgraphとして扱い、未解決の上流decisionに依存する下流質問を先に投げません。userへは現在のdecision frontierだけを、既知evidence・選択肢・meaningful consequence・推奨案とともに提示します。
-
-long-livedなdecision/domain knowledgeだけをdesign/spec、ADR、project-local Skill、architecture docs、schema/test、glossary/domain context等へ永続化します。domain vocabularyが単純なprojectへ独立documentを強制せず、固定の `CONTEXT.md` を標準必須fileにしません。
-
-このworkflowはexternal interview Skillをmandatory dependencyにせず、project-initの既存decision hierarchyとprogressive disclosureへnativeにcompileします。
-
-## Reader-oriented writing discipline
-
-agentが保持しているtext contextと、readerへ渡す文章を同一視しません。
-
-conversation、task、調査、実装、tool output、current execution stateはwriting inputにはなりますが、その順序や粒度のままdocumentation等へ転写する対象ではありません。reader-facing textは次の変換を通します。
-
-```text
-raw context
-  -> Select: audience / purposeに必要なcommunicative contentを選ぶ
-  -> Compose: readerの理解順へstandalone proseとして再構成する
-  -> Reread: 元contextを知らないreaderとして全文を読み直し編集する
-```
-
-rereadは誤字脱字確認だけではありません。文・段落の接続、冗長、指示語、前提不足、chronology leakage、context dependencyを確認し、必要なら削除・統合・並べ替え・書き直しを行います。
-
-このdisciplineはREADME等のdocumentationだけでなく、ADR、Issue、Pull Request、commit message、code comment、review comment等のpersistentまたは他者向けtextへ共通適用します。
-
-temporal/history/execution informationは、それ自体を禁止しません。version compatibility、migration、audit、incident、reproducibility、readerの判断に必要なstatus等、artifactの責務として必要な場合だけ残します。単にagentのcurrent contextへ存在することは記載理由になりません。
-
-詳細なartifact別workflowは `writing-discipline` Skillへprogressive disclosureします。
-
-## Active work interaction discipline
-
-persistent artifactのwriting disciplineとは別に、active work中のuser/operator-facing interactionも作業logのserializationにしません。
-
-agentが自律実行できるworkはagent側に保持し、userへはverified result、current blocker、external dependency、consequential decisionを優先して提示します。multi-turn stateは次の判断に必要な範囲だけ再掲し、full historyを毎回反復しません。
-
-errorはsymptom / evidence / cause or hypothesis / recovery / verificationとして扱い、agentが修正可能なfailureをuserへmanual taskとして返しません。user actionが必要な場合だけbounded stepsまたは1つのblocking questionへ落とします。
-
-このdisciplineはblanket brevity ruleではありません。taskが要求するtechnical detail、trade-off、safety information、complete listを保持し、削る対象はfiller、重複state、不要な実況、unrelated tangent、avoidable delegationです。根拠のない所要時間見積もりも強制しません。
-
-active interactionからdocumentation / PR / Issue等のpersistent textを作る場合は、そのままcopyせず `writing-discipline` のSelect -> Compose -> Rereadへrouteします。
-
-詳細は `interaction-discipline` Skillへprogressive disclosureします。
 
 ## Adaptive quality / verification gate
 
@@ -361,39 +278,6 @@ local commandとGitHub Actionsは可能な限り同じdeterministic entry point�
 validation evidenceはvalidated SHA/snapshotに結び付けます。stack rebase/updateでSHAが変わった場合は影響したrequired verificationを再実行します。
 
 coverageは有効なprojectでは利用しますが、一律thresholdを盲目的に全projectへ強制しません。
-
-## Agent policy evaluation / execution profile
-
-Agent policyは文章の整合だけで完了としません。
-
-significantなSkill / prompt / routing変更では、対象behaviorを次へ分けます。
-
-- **deterministic space**: file/config/schema/metadata/exact SHA/command等、stable inputから機械的に検証できる部分
-- **latent space**: decomposition / escalation / prioritization / qualitative review等、fresh agentの判断が必要な部分
-
-deterministic部分はscript / command / parser / fixtureへ寄せ、latent部分は必要最小限のpolicyだけをfresh agentへ渡すcold evalで確認します。
-
-baseline / candidateのlatent behaviorを比較できる場合は、candidate単独のabsolute scoreよりpaired comparative evidenceを優先します。cases / model / trials / rubric / tool environment等のmaterial conditionをそろえ、operatorのuser-global Skills / plugins / hooks / memory / output style等からrunnerを隔離します。graderがcondition identityを知る必要がない場合はopaque labelへblindし、position biasを避けるdeterministic per-group permutationを使います。
-
-published resultにはmodel / runner / cases / rubric / policy revision等のidentityを記録し、paid evalにはbudget guardとresumable result identityを持たせます。release gateではblockerをhard failureとし、correctness / safety等のcritical dimensionのnon-regressionをweighted totalより優先します。
-
-latent eval graderには最低限:
-
-- naive negative control -> FAIL
-- real/representative regression control -> FAIL
-- current positive control -> PASS
-
-を要求します。critical must-notはscoreで相殺しません。controlsが識別できないgraderのscoreはquality evidenceとして扱いません。
-
-orchestration前に `mechanical / localized / cross-boundary / judgment-heavy` のexecution profileを決めます。これはquality gateのtest-risk taxonomyとは別です。small/mechanical taskへ不要なfan-outを入れません。cross-boundary / judgment-heavy workではcompleted artifactに対するbuilderと分離したindependent cold reviewを必須とします。`cross-boundary` と `judgment-heavy` が重なる場合は、dependency decomposition / safe parallelismとevidence/rubric-first executionの両方を適用し、combined routingをorchestration前に記録します。
-
-cross-boundary / judgment-heavy reviewではbuilderのprivate reasoningではなくobjective / frozen rubric / completed artifact / validation evidenceをreviewerへ渡します。numeric self-ratingはrequired quality signalにしません。
-
-progressive disclosureはdirectory構造だけでなくalways-loaded context量も測ります。root agent contractが大きくなった場合、追加内容が本当にall-task invariantかを確認し、conditional workflow / reference / Skillへ移せないかreviewします。critical invariantはcontext削減だけを理由に削除しません。repository regression checkは `bash evals/policy-evaluation/context-budget.sh` で実行し、checked-in baselineに対するroot / total always-on / 各conditional Skillのbyte growthをmachine-readable TSVで検査します。
-
-同じ非自明な手順を繰り返した場合、failureだけでなく成功例もcodification candidateとします。deterministicならscript/config、judgment workflowならSkill、long-lived invariantならpolicy/ADRへ昇格させます。
-
-詳細は `skills/policy-evaluation/SKILL.md`、`evals/`、ADR-0011を参照します。
 
 ## Security maintenance
 
@@ -486,15 +370,10 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 標準Skill:
 
 - `parallel-orchestration`
-- `policy-evaluation`
 - `sandbox-runtime`
 - `github-delivery`
-- `linear-release-control`（Linear profile採用時のみ）
 - `quality-gate`
 - `engineering-decisions`
-- `design-refinement`
-- `writing-discipline`
-- `interaction-discipline`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -505,9 +384,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
-- GitHub Issuesをdurable implementation/dependency SoTとする。
-- release planning / portfolioはGitHub Projects、またはLinear profile採用時はLinear Projects / Initiativesを使い、同じfieldを二重canonicalにしない。
-- Linear profileではGitHub Issueの全面mirrorをdefaultにせず、`1 release train = 1 Linear Project` を基本とする。
+- GitHub Issues / Projectsをdurable work/dependency SoTとする。
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。
@@ -526,20 +403,12 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - source code/commitは英語、internal docs/Issue/PR discussionは日本語。
 - project-wide policy > design/spec/instruction > existing implementation majority の判断順序を標準化する。
 - project evidenceで解ける自明な判断をuserへ返さない。
-- 非自明なdesignでは実装前にevidence-first refinementを行い、factを自律調査し、本物のunresolved decision frontierだけをuserへ返す。
-- reader-facing textはcontext serializationにせず、Select -> Compose -> Rereadで独立した文章へ変換する。
 - Bun / ripgrepを標準利用。
-
-- OpenCodeReview (`ocr`) はglobal CLIが利用可能な場合のoptional supplementary reviewerとし、large diff / release前等でagent判断により使用できる。required gateやproject-local dependency / Skillにはせず、findingはcurrent sourceで再検証し、未導入でも通常review flowをblockしない。exact / exhaustive / freshness-sensitive searchはripgrepを使う。
-- zvec-grepは利用可能でindexがcurrentな場合のoptional semantic discovery capabilityとし、architecture / cross-file explorationでは優先候補にできる。未導入・stale・failureで作業をblockせずripgrep / source inspectionへfallbackし、global installやuser-global agent config mutationを必須化しない。
 - 新規Python scriptは禁止。
-- significantなAgent policy / Skill / prompt / routing変更はdeterministic checksと必要なcold evalでbehavior preservationを検証し、graderにはpositive / negative / regression controlsを持たせる。baseline / candidateを比較する場合はcondition parity・runner isolation・blind paired judging・critical dimension non-regressionを適用する。
-- orchestration前にexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
-- progressive disclosureではalways-loaded root contractのcontext costも測定し、肥大化をreviewする。
-- repeated deterministic reasoningはscript / command / configへcodifyする。
 - quality gateはframework/runtime固有のcurrent official guidanceからproject-localにcompileする。
 - unit/smoke/integration/contract/E2Eの責務を区別し、変更riskからrequired verificationを決める。
 - GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
+- 導入済みAgent Skillのpresenceをfreshnessの証拠にしない。明示的なpin/freezeがなければcanonical sourceとの差分を確認し、変更があればproject-local customizationを保持してreconcile/updateする。確認不能をagent判断の据え置き理由にしない。
 - framework/runtime security advisoryをproject reachability込みでpriority化する。
 - fresh contributor/new agentがhidden contextなしで開発開始・復旧できるdocumentationを維持する。
 - significant architecture/tooling/runtime/workflow/quality/security/recovery decisionsはADRへ永続化。
@@ -558,7 +427,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - long-lived decisions -> ADR
 - reproducible runtime/tools -> project-local configuration
 - adaptive quality profile -> project-local commands / Skills / CI workflows
-- engineering decision/security/recovery/policy-evaluation -> dedicated Skills / config / evals / Issues
+- engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / Projects / PR configuration
 - public main protection -> branch protection/ruleset + required release-source check when necessary

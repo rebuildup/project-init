@@ -11,7 +11,8 @@ DUPLICATE=0
 LINE_COUNT=$(tr -d '\r' < "$F" | awk 'END { print NR }')
 
 must_exact() {
-  if echo "$T" | grep -qxF "$2"; then
+  # printf is used so a leading -n/-e/-- in $T cannot be misread as a flag.
+  if printf '%s\n' "$T" | grep -qxF "$2"; then
     HIT=$((HIT + 1))
     printf '  hit   %s\n' "$1"
   else
@@ -21,7 +22,7 @@ must_exact() {
 }
 
 never() {
-  if echo "$T" | grep -qE "$2"; then
+  if printf '%s\n' "$T" | grep -qE "$2"; then
     VIOL=$((VIOL + 1))
     printf '  VIOL  %s\n' "$1"
   else

@@ -81,6 +81,7 @@
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
 - ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
+- 中長期の工期・release date・agent scaling見積もりが `agent-delivery-estimation` のevidence / unknown handlingに従い、AIの主観値で埋められていないか
 
 ## Canonical ADRs
 
@@ -90,12 +91,8 @@
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
 - ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
-- ADR-0009: cost-aware GitHub Actions resource efficiency
-- ADR-0010: evidence-first design refinement / decision frontier
-- ADR-0011: evaluated Agent policy contract / execution profile / context budget
-- ADR-0012: explicit PR merge authorization boundary
-- ADR-0013: Worktrunk WSL/Linux worktree operations / deterministic host-port lifecycle
-- ADR-0014: optional Linear release planning / control-plane boundary
+- ADR-0009: cost-aware GitHub Actions without weakening quality gates
+- ADR-0010: evidence-based agent delivery forecasting / capacity estimation
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -159,6 +156,8 @@ userへ確認するのは、canonical source conflict、product semantics、publ
 PRのquality/readinessとmerge authorizationは別stateです。
 
 Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけ、merge / squash / rebase / stacked landing / auto-merge有効化 / equivalent landingを実行します。
+
+authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
 
 review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
 
@@ -262,6 +261,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/policy-evaluation/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
+- `skills/agent-delivery-estimation/SKILL.md`
 - `skills/linear-release-control/SKILL.md`（Linear profile採用時）
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`

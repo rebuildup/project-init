@@ -14,7 +14,8 @@ LINE_COUNT=$(printf '%s\n' "$T" | wc -l | tr -d ' ')
 
 # Assert that one required record is present; multiplicity is checked by the schema gate below.
 must_exact() {
-  if echo "$T" | grep -qxF "$2"; then
+  # printf is used so a leading -n/-e/-- in $T cannot be misread as a flag.
+  if printf '%s\n' "$T" | grep -qxF "$2"; then
     HIT=$((HIT + 1))
     printf '  hit   %s\n' "$1"
   else
@@ -25,7 +26,7 @@ must_exact() {
 
 # Record a hard failure when a forbidden policy-eval record is present.
 never() {
-  if echo "$T" | grep -qE "$2"; then
+  if printf '%s\n' "$T" | grep -qE "$2"; then
     VIOL=$((VIOL + 1))
     printf '  VIOL  %s\n' "$1"
   else
