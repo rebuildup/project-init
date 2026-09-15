@@ -10,7 +10,7 @@
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issues / Projectsをwork/dependency stateのcanonical SoTとする + 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency SoT、release planning control planeをGitHub Projectsまたはoptional Linear profileのどちらかに明示する（同じfieldを二重canonicalにしない）+ 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + release PR mergeを含むside effectはexplicit human authorization境界を要する（ADR-0012）+ project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
 
 ---
 
@@ -26,7 +26,7 @@
 - public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする。branch protection/rulesetだけでPR headを制約できない場合はrequired checkで `base=main` かつ `head=release-*` / intended target releaseを検証する。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
 - 1週間はplanning cadenceであって工期保証ではない。release / roadmap / milestoneの中長期見積もりは `agent-delivery-estimation` SkillでWork Unit・dependency・実測throughput・human/CI/external wait・usage limitを評価し、AI自身の主観的な日数/月数を根拠にしない。
-- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues / Projectsで管理する。
+- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues（Linear profile採用時はrelease-level planningのみLinearを補助control planeとして併用）で管理する。同じfieldをGitHub ProjectsとLinearで二重canonicalにしてはいけない。
 - Issue dependency graphをcanonical dependency SoTとする。Git branch topologyだけでdependencyを管理しない。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable ticket branch = 1 ticket PRを基本とする。
@@ -34,7 +34,7 @@
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
 - 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進める。
+- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてから、GitHub Issueを明示closeし、選択されたrelease planning control planeのproject statusをDoneへ更新する。Linear profileを採用しないrepositoryではGitHub Issue closeのみでDoneとみなす。
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
@@ -620,7 +620,7 @@ Draft -> Ready条件:
 - current SHAでticket integration gate成功
 - blocking issue解消またはscope外明示
 - PR description / assignee / labels / reviewer metadataが現状と一致
-- required reviewer request済み、またはmeaningful reviewer不在を明記
+- required reviewer request済み、またはmeaningful reviewer不在を明記。reviewer不在の記述はoperations上の必要性がある範囲に限定し、`writing-discipline` に従いmutable stateの恒常的serializationを避ける。
 - target release branchまたはimmediate predecessorとのstaleness/conflict処理済み
 - predecessor変更に伴うdownstream reconciliation/revalidation済み
 - latest durable checkpointとbranch stateが矛盾しない
@@ -631,7 +631,7 @@ Ticket Done:
 - blocking review resolved
 - ticket changesがtarget release trunkへland済み
 - Issue explicitly closed after successful target release-trunk landing
-- Project status = Done
+- 選択されたrelease planning control plane（GitHub Projects または optional Linear profile）のproject statusをDoneへ更新。Linear profileを採用しないrepositoryではproject status更新は不要（GitHub Issue closeのみでDoneとみなす）。
 
 native stacked PRではcontiguous stack landingでtarget release trunkへ到達したticketだけをDoneにしてください。ordinary nested PR fallbackでは `124 -> 123` のようなintermediate predecessor branch mergeだけでIssue #124をclose/Doneにしてはいけません。
 
@@ -645,7 +645,7 @@ release branchはsprint開始時に作成します。
 
 GitHubは`main`と差分がないrelease branchにはPRを作れないため、zero-diff release branchはDraft release PR invariantの例外です。**最初のmeaningful integrated release differenceが入った直後にDraft release PRを作成**してください。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issues / current validation stateを設定し、sprint中のdurable release surfaceとして維持してください。
+Draft release PRにはassignee / reviewer / labels / release goal / included Issues / validated SHA pinned referenceを設定し、sprint中のdurable release surfaceとして維持してください。validation result本文は無条件にfull snapshotをserializeせず、`writing-discipline` に従いreaderが必要時にreproduceできるvalidated SHA reference + canonical control blockで十分とします。
 
 sprint対象ticketをrelease branchへ統合後、release gateを実行してください。
 
@@ -661,11 +661,13 @@ release PR title/bodyは日本語です。
 - included Issues / PRs
 - breaking changes
 - migration notes
-- full validation result
+- validated SHA pinned reference + current canonical control reproduction block（`evals/` 配下のcontrolsを実行した結果、release evidenceとしてはcurrent headのlocal control再取得を根拠とする）
 - known limitations
 - version/release metadata
 
 public repositoryではprotected `main`に対し、このrelease PR以外の経路で変更を入れないでください。
+
+`release-x-y-z -> main` を含むPR mergeは **explicit human authorization境界**（ADR-0012）に従い、ready-to-merge状態でもAgentが自律実行しません。release-wide verification完了 + release gate green + reviewer authorization確認後にのみmergeを実行してください。authorizationが確認できない場合はready-to-mergeで停止し、userに確認を要求します。
 
 merge後 `main` がそのversionのreleased stateです。
 

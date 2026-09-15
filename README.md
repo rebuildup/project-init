@@ -156,4 +156,4 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues / Projects を work/dependency state の canonical SoT とし、mutable execution state を agent ごとに隔離する。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、release planning control plane を GitHub Projects または optional Linear profile のどちらかに明示する（同じ field を二重 canonical にしない）とし、mutable execution state を agent ごとに隔離する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
