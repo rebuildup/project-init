@@ -610,7 +610,7 @@ PR作成時に少なくとも該当するものを評価・設定してくださ
 - target release
 - stack trunk / immediate predecessor / successor context when applicable
 
-存在しないlabelを形式的に作る、無関係なreviewerを指定する、author自身を自己reviewerとして欄だけ埋める、という運用はしないでください。meaningful reviewerが存在しない場合はその事実とconfigured review automation / CI / explicit final review等の代替pathをPR bodyへ明記してください。
+存在しないlabelを形式的に作る、無関係なreviewerを指定する、author自身を自己reviewerとして欄だけ埋める、という運用はしないでください。meaningful reviewerが存在しない場合、その事実とconfigured review automation / CI / explicit final review等の代替pathは **reviewer不在がreview/merge semanticsへ影響する場合に限り** PR body へ明記します。恒常的なserializeは行わず、`github-delivery` / `writing-discipline` に従いoperations上の必要性がある範囲に限定してください。
 
 PR title/body/review discussionは日本語です。
 
@@ -620,7 +620,7 @@ Draft -> Ready条件:
 - current SHAでticket integration gate成功
 - blocking issue解消またはscope外明示
 - PR description / assignee / labels / reviewer metadataが現状と一致
-- required reviewer request済み、またはmeaningful reviewer不在を明記。reviewer不在の記述はoperations上の必要性がある範囲に限定し、`writing-discipline` に従いmutable stateの恒常的serializationを避ける。
+- required reviewer request済み。meaningful reviewer不在の記述はreview/merge semanticsへ影響する場合にのみ必要となり、operations上の必要性がある範囲に限定する。`github-delivery` / `writing-discipline` に従いmutable stateの恒常的serializationを避ける。
 - target release branchまたはimmediate predecessorとのstaleness/conflict処理済み
 - predecessor変更に伴うdownstream reconciliation/revalidation済み
 - latest durable checkpointとbranch stateが矛盾しない
@@ -648,7 +648,7 @@ GitHubは`main`と差分がないrelease branchにはPRを作れないため、z
 
 Draft release PRにはassignee / reviewer / labels / release goal / included Issues / validated SHA pinned referenceを設定し、sprint中のdurable release surfaceとして維持してください。release PR 本文の validation evidence は repository の CI 形態に応じて **条件付き** で扱います:
 
-- **native CI checks（GitHub Actions / workflow run）が available な repository**: workflow runの status / SHA pinning を canonical evidence として release PR 本文へ pinする。`evals/` の local control block を追加で必須化しない。
+- **native CI checks（GitHub Actions / workflow run）が available な repository**: native checks を canonical evidence とし、`github-delivery` の ready-to-merge semantic は GitHub UI上のrequired check status で判定する。PR 本文への workflow run status / SHA の恒常的な pin / 転写は **readerが evidence を再 fetch する必要が生じた場合に限り** 行い、rule として必須化しない。
 - **CI が configured でない repository（policy/docs only など）**: `evals/` 配下の controls を fresh agent / reviewer / CI runner から再取得できる形（canonical control reproduction block + validated SHA pinned reference）を release evidence として本文へ残す。
 
 いずれの場合も `writing-discipline` に従い full snapshot の無条件 serialize は避け、reader が必要時に evidence を再 fetch できる pointer を本文に残す方針は共通です。

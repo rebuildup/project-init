@@ -583,7 +583,7 @@ At PR creation evaluate and set, where applicable:
 - target release
 - stack trunk / immediate predecessor / successor context
 
-Do not invent labels, request unrelated reviewers, or assign the author as a meaningless self-reviewer just to fill fields. If no meaningful reviewer exists, record that fact in the PR body together with the alternate review path such as configured review automation, CI, or explicit final review.
+Do not invent labels, request unrelated reviewers, or assign the author as a meaningless self-reviewer just to fill fields. If no meaningful reviewer exists, that fact and the alternate review path (configured review automation, CI, or explicit final review) are recorded in the PR body **only when the reviewer's absence affects review/merge semantics**, not as a routine serialization. Per `github-delivery` / `writing-discipline`, limit such notes to operations-driven necessity.
 
 PR title/body/review discussion are Japanese.
 
@@ -593,7 +593,7 @@ Draft -> Ready requires:
 - ticket integration gate passed for the current SHA
 - blockers resolved or explicitly out of scope
 - PR description / assignee / labels / reviewer metadata match current implementation
-- required reviewer requested, or absence of a meaningful reviewer explicitly recorded (limit such notes to the operational necessity; follow `writing-discipline` and avoid unconditionally serializing mutable state)
+- required reviewer requested. Recording the absence of a meaningful reviewer is required only when the absence affects review/merge semantics; limit such notes to operations-driven necessity and avoid unconditionally serializing mutable state per `github-delivery` / `writing-discipline`
 - target release or immediate predecessor staleness/conflicts handled
 - downstream reconciliation/revalidation completed after predecessor changes
 - latest durable checkpoint is consistent with branch state
@@ -621,7 +621,7 @@ GitHub cannot create a PR while the release branch is identical to `main`, so a 
 
 Set assignee, reviewer, labels, release goal, included Issues, and a validated SHA pinned reference on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Validation evidence in the release PR body is handled **conditionally** on the repository's CI posture:
 
-- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: pin the workflow run status plus SHA as the canonical evidence. Do not additionally mandate the `evals/` local control block.
+- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: native checks ARE the canonical evidence, and `github-delivery` ready-to-merge semantics are evaluated from the required-check status on the GitHub UI. Do not make the workflow run status / SHA pin in the PR body a mandatory rule; only transcribe it when a reader genuinely needs the pointer to re-fetch the evidence.
 - **Repositories without CI (e.g. policy / docs-only)**: include the current canonical control reproduction block from the `evals/` controls (re-fetched by a fresh agent / reviewer / CI runner on demand) together with the validated SHA pinned reference, as the release evidence.
 
 In both cases, follow `writing-discipline` and avoid unconditionally serializing full validation snapshots in the PR body; let the reader re-fetch evidence on demand via the pointer in the body.
