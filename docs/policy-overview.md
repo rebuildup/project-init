@@ -12,7 +12,8 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
-- `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflow。
+- `skills/security-audit/SKILL.md` — unknown vulnerabilityのreconnaissance / coverage-led hunting / independent verification / structured reporting。
+- `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflowとconfirmed findingのproject priority化。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
 - `skills/correctness-assurance/SKILL.md` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計。
@@ -37,6 +38,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0012.md` — PR mergeをexplicitなhuman-authorized side effectとして扱う境界。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
+- `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -298,6 +300,10 @@ validation evidenceはvalidated SHA/snapshotに結び付けます。stack rebase
 
 coverageは有効なprojectでは利用しますが、一律thresholdを盲目的に全projectへ強制しません。
 
+## Security audit
+
+既知advisoryとは別に、source codeから未知のsecurity invariant failureを探す場合は `security-audit` を使用します。principal / trust boundary / entry surface / attack classからcoverage unitを作り、candidateを発見したhunterとは別のfresh verifierが反証します。source外factが決定的なら `needs_validation` とし、audit中にlive/shared environmentをprobeしません。confirmed findingは `security-maintenance` へ渡してproject priorityを決め、通常のIssue / remediation / quality / releaseへ接続します。
+
 ## Security maintenance
 
 framework/runtime/SDK/dependencyのsecurity情報はprojectで実際に使用しているversionに紐付けて継続的に扱います。
@@ -393,6 +399,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `github-delivery`
 - `quality-gate`
 - `engineering-decisions`
+- `security-audit`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -437,6 +444,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - GitHub Actions / Agent Skills / test toolingもproject固有の必要性に応じて初期化時に導入・修復する。
 - 導入済みAgent Skillのpresenceをfreshnessの証拠にしない。明示的なpin/freezeがなければcanonical sourceとの差分を確認し、変更があればproject-local customizationを保持してreconcile/updateする。確認不能をagent判断の据え置き理由にしない。
 - framework/runtime security advisoryをproject reachability込みでpriority化する。
+- unknown source vulnerabilityの探索は `security-audit` でcoverage-ledに行い、candidateをfresh verifierが反証してからfindingへ確定する。
 - fresh contributor/new agentがhidden contextなしで開発開始・復旧できるdocumentationを維持する。
 - significant architecture/tooling/runtime/workflow/quality/security/recovery decisionsはADRへ永続化。
 - temporary verification filesは `.tmp/`、external reference repositoriesは `.reference/`。
