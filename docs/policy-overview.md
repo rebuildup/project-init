@@ -63,6 +63,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - engineering decision precedence / autonomous escalation policy
 - vulnerability intake / triage / patch-release workflow
 - fresh contributor向けonboarding / architecture / development documentation
+- persistent reader-facing proseのpre-write `writing-discipline` routingとrecovery/checkpoint stateの分離
 - architecture / ADR / CI/CD / release rules
 
 基本思想:
@@ -326,6 +327,8 @@ native thread/session/subagent resumeは高速経路として利用できます�
 - structured recovery checkpoint
 
 long-running taskはmeaningful boundaryでcheckpointを作ります。保存するのはprivate chain-of-thoughtではなく、task identity、base/checkpoint snapshot、completed/next steps、pending validation、active children、external side effects、blockers、decision/artifact refsなどのoperational stateです。
+
+通常のREADME / ADR / Issue・PR本文はrecovery journalとして使用しません。recovery stateをIssue / PR上へ保持する必要がある場合も、reader-facing proseとは分離されたdesignated structured checkpoint / handoff surfaceを使用します。
 
 active durable ticket branchではmeaningful stateがcanonical remoteへpublishされ、remote head identityとDraft PRが追跡できることをhard recovery boundaryに含めます。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後はDraft release PRを必須とします。
 
