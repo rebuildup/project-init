@@ -216,6 +216,34 @@ validate:release
 
 例外として、platform制約等で1つのlocal commandへ完全統合できない場合は、profileにその適用条件・runner/platform・required evidenceを明示し、agent/CIが別々の暗黙gateを選ばないようにする。
 
+## 4.1 Semantic required-gate verification
+
+commit / PRのcombined statusが `success` であることだけをquality gate成功の証拠にしない。
+
+repository policy / quality profileは、release・ticket・runtime等の各candidateに対して **どのcheck identityが必要か** をmachine-readableまたは一意に判定可能な形で持つ。
+
+判定時は最低限、次を確認する:
+
+- required check context / job名がcandidate SHA上に実在する
+- checkが検証対象のcurrent SHA / current PR headを対象としている
+- conclusionがpolicy上のrequired success conditionを満たす
+- skipped / neutral / cancelled / unrelated bot successをrequired gateの代替にしない
+- 同名checkでも別workflow / 別event semanticsなら誤同定しない
+- Draftのためreviewをskipしたbot status等をrelease validation成功として数えない
+- current SHAへ更新後、staleな以前のgreenを再利用しない
+
+**workflow exists** と **policy enforcement enabled** は別invariantとして監査する。
+
+たとえば `release-source-check.yml` がrepositoryに存在しても、branch protection / rulesetのrequired statusへ登録されていなければ「検査可能」なだけで「強制済み」ではない。初期化・release readiness reviewでは次を分離して確認する:
+
+1. workflow / deterministic gate implementationが存在する
+2. expected event / branch / candidateで実際に起動する
+3. required check identityがquality profileと一致する
+4. branch protection / rulesetがそのcheckをrequiredとして強制する
+5. actor/admin bypass policyが意図したenforcementを壊していない
+
+権限不足で4/5を確認・修復できない場合は、greenと推定せず `enforcement incomplete` blockerとして報告する。
+
 ## 5. 調査だけで終わらず実装する
 
 初期化完了とはrecommendation reportを書くことではない。
