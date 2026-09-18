@@ -426,6 +426,7 @@ current official sourceを確認すべき対象:
 - unit/smoke/integration/contract/E2E責務が一貫
 - security source/priority policyが一貫
 - onboarding docs generation/verification policyが一貫
+- persistent reader-facing proseがpre-writeで `writing-discipline` へroutingされ、conversation / execution scaffoldingやrecovery stateを通常本文へserializeしない
 - session loss / parent loss / sandbox lossからdurable recovery pathが存在する
 - execution fencing / side-effect retry policyが一貫
 
