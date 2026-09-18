@@ -169,9 +169,35 @@ Dependency execution上は必要に応じて次を区別する:
 11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseする。GitHub Projectsをticket boardとして使うprojectではstatusをDoneへ更新する。
 13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。Linear profile採用時はGitHub evidenceからrelease Project health / updateをreconcileする。
-14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeする。
-15. version/release処理を完了する。
-16. 未完了ticketは次releaseへ明示的に再計画する。
+14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeし、merge commit / resulting `main` SHAを確認する。
+15. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
+16. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
+17. 未完了ticketは次releaseへ明示的に再計画する。
+
+## Release publication invariant
+
+`release-x-y-z -> main` のrelease PR mergeはintegration完了であり、publication完了そのものではない。
+
+projectごとに「何が存在すればreleasedか」をproject-local release contractとして定義する。対象例:
+
+- semantic version tag
+- GitHub Release
+- package registry artifact
+- deploy / environment promotion
+- desktop/mobile installer・store artifact
+- checksum / provenance / attestation
+
+最低限のinvariant:
+
+- expected versionとrelease merge commit / release source SHAの対応を固定する
+- publication automationは再実行しても安全なidempotent operationにする
+- existing tag/artifactがexpected SHAと異なる場合は上書きせずfail closedする
+- merge成功を根拠にpublication成功を推定しない
+- publish command / workflow successだけで完了せず、provider/APIからartifactを再取得して実在とidentityを確認する
+- GitHub Releaseを採用するrepositoryではdraft / prerelease状態もrelease contractに含める
+- publicationが人手・権限・store review等に依存する場合は、integration complete / publication pendingを別状態として報告する
+
+post-merge verificationでpublication artifactが存在しない、expected release SHAを指さない、またはrequired artifactが利用不能ならreleaseは未完了として扱う。
 
 ## Ticket branch
 
