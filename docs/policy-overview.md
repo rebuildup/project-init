@@ -185,6 +185,10 @@ Release-wide verification
         ↓
 release-x-y-z -> protected main
         ↓
+Tag / GitHub Release / package / deploy publication
+        ↓
+Publication artifact re-fetch + identity verification
+        ↓
 Release complete
 ```
 
@@ -214,6 +218,9 @@ Release complete
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
 - sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+- release PR mergeとpublication completeを分離し、project-local contractで定義したtag / GitHub Release / package / deploy等をpublish後にprovider/APIから再取得してexpected release SHAとの一致を確認する
+- CI/release healthはcombined statusの色ではなく、quality profileが要求するsemantic check identityがcurrent candidate SHAに存在してsuccessしているかで判定する
+- workflow実装の存在とbranch protection/rulesetによるrequired enforcementを別々に監査し、enforcement未設定・未確認をgreen扱いしない
 
 ### Public repository main protection
 
