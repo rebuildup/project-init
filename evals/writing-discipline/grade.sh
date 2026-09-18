@@ -20,6 +20,16 @@ must_have() {
   fi
 }
 
+must_match() {
+  if printf '%s\n' "$T" | grep -qE "$2"; then
+    HIT=$((HIT + 1))
+    printf '  hit   %s\n' "$1"
+  else
+    MISS=$((MISS + 1))
+    printf '  MISS  %s\n' "$1"
+  fi
+}
+
 must_once_line() {
   count=$(printf '%s\n' "$T" | grep -xcF "$2" || true)
   if [ "$count" -eq 1 ]; then
@@ -46,7 +56,7 @@ must_once_line "change heading" "## 変更"
 must_once_line "validation heading" "## Validation"
 must_have "normalizer identity" "normalizeSessionCookieName"
 must_have "production cookie" "__Secure-better-auth.session_token"
-must_have "local cookie" "better-auth.session_token"
+must_match "local cookie" '(^|[^[:alnum:]_.-])better-auth\.session_token([^[:alnum:]_.-]|$)'
 must_have "validation file" "tests/auth-cookie.test.ts"
 must_have "validation result" "12/12"
 
