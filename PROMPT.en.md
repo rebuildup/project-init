@@ -41,6 +41,8 @@ Core model:
 - Required verification levels are selected from change surface/risk.
 - Continuously triage framework/runtime security information.
 - Persist project knowledge in repository-controlled docs rather than chat/private memory.
+- Before creating or modifying persistent reader-facing prose such as README/documentation, ADRs, Issues, Pull Requests, commit messages, code comments, review comments, or release notes, load and apply `writing-discipline`. Do not serialize conversation, investigation, or execution context into persistent artifacts merely because it exists in the current context.
+- Keep recovery/handoff operational state out of reader-facing prose and record it through the designated checkpoint/recovery mechanism. A reader-facing artifact is not a recovery journal.
 - Do not escalate self-evident decisions that project evidence already resolves.
 - Do not make native session/thread resume the only recovery mechanism.
 - A fresh agent must be able to reconstruct unfinished work without conversation history.
@@ -390,6 +392,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 - Supervisor/subagent/recovery entry point
 - validation entry point
 - language policy
+- persistent-prose write boundary: load/apply `writing-discipline` before creating or modifying reader-facing prose, do not unconditionally serialize conversation/investigation/execution scaffolding, and route recovery state to the designated checkpoint mechanism
 - Skill discovery
 
 Default Skills:
