@@ -84,7 +84,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 
 基本思想:
 
-> 最上位ではIdentity / Authority / Evidence / Mutable Ownership / Continuity / Canonical Consistency / Progressを守る。Git / GitHub / Linear / Worktrunk / Supervisor / release branchはcurrent operating profileによる実装であり、Constitutionを満たす限り置換可能とする。tateへのordered landingを制御する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> 最上位ではIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを守る。Git / GitHub / Linear / Worktrunk / Supervisor / release branchはcurrent operating profileによる実装であり、Constitutionを満たす限り置換可能とする。
 
 ## Execution model
 
