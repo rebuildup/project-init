@@ -7,24 +7,28 @@ VARIABLES
     taskState,
     currentAttempt,
     acceptedResultAttempt,
+    acceptedResultArtifact,
     artifactVersion,
     evidenceVersion,
     decisionAuthorized,
     decisionCommitted,
     owners,
-    durableState,
+    durableAttempt,
+    durableArtifactVersion,
     actorAlive
 
 vars ==
     << taskState,
        currentAttempt,
        acceptedResultAttempt,
+       acceptedResultArtifact,
        artifactVersion,
        evidenceVersion,
        decisionAuthorized,
        decisionCommitted,
        owners,
-       durableState,
+       durableAttempt,
+       durableArtifactVersion,
        actorAlive >>
 
 TerminalStates == {"done", "failed", "waiting"}
@@ -33,24 +37,28 @@ TypeInvariant ==
     /\ taskState \in {"idle", "running", "waiting", "done", "failed"}
     /\ currentAttempt \in 0..MaxAttempt
     /\ acceptedResultAttempt \in 0..MaxAttempt
+    /\ acceptedResultArtifact \in 0..MaxArtifact
     /\ artifactVersion \in 1..MaxArtifact
     /\ evidenceVersion \in 0..MaxArtifact
     /\ decisionAuthorized \in BOOLEAN
     /\ decisionCommitted \in BOOLEAN
     /\ owners \in [Resources -> SUBSET Actors]
-    /\ durableState \in BOOLEAN
+    /\ durableAttempt \in 0..MaxAttempt
+    /\ durableArtifactVersion \in 1..MaxArtifact
     /\ actorAlive \in [Actors -> BOOLEAN]
 
 Init ==
     /\ taskState = "idle"
     /\ currentAttempt = 0
     /\ acceptedResultAttempt = 0
+    /\ acceptedResultArtifact = 0
     /\ artifactVersion = 1
     /\ evidenceVersion = 0
     /\ decisionAuthorized = FALSE
     /\ decisionCommitted = FALSE
     /\ owners = [r \in Resources |-> {}]
-    /\ durableState = TRUE
+    /\ durableAttempt = 0
+    /\ durableArtifactVersion = 1
     /\ actorAlive = [a \in Actors |-> TRUE]
 
 Start ==
@@ -58,13 +66,15 @@ Start ==
     /\ currentAttempt = 0
     /\ taskState' = "running"
     /\ currentAttempt' = 1
+    /\ durableAttempt' = 1
+    /\ durableArtifactVersion' = artifactVersion
     /\ UNCHANGED << acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
                      actorAlive >>
 
 Retry ==
@@ -72,22 +82,25 @@ Retry ==
     /\ currentAttempt < MaxAttempt
     /\ currentAttempt' = currentAttempt + 1
     /\ acceptedResultAttempt' = 0
+    /\ acceptedResultArtifact' = 0
+    /\ durableAttempt' = currentAttempt + 1
+    /\ durableArtifactVersion' = artifactVersion
     /\ UNCHANGED << taskState,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
                      actorAlive >>
 
 ReceiveResult(attempt) ==
     /\ taskState = "running"
     /\ attempt \in 1..MaxAttempt
-    /\ acceptedResultAttempt' =
-         IF attempt = currentAttempt
-         THEN attempt
-         ELSE acceptedResultAttempt
+    /\ IF attempt = currentAttempt
+          THEN /\ acceptedResultAttempt' = attempt
+               /\ acceptedResultArtifact' = artifactVersion
+          ELSE /\ acceptedResultAttempt' = acceptedResultAttempt
+               /\ acceptedResultArtifact' = acceptedResultArtifact
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      artifactVersion,
@@ -95,21 +108,27 @@ ReceiveResult(attempt) ==
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
+
+ReceiveCurrentResult ==
+    ReceiveResult(currentAttempt)
 
 MutateArtifact ==
     /\ taskState = "running"
     /\ artifactVersion < MaxArtifact
     /\ artifactVersion' = artifactVersion + 1
     /\ evidenceVersion' = 0
+    /\ acceptedResultAttempt' = 0
+    /\ acceptedResultArtifact' = 0
+    /\ durableAttempt' = currentAttempt
+    /\ durableArtifactVersion' = artifactVersion + 1
     /\ UNCHANGED << taskState,
                      currentAttempt,
-                     acceptedResultAttempt,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
                      actorAlive >>
 
 Validate ==
@@ -119,11 +138,13 @@ Validate ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 AuthorizeDecision ==
@@ -132,11 +153,13 @@ AuthorizeDecision ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionCommitted,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 CommitDecision ==
@@ -146,11 +169,13 @@ CommitDecision ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 Acquire(a, r) ==
@@ -162,11 +187,13 @@ Acquire(a, r) ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 Release(a, r) ==
@@ -177,12 +204,18 @@ Release(a, r) ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
+
+DurableCurrent ==
+    /\ durableAttempt = currentAttempt
+    /\ durableArtifactVersion = artifactVersion
 
 LoseActor(a) ==
     /\ a \in Actors
@@ -193,39 +226,47 @@ LoseActor(a) ==
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
-                     durableState >>
+                     durableAttempt,
+                     durableArtifactVersion >>
 
 RecoverActor(a) ==
     /\ a \in Actors
     /\ ~actorAlive[a]
-    /\ durableState
+    /\ DurableCurrent
     /\ actorAlive' = [actorAlive EXCEPT ![a] = TRUE]
     /\ UNCHANGED << taskState,
                      currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState >>
+                     durableAttempt,
+                     durableArtifactVersion >>
 
 Finish ==
     /\ taskState = "running"
+    /\ acceptedResultAttempt = currentAttempt
+    /\ acceptedResultArtifact = artifactVersion
     /\ evidenceVersion = artifactVersion
     /\ taskState' = "done"
     /\ UNCHANGED << currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 Fail ==
@@ -233,12 +274,14 @@ Fail ==
     /\ taskState' = "failed"
     /\ UNCHANGED << currentAttempt,
                      acceptedResultAttempt,
+                     acceptedResultArtifact,
                      artifactVersion,
                      evidenceVersion,
                      decisionAuthorized,
                      decisionCommitted,
                      owners,
-                     durableState,
+                     durableAttempt,
+                     durableArtifactVersion,
                      actorAlive >>
 
 Next ==
@@ -258,11 +301,15 @@ Next ==
 
 Spec ==
     Init /\ [][Next]_vars
+    /\ WF_vars(ReceiveCurrentResult)
     /\ WF_vars(Validate)
     /\ WF_vars(Finish)
 
 IdentityIntegrity ==
-    acceptedResultAttempt = 0 \/ acceptedResultAttempt = currentAttempt
+    \/ /\ acceptedResultAttempt = 0
+       /\ acceptedResultArtifact = 0
+    \/ /\ acceptedResultAttempt = currentAttempt
+       /\ acceptedResultArtifact = artifactVersion
 
 EvidenceIntegrity ==
     evidenceVersion = 0 \/ evidenceVersion = artifactVersion
@@ -274,7 +321,7 @@ MutableOwnershipSafety ==
     \A r \in Resources : Cardinality(owners[r]) <= 1
 
 OrganizationalContinuity ==
-    durableState
+    taskState # "running" \/ DurableCurrent
 
 EventuallyTerminal ==
     taskState = "running" ~> taskState \in TerminalStates
