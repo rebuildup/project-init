@@ -71,7 +71,9 @@ GitHub上で保護機能を利用できるrepositoryでは、`main` をbranch pr
 - `main`への正規delivery pathは current `release-x-y-z -> main` release PRだけとする
 - ticket branch / arbitrary branchから`main`へ向いたPRはmerge対象にしない
 
-GitHubの標準branch protection/rulesetでPR head branch patternを直接制約できない場合でも、存在しないrequired status checkを捏造して補わない。source branch制約はproject policy / release automation / merge executorで検証し、`base == main` かつ `head == current release-*` でないPRのmergeを拒否する。既にrepository固有の信頼できるguardが存在する場合は利用できるが、そのcheck名を他projectへ固定継承しない。
+GitHubの標準branch protection/rulesetではPR head branch patternを直接制約できないため、存在しないrequired status checkを捏造して補わない。source branch制約はproject policy / release automation / merge executorで検証し、`base == main` かつ `head == current release-*` でないPRのmergeを拒否する。既にrepository固有の信頼できるguardが存在する場合は利用できるが、そのcheck名を他projectへ固定継承しない。
+
+readiness reportでは `ruleset enforced` と `merge-executor policy enforced` を区別する。外部guardがない場合、GitHub UIで任意headからのPR mergeを完全に禁止できるとは報告しない。Agentがmerge APIを呼ぶ直前には必ずbase/headを再取得してpreflightする。
 
 初期化時にrepositoryのmain protection/rulesetを実際に確認する。設定変更権限がある場合は上記baselineへ作成・修復し、権限がない場合は差分をblockerとして報告する。
 
