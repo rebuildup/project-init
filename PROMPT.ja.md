@@ -41,6 +41,8 @@
 - verification levelは変更surface/riskから決める。
 - framework/runtime security情報を継続的にpriority化する。
 - project knowledgeをchat/private memoryではなくrepository-controlled docsへ残す。
+- README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する前に `writing-discipline` をloadして適用する。conversation / investigation / execution contextがcurrent contextに存在するという理由だけでpersistent artifactへserializeしてはいけない。
+- recovery / handoffのoperational stateはreader-facing proseへ混在させず、designated checkpoint / recovery mechanismへ記録する。reader-facing artifactはrecovery journalではない。
 - project evidenceで解ける自明な判断をuserへ返さない。
 - native session/thread resumeを唯一のrecovery mechanismにしない。
 - fresh agentが会話履歴なしでunfinished workを再構成できるようにする。
@@ -409,6 +411,7 @@ rootに置くもの:
 - Supervisor/subagent/recovery entry point
 - validation entry point
 - language policy
+- persistent prose write boundary: reader-facing proseの作成・更新前に `writing-discipline` をload/applyし、conversation / investigation / execution scaffoldingをartifactへ無条件にserializeせず、recovery stateをdesignated checkpointへ分離する
 - Skill discovery
 
 標準Skill候補:

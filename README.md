@@ -135,7 +135,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Agent Skills
 
-通常 task では必要な Skill だけを読み込みます。
+通常 task では必要な Skill だけを読み込みます。ただし、README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する場合、`writing-discipline` はpre-writeの必須routingとして扱います。
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
