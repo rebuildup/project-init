@@ -712,7 +712,7 @@ Define RPO/RTO up to machine/provider loss when project/provider requirements ju
 
 Prefer:
 
-1. GitHub Issue / dependency state (canonical SoT); the release planning control plane (GitHub Projects or Linear) is an auxiliary board
+1. GitHub Issue / dependency state (canonical SoT); Linear is the release planning / health / portfolio control plane
 2. target release branch
 3. ticket branch / remote commit graph
 4. Draft/Ready PR / assignee / reviewer / labels / review / CI state
@@ -935,7 +935,7 @@ Priority:
 6. maintained ecosystem tooling
 7. custom tooling
 
-Do not stop at recommendations. Add/repair formatter, lint/static analysis, compiler/type checking, test infrastructure, GitHub Actions, required checks, and specialized Skills when needed.
+Do not stop at recommendations. Add/repair formatter, lint/static analysis, compiler/type checking, test infrastructure, GitHub Actions, and specialized Skills when needed. Keep project-specific validation strict, but do not make a fixed required-status-check name part of the default `main` protection baseline; configure one only when the repository has an explicit, real, stable requirement for it.
 
 Local and CI gates should call the same deterministic entry points where practical.
 
