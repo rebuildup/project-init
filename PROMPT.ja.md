@@ -115,7 +115,7 @@ source/work state:
 - release planning / health / portfolio control plane: Linear Projects / Initiatives。durable implementation/dependency SoTはGitHub Issues
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
-- public `main` protection: branch protection/ruleset + required release-source check when needed
+- `main` protection: Pull Request required / approvals 0 / conversation resolution required / fixed required status checks none by default + release-source policy
 - transient execution: Supervisor
 
 各ticket / workerは `base_sha` またはimmutable input snapshotを追跡可能にしてください。
@@ -672,7 +672,7 @@ release PR title/bodyは日本語です。
 
 public repositoryではprotected `main`に対し、このrelease PR以外の経路で変更を入れないでください。
 
-`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。reviewer / CODEOWNERS approval は merge の前提条件ですが、merge を実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + release gate green + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / required checks / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。
+`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。required approving review countは0を標準としますが、blocking review / unresolved conversationは解消してください。mergeを実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / validation evidence / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。
 
 merge後 `main` がそのversionのreleased stateです。
 
@@ -1077,8 +1077,8 @@ initialization時にcurrent official GitHub Actions guidanceとframework/runtime
 - secrets handling
 - action pinning policy
 - trusted/untrusted PR behavior
-- stacked PR / non-default baseでのrequired check semantics
-- public repositoryで `base == main` のPR headがcurrent `release-*` かを検証するrequired release-source check
+- stacked PR / non-default baseでのCI/check semantics
+- `base == main` ではmerge executor / release automationがheadをcurrent `release-*`へ限定するrelease-source policy
 
 CI YAMLだけにhidden validation logicを増やしすぎず、project-local deterministic commandを薄く呼ぶ構成を優先してください。
 
