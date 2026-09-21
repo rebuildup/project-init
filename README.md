@@ -1,6 +1,18 @@
-# Project-local AI Agent Initialization Policy
+# project-init — Adaptive AI Development Organization Framework
 
-AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡す、project-local AI agent 環境構築用のポリシーです。
+人間とAIエージェントが参加するソフトウェア開発組織について、長寿命な不変条件と現在のOperating Model / Practiceをproject-localに初期化・維持するためのframeworkです。
+
+特定のagent、provider、IDE、planning tool、worktree manager、branch topologyを「正しさ」そのものとして固定しません。最上位のConstitutionを満たす範囲で、現在の標準workflowを使いながら、より良いmechanismへのrefinement / deviationを許容します。
+
+## Organization architecture
+
+- [`constitution/CONSTITUTION.md`](./constitution/CONSTITUTION.md) — tool/provider-independentなorganizational kernel
+- [`organization/`](./organization/) — Operating Modelとcurrent profile
+- [`formal/`](./formal/) — Constitutionのabstract state-transition model
+- [`skills/`](./skills/) — context-dependent judgment / playbook
+- [`docs/adr/`](./docs/adr/) — long-lived decision history
+
+現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk等の既存workflowはここで維持されます。
 
 ## Usage
 
@@ -132,7 +144,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
-- [`ADR-0016`](./docs/adr/ADR-0016.md) — Linear標準化、release version選択、`main` protection baseline、Worktrunk日常利用を統一するrelease governance。
+- [`ADR-0016`](./docs/adr/ADR-0016.md) — current release-driven profileのLinear / version / `main` protection / Worktrunk defaults。
+- [`ADR-0017`](./docs/adr/ADR-0017.md) — Constitution / Operating Model / Practice / Skillを分離し、refinement・policy decay・formal modelを導入するorganizational architecture。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -161,4 +174,5 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、Linear を release planning / health / portfolio control plane とし、mutable execution state を agent ごとに隔離する。`main` は PR + conversation resolution を必須にしつつ approval / 固定 required status check を既定では要求せず、正規更新元を current `release-*` に限定する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Constitutionはtool/provider-independentなorganizational propertyだけを定義する。現在のGitHub / Linear / release branch / Worktrunk / Skill等は、それらを満たすOperating Model / Practiceであり、同等以上のguaranteeを示せるより良い手段へ置換できる。agentはprocedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。
+
