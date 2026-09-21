@@ -52,26 +52,9 @@ quality gateは「mergeしてよい品質か」を判定する。merge authoriza
 
 ## Pull Request merge method
 
-current release-driven profileでGitHub Pull Requestをlandする場合、**merge commit** のみを使用する。
+current release-driven profileでは、GitHub PR landingは **merge commit (`merge`) のみ**（ADR-0018）。repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` へreconcileし、権限不足なら差分をblocker/limitationとして報告する。Agent / automationはmerge APIで`merge`を明示する。
 
-repository settingsは次を標準とする。
-
-```text
-allow_merge_commit = true
-allow_squash_merge = false
-allow_rebase_merge = false
-```
-
-initializer / readiness reviewはrepository visibilityに関係なくこの設定を確認し、変更権限があればreconcileする。権限がない場合は差分をblockerまたは明示的configuration limitationとして報告する。
-
-Agent / automation / release toolingがGitHub merge APIを呼ぶ場合はmethodを暗黙選択せず `merge` を明示する。auto-mergeを使う場合もrepositoryでmerge commitだけが有効であることを確認する。
-
-このruleはPRの **rebase merge** を禁止するものであり、stacked PRのpredecessor追従、conflict解消、branch maintenanceのためのbranch-local `git rebase` は既存policyに従って使用できる。
-
-native stacked-PR landing / external stack toolingがmerge commit semanticsを保証できない場合、そのlanding pathは使用せず、dependency orderに従ってmerge commitでtarget release trunkへlandする方法へfallbackする。
-
-merge method固定はauthorizationを生成しない。ADR-0012のexplicit user authorization boundaryを従来通り維持する。
-
+squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance / conflict解消のbranch mechanicsとして許可する。stack landingがmerge commit semanticsを保証できない場合はordered merge-commit landingへfallbackする。method固定からauthorizationを導出しない。
 #### Orchestrated workflow landing boundary
 
 `parallel-orchestration` の execution model 下では、Agent / subagent / worker は **target release integration branch (`release-x-y-z`) や `main` への shared durable integration state への ordered landing を直接実行しない**。landing は Coordinator / Supervisor が durable integration の責務として行う。
