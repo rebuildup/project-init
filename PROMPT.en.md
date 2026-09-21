@@ -473,7 +473,7 @@ At minimum:
 - do not make routine admin/automation bypass the normal delivery path
 - make `release-x-y-z -> main` the only canonical delivery path to `main`
 
-If branch protection/rulesets cannot constrain the PR head branch pattern, add a required GitHub Action/status check that rejects a PR with `base == main` unless its head matches the canonical `release-*` pattern and intended target release.
+If branch protection/rulesets cannot constrain the PR head branch pattern, do not invent a required CI/status-check name. The merge executor or release automation must reject `base == main` merges unless the head is the current `release-*` branch.
 
 If required protection is missing and the initializer has permission, create or repair it. If permissions are insufficient, report the unprotected state as a blocker.
 
@@ -485,27 +485,21 @@ Issue title/body are Japanese.
 
 Include purpose, acceptance criteria, scope/non-scope, dependency, priority, size, area/component, target version, release date, and accountable assignee when relevant.
 
-GitHub Issue dependency state is the canonical dependency SoT. Do not encode dependency only through branch parentage. GitHub Projects and Linear are planning control planes for project status / owner / target version; they do not hold dependency metadata that other artifacts treat as canonical.
+GitHub Issue dependency state is the canonical dependency SoT. Do not encode dependency only through branch parentage. Linear is the release planning / health / portfolio control plane and is not the canonical source of implementation dependency metadata.
 
 Short-lived nested subtasks may remain Supervisor tasks.
 
-### GitHub Projects / Kanban
+### Linear release planning
 
-Minimum status model:
+Manage release goal, target date, health, and portfolio in Linear Projects / Initiatives. Do not create, require, or synchronize GitHub Projects as part of the standard workflow.
 
-`Backlog -> Ready -> In Progress -> In Review -> Done`
-
-Recommended fields include Priority, Size, Target Version, Area/Component, and Blocked/dependency.
-
-Bound WIP by real capacity.
+Do not fully mirror GitHub Issues into Linear Issues. Limit Linear Issues to release-level coordination such as cross-repository blockers, external dependencies, release decisions, signing/distribution, and other non-code deliverables.
 
 When useful distinguish dependency execution state as:
 
 - `blocked`: no usable prerequisite snapshot exists yet
 - `stack-ready`: a reviewable immutable predecessor snapshot exists, so dependent work may start
 - `integrated`: the ticket's changes have landed on the target release trunk
-
-These semantics do not require adding new Project Status columns.
 
 ---
 
@@ -607,11 +601,11 @@ Draft -> Ready requires:
 
 Ticket Done requires:
 
-- required CI/checks green for the current landing candidate
-- blocking review resolved
+- project-specific applicable validation has run for the current landing candidate with no known failure left unresolved
+- blocking review / unresolved conversations are cleared
 - ticket changes have landed on the target release trunk
 - Issue explicitly closed only after successful target-release-trunk landing
-- Close the GitHub Issue after target-release-trunk landing. Linear does not mirror ticket status; reconcile Linear only at release level.
+- Linear does not mirror ticket status; reconcile Linear only at release level.
 
 For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`.
 
@@ -642,7 +636,7 @@ Release PR title/body are Japanese and should summarize release goal, included I
 
 In public repositories, protected `main` must not be changed through any path other than this release PR.
 
-PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. Reviewer / CODEOWNERS approval is a prerequisite for merge, but the actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification, the release gate, and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, required checks, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it.
+PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. The default required approving review count is zero; blocking reviews and unresolved conversations must still be cleared. The actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, validation evidence, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it.
 
 After merge, `main` represents the released state for that version.
 
