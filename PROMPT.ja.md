@@ -102,7 +102,7 @@ canonical stateは最低限次で表現してください。
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
 5. GitHub Issue work + dependency state（canonical SoT）
-6. release planning control plane（GitHub Projectsまたはoptional Linear profileのいずれか一方を明示）
+6. Linear release planning / health / portfolio control plane
 7. project-wide policy / architecture / design / specification / ADR
 8. repository-controlled operational documentation / Agent Skills
 9. durable recovery checkpoint / immutable worker results
@@ -112,7 +112,7 @@ source/work state:
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues（canonical SoT）
-- release planning control plane: GitHub Projects（採用時）またはoptional Linear profile（採用時）のいずれか一方。durable SoTではない
+- release planning / health / portfolio control plane: Linear Projects / Initiatives。durable implementation/dependency SoTはGitHub Issues
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset + required release-source check when needed
@@ -506,25 +506,15 @@ Issue title/bodyは日本語です。
 
 必要に応じて目的、acceptance criteria、scope/non-scope、dependency、priority、size、area/component、target version、release date、accountable assigneeを持たせてください。
 
-GitHub Issue dependency stateがcanonical dependency SoTです。branch parent-child relationだけでdependencyを表現してはいけません。GitHub ProjectsとLinearはplanning control planeとしてproject status / owner / target versionを扱う補助boardで、dependency metadataのcanonical sourceではありません。
+GitHub Issue dependency stateがcanonical dependency SoTです。branch parent-child relationだけでdependencyを表現してはいけません。Linearはrelease planning / health / portfolioを扱うcontrol planeで、dependency metadataのcanonical sourceではありません。
 
 短命なnested subtaskはSupervisor taskで構いません。
 
-### GitHub Projects / Kanban
+### Linear release planning
 
-最低限:
+release goal / target date / health / portfolioはLinear Project / Initiativeで管理します。GitHub Projectsは標準運用へ導入・要求・同期しません。
 
-`Backlog -> Ready -> In Progress -> In Review -> Done`
-
-推奨field:
-
-- Priority
-- Size
-- Target Version
-- Area / Component
-- Blocked / dependency
-
-WIPを実capacityに合わせて制限してください。
+GitHub IssueをLinear Issueへ全面mirrorしないでください。Linear Issueはcross-repository blocker、external dependency、release decision、signing/distribution等のrelease-level coordinationに限定します。
 
 Dependency execution上は必要に応じて:
 
@@ -532,7 +522,7 @@ Dependency execution上は必要に応じて:
 - `stack-ready`: reviewable immutable predecessor snapshotがありdependent workを開始可能
 - `integrated`: ticket changesがtarget release trunkへland済み
 
-を区別してください。Project Status列自体を増やす必要はありません。
+を区別してください。
 
 ---
 
@@ -636,12 +626,11 @@ Draft -> Ready条件:
 
 Ticket Done:
 
-- required CI/checks current landing candidateでgreen
-- blocking review resolved
+- current landing candidateでproject-specific applicable validationを実行済みで、既知の失敗を残していない
+- blocking review / unresolved conversationがない
 - ticket changesがtarget release trunkへland済み
 - Issue explicitly closed after successful target release-trunk landing
-- **GitHub Projects を planning control plane に使う場合**: Project の ticket status を更新
-- **optional Linear profile を採用した場合**: ticket status 更新は行わない（Linearがticket を全面mirrorしないため）。release-level Project status の Completed / Done 更新は release 完了時の release-level reconciliation で別途実施し、個々の ticket Done 境界には含めない
+- Linearはticket statusを全面mirrorせず、release-level reconciliationだけを更新
 
 native stacked PRではcontiguous stack landingでtarget release trunkへ到達したticketだけをDoneにしてください。ordinary nested PR fallbackでは `124 -> 123` のようなintermediate predecessor branch mergeだけでIssue #124をclose/Doneにしてはいけません。
 
@@ -763,7 +752,7 @@ project/provider要件に応じてmachine/provider lossまでのRPO/RTOも定義
 
 優先するevidence:
 
-1. GitHub Issue / dependency state（canonical SoT）。release planning control plane（GitHub ProjectsまたはLinear）は補助board
+1. GitHub Issue / dependency state（canonical SoT）。release planning / health / portfolio control planeはLinear
 2. target release branch
 3. ticket branch / remote commit graph
 4. Draft/Ready PR / assignee / reviewer / labels / review / CI state
@@ -990,7 +979,7 @@ quality gateは全project共通の固定bundleではありません。
 6. maintained ecosystem tooling
 7. custom tooling
 
-調査だけで終わらず、必要ならformatter/lint/static analysis、compiler/type-check、test infrastructure、GitHub Actions、required checks、specialized Skillまで実装・修復してください。
+調査だけで終わらず、必要ならformatter/lint/static analysis、compiler/type-check、test infrastructure、GitHub Actions、specialized Skillまで実装・修復してください。main protectionへrequired status check名を固定するのはprojectで実在し安定運用できる明示要件がある場合だけとし、既定では設定しません。
 
 local gateとCI gateは可能な限り同じdeterministic entry pointを使ってください。
 
