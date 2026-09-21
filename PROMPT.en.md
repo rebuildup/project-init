@@ -22,11 +22,11 @@ Core model:
 - Parent -> child uses an immutable snapshot; child -> parent uses an immutable result.
 - The Supervisor outside workers manages sandbox lifecycle.
 - `main` represents released/integrated source state.
-- In public repositories, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
-- In public repositories, the canonical delivery path to `main` is only `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, require a check that validates `base == main` and `head == release-*` for the intended target release.
+- Where GitHub protection capabilities are available, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
+- The canonical delivery path to `main` is only the current `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, do not invent a required status check; the merge executor / release automation must reject non-current-release sources.
 - A normal sprint lasts one week and is represented by `release-<major>-<minor>-<patch>`.
 - One week is a planning cadence, not a duration guarantee. For medium/long-term release, roadmap, or milestone estimates, use the `agent-delivery-estimation` Skill with Work Units, dependencies, observed throughput, human/CI/external waits, and usage limits; do not use the agent's subjective day/month estimate as evidence.
-- Durable tickets are GitHub Issues; durable work/dependency state lives in GitHub Issues (with Linear, when the Linear profile is adopted, serving only as an auxiliary release-level planning control plane). The same field must never be made canonical in both GitHub Projects and Linear.
+- Durable tickets and implementation/dependency state live in GitHub Issues. Linear is the standard release planning / health / portfolio control plane; GitHub Projects are not part of the standard workflow.
 - The Issue dependency graph is the canonical dependency SoT. Do not manage dependency only through Git branch topology.
 - Ticket branch names contain only the Issue number.
 - One top-level Issue normally maps to one durable ticket branch and one ticket PR.
@@ -34,7 +34,7 @@ Core model:
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
 - The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
-- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. In **repositories using GitHub Projects as the planning control plane**, update the Project ticket status as part of the Done boundary. In **repositories that adopt the Linear control plane**, the Linear contract (ADR-0014 / `linear-release-control` Skill) does NOT mirror tickets, so the per-ticket Done boundary is GitHub Issue close alone. Linear Project-status Completed/Doneness is updated at release-level reconciliation, not at the per-ticket Done boundary.
+- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. Linear does not mirror ticket status; Linear Project Completed/Doneness is reconciled only at release level.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
 - Quality gates are compiled per project rather than using one fixed bundle.
@@ -621,7 +621,7 @@ GitHub cannot create a PR while the release branch is identical to `main`, so a 
 
 Set assignee, reviewer, labels, release goal, and included Issues on the Draft release PR, and keep it as the durable release-level surface throughout the sprint. Validation evidence in the release PR body is handled **conditionally** on the repository's CI posture:
 
-- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: native checks ARE the canonical evidence, and `github-delivery` ready-to-merge semantics are evaluated from the required-check status on the GitHub UI. Do not make the validated SHA pinned reference or the workflow run status pin in the PR body a Draft -> Ready / merge candidate mandatory rule; only transcribe them when a reader genuinely needs the pointer to re-fetch the evidence.
+- **Repositories with native CI checks available (GitHub Actions / workflow runs)**: treat native checks as one source of validation evidence and verify that they refer to the current SHA and do not leave known failures unresolved. Do not make CI success or a particular check name a universal ready-to-merge requirement; evaluate the project-specific applicable validation as a whole. Do not make the validated SHA pinned reference or workflow-run status in the PR body a Draft -> Ready / merge-candidate mandatory rule; only transcribe them when a reader genuinely needs the pointer to re-fetch the evidence.
 - **Repositories without CI (e.g. policy / docs-only)**: include the validated SHA pinned reference together with the current canonical control reproduction block from the `evals/` controls (re-fetched by a fresh agent / reviewer / CI runner on demand) as the release evidence.
 
 In both cases, follow `writing-discipline` and avoid unconditionally serializing full validation snapshots in the PR body; let the reader re-fetch evidence on demand via the pointer in the body.
@@ -1033,7 +1033,7 @@ Consider:
 - secrets handling
 - action pinning policy
 - trusted/untrusted PR behavior
-- required-check semantics for stacked PRs / non-default bases
+- configured CI/check semantics for stacked PRs / non-default bases
 - release-source policy for public-repository PRs with `base == main`
 
 Prefer thin workflows that invoke project-local deterministic commands rather than hiding extensive validation logic only in CI YAML.
