@@ -12,13 +12,16 @@ expect_with() {
   expected=$4
 
   out=$(bash "$grader" "$file" 2>&1)
-  got=$(echo "$out" | tail -1)
+  rc=$?
+  got=$(printf '%s\n' "$out" | tail -1)
 
-  if [ "$got" = "EVAL $expected" ]; then
+  # The grader exit code is part of the verdict: PASS exits 0 and FAIL exits non-zero.
+  if { [ "$expected" = "PASS" ] && [ "$rc" -eq 0 ] && [ "$got" = "EVAL PASS" ]; } ||
+     { [ "$expected" = "FAIL" ] && [ "$rc" -ne 0 ] && [ "$got" = "EVAL FAIL" ]; }; then
     printf '  ok   %-34s -> %s\n' "$label" "$got"
   else
-    printf '  FAIL %-34s -> %s (wanted EVAL %s)\n' "$label" "$got" "$expected"
-    echo "$out" | grep -E 'MISS|VIOL|INVALID|DUPLICATE' | sed 's/^/         /'
+    printf '  FAIL %-34s -> %s (wanted EVAL %s, rc=%s)\n' "$label" "$got" "$expected" "$rc"
+    printf '%s\n' "$out" | grep -E 'MISS|VIOL|INVALID|DUPLICATE' | sed 's/^/         /'
     RC=1
   fi
 }
