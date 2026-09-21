@@ -10,7 +10,7 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Git is the canonical source-state SoT + GitHub Issues are the durable implementation/dependency SoT + the release planning control plane is either GitHub Projects or an optional Linear profile, with explicit field ownership and no duplicated canonical fields + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + public repositories protect `main` and update it only through release PRs + release PR merges (and any other side effects that modify durable state) sit behind an explicit human authorization boundary (ADR-0012) + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
+> **Git is the canonical source-state SoT + GitHub Issues are the durable implementation/dependency SoT + Linear is the canonical release planning / health / portfolio control plane while GitHub Issues remain the durable implementation/dependency SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + repositories with available protection capabilities protect `main` and update it only through release PRs + release PR merges (and any other side effects that modify durable state) sit behind an explicit human authorization boundary (ADR-0012) + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
 
 ---
 
@@ -34,7 +34,7 @@ Core model:
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
 - The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
-- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. In **repositories using GitHub Projects as the planning control plane**, update the Project ticket status as part of the Done boundary. In **repositories that adopt the optional Linear profile**, the Linear contract (ADR-0014 / `linear-release-control` Skill) does NOT mirror tickets, so the per-ticket Done boundary is GitHub Issue close alone. Linear Project-status Completed/Doneness is updated at release-level reconciliation, not at the per-ticket Done boundary.
+- A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. In **repositories using GitHub Projects as the planning control plane**, update the Project ticket status as part of the Done boundary. In **repositories that adopt the Linear control plane**, the Linear contract (ADR-0014 / `linear-release-control` Skill) does NOT mirror tickets, so the per-ticket Done boundary is GitHub Issue close alone. Linear Project-status Completed/Doneness is updated at release-level reconciliation, not at the per-ticket Done boundary.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
 - Quality gates are compiled per project rather than using one fixed bundle.
@@ -71,13 +71,13 @@ At minimum inspect:
 - architecture / design / ADRs
 - test / lint / type / build / coverage configuration
 - smoke/integration/E2E infrastructure
-- GitHub Actions / CI/CD / required checks
+- GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
 - env examples / `.gitignore`
 - repository visibility
-- public-repository `main` branch protection / rulesets / bypass state / required release-source check
-- GitHub Issues / dependency / PR / stacked PR / release workflow (release planning control plane must declare GitHub Projects or the optional Linear profile as the sole plane — never both)
+- public-repository `main` branch protection / rulesets / bypass state / release-source policy
+- GitHub Issues / dependency / PR / stacked PR / release workflow (release planning control plane must declare Linear as the sole plane — never both)
 - current errors / warnings
 - branch / remote / user uncommitted changes
 
@@ -102,7 +102,7 @@ Canonical state should be representable by at least:
 3. active release ref: `release-x-y-z`
 4. repository-controlled environment definition
 5. GitHub Issue work + dependency state (canonical SoT)
-6. release planning control plane — GitHub Projects or the optional Linear profile, declared as the sole plane
+6. release planning control plane — Linear, declared as the sole plane
 7. project-wide policy / architecture / design / specification / ADRs
 8. repository-controlled operational documentation / Agent Skills
 9. durable recovery checkpoints / immutable worker results
@@ -112,10 +112,10 @@ Source/work state:
 - released code/config/design: `main`
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues (canonical SoT)
-- release planning control plane: GitHub Projects or the optional Linear profile, whichever the project declares — not a durable SoT
+- release planning control plane: Linear, whichever the project declares — not a durable SoT
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
-- public `main` protection: branch protection/ruleset plus required release-source check when needed
+- public `main` protection: branch protection/ruleset plus release-source policy when needed
 - transient execution: Supervisor
 
 Each ticket/worker should have a traceable `base_sha` or immutable input snapshot.
@@ -469,7 +469,7 @@ At minimum:
 
 - normally prohibit direct push, direct web edits, force pushes, and deletion
 - require a Pull Request to change `main`
-- require the project-defined release checks/reviews/conversation resolution before merge
+- require conversation resolution before merge; use zero required approvals by default and do not configure guessed/fixed required status-check names
 - do not make routine admin/automation bypass the normal delivery path
 - make `release-x-y-z -> main` the only canonical delivery path to `main`
 
@@ -611,8 +611,7 @@ Ticket Done requires:
 - blocking review resolved
 - ticket changes have landed on the target release trunk
 - Issue explicitly closed only after successful target-release-trunk landing
-- **Repositories using GitHub Projects**: update the Project ticket status
-- **Repositories adopting the optional Linear profile**: do NOT update Linear ticket status (Linear does not mirror tickets). Linear Project status Completed/Doneness happens at release-level reconciliation, not as part of the per-ticket Done boundary
+- Close the GitHub Issue after target-release-trunk landing. Linear does not mirror ticket status; reconcile Linear only at release level.
 
 For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`.
 
@@ -1041,7 +1040,7 @@ Consider:
 - action pinning policy
 - trusted/untrusted PR behavior
 - required-check semantics for stacked PRs / non-default bases
-- required release-source check for public-repository PRs with `base == main`
+- release-source policy for public-repository PRs with `base == main`
 
 Prefer thin workflows that invoke project-local deterministic commands rather than hiding extensive validation logic only in CI YAML.
 
@@ -1224,7 +1223,7 @@ Verify at least:
 - parent -> child immutable snapshots and child -> parent immutable results are supported
 - `main` = released state, `release-x-y-z` = weekly sprint integration, ticket branch = Issue number only
 - public repositories have effective `main` protection/rulesets that prohibit normal direct push/edit and make release PRs the canonical update path
-- where protection cannot constrain PR source branches, a required release-source check exists
+- where protection cannot constrain PR source branches, a release-source policy exists
 - normal sprint cadence = one week, and one sprint = one target semantic version
 - medium/long-term release forecasting uses the evidence-based `agent-delivery-estimation` policy rather than subjective calendar estimates or linear agent scaling
 - Issue dependency graph is the canonical dependency SoT
