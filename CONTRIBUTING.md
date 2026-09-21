@@ -2,6 +2,21 @@
 
 このrepositoryはAI coding agent初期化ポリシーそのものを管理します。
 
+## Policy hierarchy
+
+変更前にruleのlayerを確認してください。
+
+1. Constitution — tool/provider-independentなorganizational property
+2. Operating Model — current role / planning / delivery / review / release topology
+3. Practice — replaceable tool/workflow implementation
+4. Skill — context-dependent judgment/playbook
+
+`constitution/CONSTITUTION.md` が最上位です。具体tool/cadence/branch shapeを、広く使っているという理由だけでConstitutionへ昇格させないでください。
+
+current defaultからのdeviationは、それ自体ではfailureではありません。applicable higher-level obligationを同等以上に満たすrefinementなら許容します。
+
+non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条件も定義し、model/tool capability向上によるpolicy decayを妨げないでください。
+
 ## 基本方針
 
 変更時は `PROMPT.ja.md` と `PROMPT.en.md` のoperational semanticsを一致させてください。
@@ -14,6 +29,10 @@
 
 ## 変更時に確認すること
 
+- ConstitutionのIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを弱めていないか
+- current Practiceのprocedure complianceをConstitutionそのものと誤認していないか
+- より良いalternativeのrefinement/deviation pathを不必要に塞いでいないか
+- obsoleteなnon-constitutional ruleを維持するだけの変更になっていないか
 - project-local原則を弱めていないか
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
@@ -29,7 +48,7 @@
 - quality gateを固定bundleへ戻していないか
 - framework/runtimeのcurrent official quality/testing guidanceを無視していないか
 - local validationとGitHub Actionsのsemanticsが乖離していないか
-- project-wide policy > design/spec/instruction > existing implementation majority のdecision precedenceを壊していないか
+- Constitution > explicit product/organizational decision・canonical design > Operating Model > Practice > implementation evidence のdecision precedenceを壊していないか
 - project evidenceで解ける自明な判断をuserへ返す方向へ戻していないか
 - user escalation boundaryを曖昧にしていないか
 - framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
@@ -100,7 +119,9 @@
 - ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
 - ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
 - ADR-0014: historical optional Linear control-plane decision (ADR-0016でsuperseded)
-- ADR-0016: Linear標準化 / version intent / main protection / Worktrunk default
+- ADR-0015: active source security audit / advisory maintenance separation
+- ADR-0016: current release-driven profileのLinear / version intent / main protection / Worktrunk defaults
+- ADR-0017: Constitution / Operating Model / Practice / Skill hierarchy、refinement、policy decay、formal model
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -148,12 +169,17 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 
 開発判断の標準precedence:
 
-1. project-wide policy / canonical architecture / invariant
-2. design / specification / explicit task instruction
-3. coherent existing implementation majority
-4. current official framework/runtime/SDK guidance
-5. ecosystem convention
-6. local best judgment
+1. Constitution / tool-independent organizational invariant
+2. applicable public/external contract・persisted-data・protocol/schema compatibility obligation
+3. explicit product / organizational decision・canonical design/specification・explicit task instruction
+4. current Operating Model
+5. applicable Practice contract / project-local quality・security・delivery profile
+6. coherent existing implementation evidence
+7. current official framework/runtime/SDK guidance
+8. established ecosystem convention
+9. local best judgment
+
+public/external contractやpersisted compatibility obligationはinternal designより上位であり、より新しい・specificなinternal designだけを理由に破壊しない。
 
 project evidenceで実質一意に決まる、可逆・局所的なimplementation choiceはagent自身で決めて進めます。
 

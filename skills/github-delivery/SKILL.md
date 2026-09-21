@@ -1,9 +1,15 @@
 ---
 name: github-delivery
-description: GitHub Issues / Pull Requestsをexecutionの中心に置き、Linearをrelease planning control planeとして、1週間のrelease sprint、dependency-aware stacked PR、durable Draft PR lifecycleでticket-drivenなdeliveryを進める時に使用する。
+description: current release-driven Operating ModelをGitHub Issues / Pull Requestsへmaterializeし、release sprint / dependency / review / durable delivery stateを扱う時に使用する。
 ---
 
 # GitHub Delivery
+
+Layer: **Operating Model + Practice**
+
+このSkillはcurrent release-driven profileのGitHub materializationを定義する。Issue / PR / branch / Draft PR shapeそのものはConstitutionではない。
+
+重要なのは、durable implementation identity、reviewable evidence、canonical consistency、authority boundary、organizational continuityを維持すること。将来別platform/topologyがこれらを同等以上に満たす場合は置換できる。
 
 ## Source of Truth
 
@@ -451,3 +457,17 @@ weekly release branch modelとtag releaseは競合しない。release branch/PR�
 commit format:
 
 `<work-prefix>: <extremely concise title>`
+
+
+## Refinement boundary
+
+GitHub delivery topologyを変更する場合、最低限次を維持する。
+
+- durable work identityとdependencyを別actorから再発見できる
+- integration candidateとvalidation/review evidenceを対応付けられる
+- current/released source stateのcanonical authorityが曖昧にならない
+- consequential landingのauthority boundaryが維持される
+- interrupted workをconversation historyなしでreconcileできる
+- valid workがdelivery ceremonyだけで不必要に停止しない
+
+branch名、Draft PR timing、release branch cadence等はcurrent profileのdefaultであり、上位guaranteeを満たすalternativeを一律に禁止しない。

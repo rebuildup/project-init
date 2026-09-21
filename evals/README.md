@@ -1,13 +1,14 @@
-# Agent Policy Evals
+# Organization / Agent Policy Evals
 
-このdirectoryは、Agent policy / Skillが「存在する」だけでなく、fresh agentがcold contextから意図したbehaviorを再現できるかを検証するためのrepository-controlled evalを管理します。
+このdirectoryは、Constitution / Operating Model / Practice / Skillが「存在する」だけでなく、resulting organizationが必要なinvariant/outcomeを維持し、fresh agentがcold contextから必要なjudgmentを再現できるかを検証するrepository-controlled evalを管理します。
 
 ## Model
 
 policy verificationを2つに分けます。
 
 - **deterministic checks**: command / config / file / schema / metadata / exact relationship等、同じinputなら同じ結果を要求できるもの
-- **latent evals**: prioritization / decomposition / escalation / review等、agentがpolicyを読んで判断する必要があるもの
+- **latent evals**: prioritization / decomposition / escalation / review / refinement等、agentがpolicyを読んで判断する必要があるもの
+- **formal model**: concurrency / identity / authority / progress等のabstract organizational semanticsについてcounterexampleを探索するもの
 
 latent evalのmodel invocation自体はprovider固有runnerへ固定しません。scenarioとgrader / controlsをrepositoryへ保持し、manual runner / CI service / local agentのどれからでも同じanswer artifactを採点できるようにします。
 
@@ -37,6 +38,8 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 ## Current evals
 
+- `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
+- `policy-evaluation/constitutional-refinement-scenario.md` — current Practiceより強いnative mechanismをtool-name complianceで拒否せず、上位guaranteeからrefinement判断できるかを確認するcold scenario
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
 - `writing-discipline/scenario.md` — persistent proseのpre-write routing / reader content selection / conversation・execution・recovery context serialization防止
@@ -47,6 +50,8 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 controls:
 
 ```bash
+bash evals/policy-evaluation/constitutional-contract.sh
+bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
 bash evals/writing-discipline/controls.sh
@@ -59,8 +64,26 @@ fresh agentのanswerを採点:
 
 ```bash
 bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
+bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
 bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
 bash evals/writing-discipline/grade.sh /path/to/writing-answer.md
 bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
 bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
 ```
+
+
+### Constitutional refinement result artifact
+
+For `constitutional-refinement-scenario.md`, run a fresh agent with only the scenario and the minimum referenced policy required to interpret the layer/refinement contract. Capture the ten response lines verbatim at:
+
+```text
+/tmp/constitutional_refinement_answer.txt
+```
+
+Then run:
+
+```bash
+bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+```
+
+The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.sh`.

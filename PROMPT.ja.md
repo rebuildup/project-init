@@ -2,7 +2,7 @@
 
 このリポジトリ向けのAIコーディングエージェント環境を初期化・再整備してください。
 
-これは一般的な `/init` の代替または補強として渡すメタプロンプトです。実際のrepository、技術stack、architecture、runtime、test、quality、security、CI/CD、GitHub workflow、documentationを調査したうえで、**複数AIエージェントが独立環境で安全に並行作業し、中断・context消失・sandbox消失からも復旧しながらversion-oriented weekly release sprintへ決定論的に統合できるproject-local開発環境**を構築してください。
+これは一般的な `/init` の代替または補強として渡すメタプロンプトです。実際のrepository、技術stack、architecture、runtime、test、quality、security、CI/CD、delivery、documentationを調査したうえで、**tool/provider固有のprocedureではなくConstitutionを最上位に置き、その制約下で人間とAIエージェントがproject全体を最適化できるproject-local development organization**を構築してください。
 
 この全文を通常taskのたびに読ませてはいけません。全文を読むのは初回初期化、またはproject-local Agent Skills / adapters / runtime / quality / governance / recovery policyを再構成する時だけです。
 
@@ -10,11 +10,28 @@
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency SoT、release planning / health / portfolio control planeをLinearに統一する+ 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + release PR mergeを含むside effectはexplicit human authorization境界を要する（ADR-0012）+ project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress を最上位のConstitutionとする。現在のGit / GitHub / Linear / release branch / Worktrunk / Supervisor / Skillは、そのConstitutionを実現するOperating Model / Practiceであり、同等以上のguaranteeを示せるより良いmechanismへ置換可能とする。procedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。**
+
+current default operating profileは `organization/profiles/release-driven-solo.md` に定義する。既存のweekly release sprint / GitHub delivery / Linear / Worktrunk等はこのprofileとして維持するが、Constitutionそのものとして扱わない。
 
 ---
 
-## 1. 最優先原則
+## 1. Constitutionとcurrent operating profile
+
+最初に `constitution/CONSTITUTION.md` を最上位contractとして扱う。
+
+- task / attempt / artifact / evidence / decision / authorityのidentityを暗黙に置換しない。
+- authorityを持たないactorがconsequential decisionを確定したことにしない。
+- claimのscope/strengthに対応しないstale・partial・unrelated evidenceをcurrent proofにしない。
+- concurrent workで同じmutable stateへ無調停のownership競合を作らない。
+- ephemeral actor/session/runtime/providerの喪失だけで重要なorganizational stateを失わない。
+- 同じfactについてreconciliation ruleのないconflicting canonical authorityを作らない。
+- safetyを理由にvalid workを永久停止させない。
+- current defaultより良いalternativeが上位guaranteeを同等以上に満たすなら、defaultからのdeviationを許容する。
+
+### Current release-driven defaults
+
+以下は現在の標準Operating Model / Practiceであり、上記Constitutionを実現するためのdefaultである。explicit project decisionを除き、tool名やprocedure自体を目的化しない。
 
 - Git working treeをexecution isolation boundaryとして扱わない。
 - implementation workerごとに独立したmutable runtimeを与える。
