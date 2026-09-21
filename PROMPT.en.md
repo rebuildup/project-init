@@ -2,7 +2,7 @@
 
 Initialize or reconcile the AI coding-agent environment for this repository.
 
-This meta-prompt is intended to replace or strengthen a generic `/init`. Inspect the actual repository, technology stack, architecture, runtime, testing, quality, security, CI/CD, GitHub workflow, and documentation, then build a **project-local development environment where multiple AI agents can work safely in isolated environments, recover from interruption/context loss/sandbox loss, and integrate deterministically into version-oriented weekly release sprints**.
+This meta-prompt is intended to replace or strengthen a generic `/init`. Inspect the actual repository, technology stack, architecture, runtime, testing, quality, security, CI/CD, delivery, and documentation, then build a **project-local development organization whose highest authority is a tool/provider-independent Constitution, allowing humans and AI agents to optimize the whole project within those constraints rather than mechanically preserving one procedure**.
 
 Do not load this entire document for every normal task. Read it only during first initialization or when reconstructing project-local Agent Skills, adapters, runtime, quality, governance, or recovery policy.
 
@@ -10,11 +10,28 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Git is the canonical source-state SoT + GitHub Issues are the durable implementation/dependency SoT + Linear is the canonical release planning / health / portfolio control plane while GitHub Issues remain the durable implementation/dependency SoT + 1 implementation worker = 1 isolated mutable runtime + parent/child delegation uses immutable snapshots/results + a Supervisor controls agent lifecycle + fresh agents can recover from durable checkpoints without conversation history + normal sprints are one-week target release versions + linear hard-dependency paths may be projected as stacked PRs + every active durable ticket branch has a published remote head and immediate Draft PR + repositories with available protection capabilities protect `main` and update it only through release PRs + release PR merges (and any other side effects that modify durable state) sit behind an explicit human authorization boundary (ADR-0012) + project-specific quality/security/governance profiles are compiled from current official guidance + project knowledge is persisted in repository-controlled documentation + progressive disclosure + maximum logically safe parallelism**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress form the highest-level Constitution. Current Git / GitHub / Linear / release-branch / Worktrunk / Supervisor / Skill choices are an Operating Model and Practices that implement the Constitution and may be replaced by mechanisms with equivalent or stronger guarantees. Optimize the whole project subject to the Constitution and explicit decisions; procedure compliance is not an objective by itself.**
+
+The current default operating profile is defined in `organization/profiles/release-driven-solo.md`. Existing weekly release sprint / GitHub delivery / Linear / Worktrunk behavior remains the current default, but it is not itself constitutional correctness.
 
 ---
 
-## 1. Highest-priority invariants
+## 1. Constitution and current operating profile
+
+Treat `constitution/CONSTITUTION.md` as the highest-level contract.
+
+- Do not silently substitute task / attempt / artifact / evidence / decision / authority identities.
+- Do not commit a consequential decision on behalf of an actor that lacks authority for it.
+- Do not represent stale, partial, unrelated, or unverifiable evidence as current proof.
+- Do not create uncoordinated concurrent ownership of the same mutable state.
+- Do not make one ephemeral actor/session/runtime/provider the sole holder of consequential organizational state.
+- Do not maintain conflicting canonical authorities for the same fact without an explicit reconciliation rule.
+- Do not preserve safety by permanently preventing valid work from progressing.
+- Allow deviation from a current default when an alternative provides equivalent or stronger higher-level guarantees.
+
+### Current release-driven defaults
+
+The following rules are the current Operating Model / Practices. They implement the Constitution; tool names and procedures are not objectives in themselves unless an explicit project decision makes them so.
 
 - Do not treat a Git working tree as the execution-isolation boundary.
 - Give every implementation worker an independent mutable runtime.
