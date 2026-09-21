@@ -45,6 +45,14 @@ else
   RC=1
 fi
 
+if refinement_out=$(bash "$R/evals/policy-evaluation/constitutional-refinement-controls.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "constitutional refinement controls"
+else
+  printf '  FAIL %-34s -> FAIL\n' "constitutional refinement controls"
+  printf '%s\n' "$refinement_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if [ "$RC" -eq 0 ]; then
   echo "controls OK: grader discriminates"
 else
