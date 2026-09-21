@@ -53,6 +53,8 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
 - `ADR-0016.md` — Linear標準化、release version intent、main protection baseline、Worktrunk default。
+- `ADR-0017.md` — Constitution / Operating Model / Practice / Skillの階層化とrefinement-based governance。
+- `ADR-0018.md` — current release-driven profileのPR landingをmerge commitへ固定し、repository merge settingsをreconcileする方針。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -235,9 +237,28 @@ Release complete
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
 - sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+- PR landing methodはmerge commitに固定し、squash merge / rebase mergeは使用しない。branch-local `git rebase` は別のbranch mechanicsとして許可する
 - release PR mergeとpublication completeを分離し、project-local contractで定義したtag / GitHub Release / package / deploy等をpublish後にprovider/APIから再取得してexpected release SHAとの一致を確認する
 - CI/release healthはcombined statusの色ではなく、quality profileが要求するsemantic check identityがcurrent candidate SHAに存在してsuccessしているかで判定する
 - workflow実装の存在とbranch protection/rulesetによるrequired enforcementを別々に監査し、enforcement未設定・未確認をgreen扱いしない
+
+### Pull Request merge method
+
+current release-driven profileでは、GitHub Pull Requestのlanding methodを **merge commit** に固定します。
+
+repository merge settingsは、repository visibilityに関係なく次へreconcileします。
+
+```text
+allow_merge_commit = true
+allow_squash_merge = false
+allow_rebase_merge = false
+```
+
+Agent / automation / release toolingがmerge APIを使用する場合はmethodをrepository defaultへ委ねず、`merge` を明示します。auto-mergeを使う場合もmerge commit以外へ落ちないことをrepository settingsから確認します。
+
+このruleが禁止するのはPRのrebase mergeであり、stacked PR追従やconflict解消に必要なbranch-local `git rebase` ではありません。設定変更権限がない場合は期待設定との差分をblockerまたは明示的configuration limitationとして報告します。
+
+merge method固定はADR-0012のauthorization boundaryを変更しません。readinessや正しいrepository settingsからmerge authorizationを導出しません。
 
 ### Public repository main protection
 

@@ -170,6 +170,7 @@ main
 - stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進む
 - release PRは `release-x-y-z -> main`
 - public repositoryでは`main`をprotected branch/rulesetで保護し、直接push/直接編集を禁止してrelease PRからのみ変更する
+- repository merge settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、PR landing executorは`merge` methodを明示する
 - Draft -> Ready -> target release-trunk landing -> Issue close / Project Doneの条件
 
 意味のあるreviewerがいないrepositoryでは、形式的な自己reviewerを設定するのではなく、その事実と代替review pathを文書化する。
@@ -202,6 +203,7 @@ docsもquality gateの対象にする。
 - setup pathをfresh environmentで確認
 - GitHub workflow exampleがcurrent delivery policyと一致するか検証
 - public repositoryの`main` protection/rulesetが実際に有効か確認
+- repositoryのPR merge method設定がmerge commit onlyになっているか確認し、変更権限がなければ差分をblocker/limitationとして明示
 - recovery pathをfresh agent/sandboxでdrill
 - version-sensitive instructionsをupgrade時にreview
 - conversation / task / execution contextなしで文章単体を理解できるかreader視点でreread
@@ -221,6 +223,7 @@ docsもquality gateの対象にする。
 - stacked PR / dependency workflow変更
 - branch / Draft PR / PR metadata lifecycle変更
 - public repositoryのmain protection/ruleset変更
+- PR merge method / repository merge settings変更
 - Supervisor/sandbox/recovery model変更
 - recurring troubleshooting knowledgeが増えた
 - security/dependency maintenance workflow変更

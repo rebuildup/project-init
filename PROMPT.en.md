@@ -41,6 +41,7 @@ The following rules are the current Operating Model / Practices. They implement 
 - `main` represents released/integrated source state.
 - Where GitHub protection capabilities are available, protect `main` with branch protection/rulesets and normally prohibit direct push, direct web edits, force pushes, and deletion.
 - The canonical delivery path to `main` is only the current `release-x-y-z -> main`. If protection/rulesets cannot constrain PR head branches, do not invent a required status check; the merge executor / release automation must reject non-current-release sources.
+- GitHub Pull Request landing uses merge commits only. Do not use squash merge or rebase merge. Standard repository settings are `allow_merge_commit=true`, `allow_squash_merge=false`, and `allow_rebase_merge=false`, and merge executors explicitly select `merge`.
 - A normal sprint lasts one week and is represented by `release-<major>-<minor>-<patch>`.
 - One week is a planning cadence, not a duration guarantee. For medium/long-term release, roadmap, or milestone estimates, use the `agent-delivery-estimation` Skill with Work Units, dependencies, observed throughput, human/CI/external waits, and usage limits; do not use the agent's subjective day/month estimate as evidence.
 - Durable tickets and implementation/dependency state live in GitHub Issues. Linear is the standard release planning / health / portfolio control plane; GitHub Projects are not part of the standard workflow.
@@ -94,6 +95,7 @@ At minimum inspect:
 - env examples / `.gitignore`
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / release-source policy
+- repository PR merge-method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
 - GitHub Issues / dependency / PR / stacked PR / release workflow (release planning control plane must declare Linear as the sole plane — never both)
 - current errors / warnings
 - branch / remote / user uncommitted changes
@@ -107,6 +109,8 @@ Agent Skills are also subject to this stale-state check. The mere presence of an
 Do not regenerate correct state without reason. No change can be a successful result.
 
 If a public repository lacks the required `main` protection and the initializer has permission, create or repair it during initialization. If permissions are insufficient, report the missing protection as a blocker rather than silently accepting it.
+
+Regardless of repository visibility, inspect PR merge-method settings during initialization. Reconcile to `allow_merge_commit=true`, `allow_squash_merge=false`, and `allow_rebase_merge=false` when permissions allow. If permissions are insufficient, report the mismatch as a blocker or explicit configuration limitation rather than silently accepting method drift.
 
 ---
 
@@ -133,6 +137,7 @@ Source/work state:
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - public `main` protection: branch protection/ruleset plus release-source policy when needed
+- PR merge method: merge commit only; disable squash merge and rebase merge, and make merge executors explicitly select `merge`
 - transient execution: Supervisor
 
 Each ticket/worker should have a traceable `base_sha` or immutable input snapshot.
@@ -653,7 +658,9 @@ Release PR title/body are Japanese and should summarize release goal, included I
 
 In public repositories, protected `main` must not be changed through any path other than this release PR.
 
-PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. The default required approving review count is zero; blocking reviews and unresolved conversations must still be cleared. The actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, validation evidence, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it.
+For every GitHub Pull Request landing in the current release-driven profile, use the merge-commit method. Keep merge commits enabled, disable squash merge and rebase merge, and make Agent/automation merge calls explicitly select `merge`. This restriction applies to PR rebase merge, not to branch-local `git rebase` used for stack maintenance or conflict resolution. If native stack landing cannot preserve merge-commit semantics, use an ordered merge-commit landing path instead.
+
+PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. The default required approving review count is zero; blocking reviews and unresolved conversations must still be cleared. The actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, validation evidence, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it. When it does, it explicitly selects the `merge` method and verifies the resulting merge commit.
 
 After merge, `main` represents the released state for that version.
 
@@ -1235,6 +1242,7 @@ Verify at least:
 - `main` = released state, `release-x-y-z` = weekly sprint integration, ticket branch = Issue number only
 - public repositories have effective `main` protection/rulesets that prohibit normal direct push/edit and make release PRs the canonical update path
 - where protection cannot constrain PR source branches, a release-source policy exists
+- repository merge settings are `allow_merge_commit=true`, `allow_squash_merge=false`, and `allow_rebase_merge=false`, and PR landing uses merge commits
 - normal sprint cadence = one week, and one sprint = one target semantic version
 - medium/long-term release forecasting uses the evidence-based `agent-delivery-estimation` policy rather than subjective calendar estimates or linear agent scaling
 - Issue dependency graph is the canonical dependency SoT

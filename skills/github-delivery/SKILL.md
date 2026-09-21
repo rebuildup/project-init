@@ -30,7 +30,7 @@ PRのquality/readinessとmerge side effectのauthorizationを分離する。
 
 Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、landing authorization handlingまで進める。実行できる **landing role** は状況によって次の通り分岐する:
 
-- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge / squash merge / rebase merge / stacked PR landing / auto-merge 有効化 / integration target への直接反映等を landing 操作として実行できる。
+- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge commit method (`merge`) によるPR landing / merge-commit semanticsを満たすstacked PR landing / merge methodが`merge`に固定されたauto-merge / authorization scope内のequivalent landingを実行できる。squash merge / rebase mergeはcurrent profileのPR landing methodとして使用しない。
 - **orchestrated 状況（`parallel-orchestration` の landing handoff boundary 下で shared durable integration state へ ordered landing が必要な場合）**: Coordinator / Supervisor だけが landing 操作を実行する。Agent / subagent / worker は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。
 
 authorization handling 自体は standalone / orchestrated のどちらの状況でも Agent / subagent が進めてよいが、landing 操作は上表の role gating に従う。
@@ -50,6 +50,11 @@ authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PR�
 
 quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「landing 操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
 
+## Pull Request merge method
+
+current release-driven profileでは、GitHub PR landingは **merge commit (`merge`) のみ**（ADR-0018）。repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` へreconcileし、権限不足なら差分をblocker/limitationとして報告する。Agent / automationはmerge APIでmethodを暗黙選択せず `merge` を明示する。
+
+squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance / conflict解消のbranch mechanicsとして許可する。stack landingがmerge commit semanticsを保証できない場合はordered merge-commit landingへfallbackする。method固定からauthorizationを導出しない。
 #### Orchestrated workflow landing boundary
 
 `parallel-orchestration` の execution model 下では、Agent / subagent / worker は **target release integration branch (`release-x-y-z`) や `main` への shared durable integration state への ordered landing を直接実行しない**。landing は Coordinator / Supervisor が durable integration の責務として行う。
@@ -174,7 +179,7 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseする。
 13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
-14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeし、merge commit / resulting `main` SHAを確認する。
+14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
 15. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
 16. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
 17. 未完了ticketは次releaseへ明示的に再計画する。
