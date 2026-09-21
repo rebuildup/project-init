@@ -39,6 +39,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
+- `ADR-0016.md` — Linear標準化、release version intent、main protection baseline、Worktrunk default。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -288,7 +289,7 @@ quality gateは全project共通の固定bundleではありません。
 - build/package/container -> build/package + smoke
 - release -> full applicable integration + critical E2E/smoke + release checks
 
-必要であれば初期化agentがtest/lint/static-analysis、GitHub Actions、required checksまで実際に追加・修復します。
+必要であれば初期化agentがtest/lint/static-analysis、GitHub Actionsまで実際に追加・修復します。required status checkはmain protectionの既定要件にせず、実在し安定したproject固有checkを明示的に採用する場合だけ設定します。
 
 標準的に次を分離します。
 
@@ -331,7 +332,7 @@ AI agentの作業継続はconversation historyへ依存させません。
 
 native thread/session/subagent resumeは高速経路として利用できますが、canonical recoveryは次からfresh agentが再構成できることです。
 
-- Issue (canonical dependency SoT) / dependency state。release planning control plane (GitHub ProjectsまたはLinear) は補助board
+- Issue (canonical dependency SoT) / dependency state。release planning / health / portfolio control planeはLinear
 - target release branch
 - ticket branch / remote commit graph
 - Draft/Ready PR / assignee / reviewer / labels / review / CI
@@ -412,7 +413,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `design-refinement`
 - `writing-discipline`
 - `interaction-discipline`
-- `linear-release-control`（Linear profile採用時）
+- `linear-release-control`
 - `worktree-workflow`
 
 project固有のarchitecture / UI / release / debugging等は必要に応じて追加します。
@@ -422,7 +423,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
 - GitHub Issuesをdurable implementation/dependency SoTとする。
-- release planning control planeをLinearのどちらかに明示し、同じfieldを二重canonicalにしない。GitHub Projectはper-ticket planning board（status / owner / target version）でdurable SoTではない。
+- release planning / health / portfolio control planeはLinearに統一し、GitHub Projectsは標準運用へ導入しない。
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。
