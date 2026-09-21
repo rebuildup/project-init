@@ -99,7 +99,8 @@
 - ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
 - ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
 - ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
-- ADR-0014: optional Linear release control plane over GitHub execution state (mirror禁止 / SoT明確化)
+- ADR-0014: historical optional Linear control-plane decision (ADR-0016でsuperseded)
+- ADR-0016: Linear標準化 / version intent / main protection / Worktrunk default
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -131,7 +132,7 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
-- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked Issueを明示的にcloseする。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新 = ticket Done。optional Linear profile を採用した repository では Linear が ticket を全面 mirror しないため per-ticket Project status 更新は行わず、GitHub Issue close のみで Done とみなす。Linear Project Completed/Doneness は release-level reconciliation で別途更新
+- ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked GitHub Issueを明示的にcloseする。Linearはticketを全面mirrorせず、release-level reconciliationだけを更新する
 - release branchは`main`とzero-diffの間だけDraft release PR不要
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
@@ -226,7 +227,7 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 
 - native conversation/thread/subagent resumeはoptimizationでありcanonical SoTではない
 - fresh agentがchat historyなしでunfinished taskを再構成できる
-- durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。release planning control plane（GitHub ProjectsまたはLinear）は補助boardでcanonical SoTではない
+- durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。Linearはrelease planning / health / portfolio control planeでありimplementation/dependency SoTではない
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
 - active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとDraft PRを追跡できる
@@ -269,7 +270,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
 - `skills/agent-delivery-estimation/SKILL.md`
-- `skills/linear-release-control/SKILL.md`（Linear profile採用時）
+- `skills/linear-release-control/SKILL.md`
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
 - `skills/design-refinement/SKILL.md`
@@ -338,7 +339,7 @@ Ready前にacceptance criteria、required verification level、current SHA valid
 
 Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
 
-stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked Issueを明示的にcloseします。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新、optional Linear profile を採用した repository では per-ticket Project status 更新は行わず、release-level Linear Project Completed/Doneness は release 完了時の release-level reconciliation で別途更新します。
+stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked GitHub Issueを明示的にcloseします。Linearはticketを全面mirrorせず、release-level Completed/Donenessをrelease完了時にreconcileします。
 
 ### Subagent / worker branches
 
