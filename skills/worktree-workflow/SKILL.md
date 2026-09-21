@@ -1,11 +1,11 @@
 ---
 name: worktree-workflow
-description: WSL/LinuxでWorktrunkを使ってticket/review worktreeを作成・切替・一覧・cleanupし、共有hostのdev server port/process lifecycleを安全に扱う時に使用する。
+description: WSL/Linuxの通常worktree操作をWorktrunkへ統一し、ticket/review worktreeの作成・切替・一覧・cleanupと共有hostのdev server port/process lifecycleを安全に扱う時に使用する。
 ---
 
 # Worktree Workflow
 
-WorktrunkをGit worktreeの操作frontendとして使用する。対象の第一優先はWSL2/LinuxとLinux hostであり、native WindowsをこのSkillの必須targetにはしない。
+WorktrunkをGit worktreeの標準操作frontendとして使用する。WSL2/LinuxまたはLinux hostでWorktrunkが利用可能なら、日常のworktree作成・切替・一覧・review checkout・cleanupは原則 `wt` 経由で行う。agentがnative `git worktree` に慣れていることだけを理由に迂回してはいけない。native WindowsをこのSkillの必須targetにはしない。
 
 ## Invariants
 
@@ -19,7 +19,7 @@ WorktrunkをGit worktreeの操作frontendとして使用する。対象の第一
 
 ## Prerequisites
 
-Worktrunkが未導入なら、repositoryのreproducible toolchainに含められるかを先に確認する。
+最初に `wt --version` で利用可否を確認する。未導入ならrepositoryのreproducible toolchainに含められるかを確認し、安全にprovision可能なら導入する。導入不能・非対応・権限不足の場合だけnative `git worktree`へfallbackし、恒常的な制約ならproject documentationへ理由を残す。
 
 Cargoで導入する例:
 
