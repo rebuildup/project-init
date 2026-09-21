@@ -56,8 +56,8 @@
 - `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
 - GitHub Issuesをdurable implementation/dependency SoTとして維持しているか
-- planning control planeをGitHub Projectsまたはoptional Linear profileへ明示し、同じfieldを二重canonicalにしていないか
-- Linear profile採用時にGitHub Issueを全面mirrorせずrelease-level stateへ限定しているか
+- release planning / health / portfolio control planeをLinearに統一し、GitHub Projectsを標準運用へ再導入していないか
+- LinearへGitHub Issueを全面mirrorせずrelease-level stateへ限定しているか
 - `main`をreleased source stateとして維持しているか
 - public repositoryで`main` protection/rulesetが有効か
 - public repositoryで`main`へのdirect push/editが禁止され、release branchからのrelease PRだけが正規更新経路になっているか
@@ -74,7 +74,7 @@
 - stacked dependent ticketがexact predecessor snapshotへpinされているか
 - predecessor変更後にaffected downstream validationをcurrent SHAで再実行するか
 - stacked ticketをintermediate predecessor branchへのmergeだけでDoneにしていないか
-- target release trunkへのactual landing後にIssue close している。GitHub Projects を planning control plane として使う repository では Project の ticket status を Done へ更新する。optional Linear profile を採用した repository では Linear が ticket を全面 mirror しないため per-ticket Project status 更新は行わず、release-level Linear Project Completed/Doneness は release 完了時の release-level reconciliation で別途更新する
+- target release trunkへのactual landing後にGitHub Issueをcloseし、Linearはrelease-level reconciliationだけを更新する
 - implementation workerごとのexecution isolationを弱めていないか
 - worktree単体をisolation boundaryとして再導入していないか
 - Worktrunk / `hash_port` / `wt step tether`をruntime isolationの代替として扱っていないか
@@ -109,14 +109,14 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - Git remote / canonical ref = source SoT
 - GitHub Issues = durable implementation/dependency SoT
 - GitHub Issue dependency graph = durable dependency SoT
-- release planning control plane = GitHub Projects or optional Linear Projects / Initiatives, with explicit field ownership
+- release planning / health / portfolio control plane = Linear Projects / Initiatives
 - `main` = released/integrated source state
-- public repositoryでは`main`をprotected branch/rulesetで保護する
-- public repositoryでは`main`へのdirect push / direct web edit / force push / deletionを通常運用で禁止する
-- public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする
-- branch protection/rulesetだけでPR headを制約できない場合、`base=main` かつ `head=release-*` / current target releaseを検証するrequired checkを追加する
+- GitHubの保護機能を利用できるrepositoryでは`main`をprotected branch/rulesetで保護する
+- `main`へのdirect push / direct web edit / force push / deletionを通常運用で禁止する
+- `main`への正規delivery pathは current `release-x-y-z -> main` release PRだけとする
+- required approving review countは0、conversation resolutionは必須、required status checksは既定で空とし、存在しないcheck名を固定しない。merge executorは`base=main`なら`head=current release-*`を要求する
 - 通常sprint = 1週間
-- 1 sprint = 1 target semantic version
+- 1 sprint = 1 target semantic version。production/stable=major、通常sprint=minor、微調整=patch
 - sprint integration branch = `release-<major>-<minor>-<patch>`
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - ticket branch = `<issue-number>`
@@ -298,9 +298,9 @@ release branchが`main`と同一な間はGitHub上PRを作れないため、こ�
 
 ### Public main protection
 
-このrepositoryはpublicなので、`main`をprotected branch/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止します。
+GitHubの保護機能を利用できる場合、`main`をprotected branch/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止します。required approving review countは0、conversation resolutionは必須、required status checksは既定で設定しません。
 
-`main`への正規更新経路は `release-x-y-z -> main` のrelease PRだけです。branch protection/rulesetだけではPR headを制約できない場合、`base=main` のPR headがcurrent `release-*` branchであることを検証するrequired checkを使用します。
+`main`への正規更新経路は current `release-x-y-z -> main` release PRだけです。branch protection/rulesetだけでheadを制約できなくても、存在しないrequired checkを追加せず、merge executor / release automationでnon-release sourceを拒否します。
 
 ### Issue
 
