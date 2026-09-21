@@ -470,7 +470,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / PR configuration; release planning control plane -> Linearのいずれか一方を明示
-- public main protection -> branch protection/ruleset + required release-source check when necessary
+- main protection -> Pull Request required / approvals 0 / conversation resolution required / no fixed required status checks by default + release-source policy enforced by merge executor/release automation
 
 へ分解します。
 
