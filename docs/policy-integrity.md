@@ -124,12 +124,18 @@ non-constitutional ruleは、可能な範囲で次を追跡する。
 
 defaultからのdeviationは、old procedureを文字通り保存する必要はない。
 
-変更者は必要に応じて次を示す。
+**materialなdeviation** では、必要な粒度で次の5項目をすべて明示する。
 
 1. applicable higher-level obligation
 2. alternative mechanism
 3. equivalent-or-stronger guarantee
 4. known limits / unresolved risk
 5. verification/eval evidence
+
+materialとは、canonical responsibility、delivery/recovery/security boundary、public/external contract、persistent state、authority、または複数actorへ影響するorganization semanticsを変えるdeviationを指す。
+
+consequential organizational boundaryを変更する場合は、上記refinement evidenceに加えて、該当decisionとevidenceをADR / canonical profile / Practice contract等のdurable recordへ残す。これはすべてのdeviationへhuman approvalを要求する規則ではなく、Authority Integrity上の既存authority boundaryが別途適用される。
+
+spelling、reader-facing表現、同一guarantee内のreversibleな局所implementation detail等、上位obligationやorganizational boundaryを変えないinconsequential changeでは、5項目を独立artifactとして残す必要はない。
 
 このrefinement evidenceが十分なら、procedure差分そのものをregressionとして扱わない。
