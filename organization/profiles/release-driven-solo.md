@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018
 
 ## Purpose
 
@@ -39,6 +39,10 @@
 - first meaningful durable commit後はcanonical remote publication + Draft PRを行う
 - release branchにmeaningful differenceが入ったらDraft release PRを維持する
 - `main`へのnormal integrationはcurrent release branchからのrelease PRだけ
+- PR landing method: merge commit only
+- repository merge settings: `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false`
+- squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance等のbranch mechanicsとして別扱い
+- stacked/native landingはmerge commit semanticsを保持できる場合だけ使用する
 - merge/landingはADR-0012のexplicit authorization boundaryを維持する
 
 ### Workspace/runtime defaults
@@ -67,6 +71,7 @@
 ### Authority Integrity
 
 - PR readinessとmerge authorizationを分離
+- merge method固定やrepository settingの整合からauthorizationを導出しない
 - release/product/irreversible decisionは定義済みauthority boundaryへ従う
 
 ### Evidence Integrity

@@ -37,6 +37,14 @@ expect_with "merge auth regression" "$MERGE_GRADER" "$R/evals/policy-evaluation/
 expect_with "merge auth stack scope" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-stack-scope-regression.txt" FAIL
 expect_with "merge auth positive" "$MERGE_GRADER" "$R/evals/policy-evaluation/fixtures/merge-authorization-positive.txt" PASS
 
+if merge_method_out=$(bash "$R/evals/policy-evaluation/merge-method-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "merge method contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "merge method contract"
+  printf '%s\n' "$merge_method_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
 else
