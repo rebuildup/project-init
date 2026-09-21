@@ -32,6 +32,7 @@ grep -Fq "IdentityIntegrity" "$formal" || fail "formal model missing IdentityInt
 grep -Fq "AuthorityIntegrity" "$formal" || fail "formal model missing AuthorityIntegrity"
 grep -Fq "EvidenceIntegrity" "$formal" || fail "formal model missing EvidenceIntegrity"
 grep -Fq "MutableOwnershipSafety" "$formal" || fail "formal model missing MutableOwnershipSafety"
+grep -Fq "OrganizationalContinuity" "$formal" || fail "formal model missing OrganizationalContinuity"
 grep -Fq "EventuallyTerminal" "$formal" || fail "formal model missing liveness property"
 
 printf 'constitutional-contract: PASS\n'
