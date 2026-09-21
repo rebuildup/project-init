@@ -8,7 +8,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
 - `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/github-delivery/SKILL.md` — Issues / weekly release sprint / stacked PR / Draft PR / release integration。release planning control planeはGitHub Projectsまたはoptional Linear profile。
+- `skills/github-delivery/SKILL.md` — Issues / weekly release sprint / stacked PR / Draft PR / release integration。release planning control planeはLinear。
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
@@ -55,7 +55,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- GitHub IssuesとPull Requestsによるweekly ticket-driven release sprint workflow。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示（SoTではない）
+- GitHub IssuesとPull Requestsによるweekly ticket-driven release sprint workflow。release planning control planeはLinearのいずれか一方を明示（SoTではない）
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + mandatory Draft PR lifecycleとPR metadata management
 - public repositoryのprotected `main` / release-only main integration
@@ -70,7 +70,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency stateのcanonical SoT、release planning control planeをGitHub Projectsまたはoptional Linear profileのどちらかに明示する（同じfieldを二重canonicalにしない）+ mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Coordinator/Supervisor経由でshared durable integration stateへのordered landingを制御する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency stateのcanonical SoT、release planning control planeをLinearのどちらかに明示する（同じfieldを二重canonicalにしない）+ mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Coordinator/Supervisor経由でshared durable integration stateへのordered landingを制御する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -151,7 +151,7 @@ main
 - `<issue-number>`: 1 ticketのdurable branch
 - GitHub Issue dependency metadata: canonical dependency SoT
 - stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
-- release planning control plane: GitHub Projects、またはLinear profile採用時はLinear Projects / Initiatives（Projectはdurable SoTではない。ticket status boardとして補助。SoTはGitHub Issue側）
+- release planning / health / portfolio control plane: Linear Projects / Initiatives。GitHub Issuesはimplementation/dependency SoTであり、GitHub Projectsは標準運用へ導入しない
 
 標準ライフサイクル:
 
@@ -199,9 +199,9 @@ Release complete
 
 - durable planning unitはGitHub Issue
 - short-lived nested subtaskはSupervisor taskでよい
-- GitHub Project/Kanbanは `Backlog -> Ready -> In Progress -> In Review -> Done`
+- Linearをrelease planning / health / portfolio control planeとして使い、GitHub Projectsは標準運用へ導入しない
 - 通常sprintは1週間
-- sprintはtarget semantic versionで識別する
+- sprintはtarget semantic versionで識別する。production/stable releaseはmajor、通常sprintはminor、sprint内または導入後の微調整はpatchをdefault bumpとする
 - release branch formatは `release-<major>-<minor>-<patch>`
 - ticket branch formatはIssue番号だけ: `123`
 - branch名へ `issue/` prefixやslug/titleを入れない
@@ -234,10 +234,11 @@ public repositoryでは`main`をbranch protection / rulesetで保護します。
 - direct push / direct web edit / force push / deletionを通常運用で禁止
 - `main`への変更はPull Request必須
 - protectionを通常のadmin/automationが安易にbypassしない
-- `main`への正規delivery pathは `release-x-y-z -> main` のrelease PRのみ
-- release gateのrequired checks / review / conversation resolution等を満たしてからmerge
+- `main`への正規delivery pathは current `release-x-y-z -> main` release PRのみ
+- required approving review countは0、conversation resolutionは必須、required status checksは既定で設定しない
+- CIは存在する場合のquality evidenceとして扱い、存在しないcheck名をmain protectionへ固定しない
 
-branch protection/rulesetだけでPR head branch patternを制限できない場合は、`base == main` のPRについて `head == release-*` かつcurrent target releaseであることを検証するrequired GitHub Actions/status checkを追加し、ticket/arbitrary branchから`main`へのmergeを機械的に拒否します。
+branch protection/rulesetだけでPR head branch patternを制限できない場合も、存在しないrequired CI/status checkを生成しません。merge executor / release automationが `base == main` なら `head == current release-*` を検証し、ticket/arbitrary branchからのmergeを拒否します。
 
 初期化時にrepository visibilityとmain protection/rulesetを実際に確認し、public repositoryで不足していれば作成・修復します。権限不足で変更できない場合は未保護状態をblockerとして報告します。
 
@@ -421,7 +422,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - Global plugin/configurationは原則使用せずproject scope前提。
 - local directoryではなくGit remote/refをsource SoTとする。
 - GitHub Issuesをdurable implementation/dependency SoTとする。
-- release planning control planeをGitHub Projectsまたはoptional Linear profileのどちらかに明示し、同じfieldを二重canonicalにしない。GitHub Projectはper-ticket planning board（status / owner / target version）でdurable SoTではない。
+- release planning control planeをLinearのどちらかに明示し、同じfieldを二重canonicalにしない。GitHub Projectはper-ticket planning board（status / owner / target version）でdurable SoTではない。
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。
@@ -467,7 +468,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - adaptive quality profile -> project-local commands / Skills / CI workflows
 - engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
-- durable work workflow -> GitHub Issues / PR configuration; release planning control plane -> GitHub Projectsまたはoptional Linear profileのいずれか一方を明示
+- durable work workflow -> GitHub Issues / PR configuration; release planning control plane -> Linearのいずれか一方を明示
 - public main protection -> branch protection/ruleset + required release-source check when necessary
 
 へ分解します。
