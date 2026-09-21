@@ -1,6 +1,18 @@
-# Project-local AI Agent Initialization Policy
+# project-init — Adaptive AI Development Organization Framework
 
-AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡す、project-local AI agent 環境構築用のポリシーです。
+人間とAIエージェントが参加するソフトウェア開発組織について、長寿命な不変条件と現在のOperating Model / Practiceをproject-localに初期化・維持するためのframeworkです。
+
+特定のagent、provider、IDE、planning tool、worktree manager、branch topologyを「正しさ」そのものとして固定しません。最上位のConstitutionを満たす範囲で、現在の標準workflowを使いながら、より良いmechanismへのrefinement / deviationを許容します。
+
+## Organization architecture
+
+- [`constitution/CONSTITUTION.md`](./constitution/CONSTITUTION.md) — tool/provider-independentなorganizational kernel
+- [`organization/`](./organization/) — Operating Modelとcurrent profile
+- [`formal/`](./formal/) — Constitutionのabstract state-transition model
+- [`skills/`](./skills/) — context-dependent judgment / playbook
+- [`docs/adr/`](./docs/adr/) — long-lived decision history
+
+現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk等の既存workflowはここで維持されます。
 
 ## Usage
 
@@ -70,10 +82,11 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示し、両方を二重canonicalにしません。
+標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
 
 - `main` = released/integrated source state
-- `release-x-y-z` = 1週間のsprint / target version integration branch
+- `release-x-y-z` = target version integration branch
+- version bump default: production/stable release = major、通常sprint = minor、sprint内または導入後の微調整 = patch
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
@@ -94,10 +107,21 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ README.md
 ├─ CONTRIBUTING.md
 ├─ LICENSE
+├─ constitution/
+│  └─ CONSTITUTION.md
+├─ organization/
+│  ├─ README.md
+│  └─ profiles/
+│     └─ release-driven-solo.md
+├─ formal/
+│  ├─ Organization.tla
+│  ├─ Organization.cfg
+│  └─ README.md
 ├─ docs/
 │  ├─ policy-overview.md
+│  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0015.md
+│  │  └─ ADR-0001.md ... ADR-0017.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -131,6 +155,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
+- [`ADR-0016`](./docs/adr/ADR-0016.md) — current release-driven profileのLinear / version / `main` protection / Worktrunk defaults。
+- [`ADR-0017`](./docs/adr/ADR-0017.md) — Constitution / Operating Model / Practice / Skillを分離し、refinement・policy decay・formal modelを導入するorganizational architecture。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -141,7 +167,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示
+- `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
@@ -154,9 +180,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
 - `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
-- `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
-- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
+- `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
+- `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、release planning control plane を GitHub Projects または optional Linear profile のどちらかに明示する（同じ field を二重 canonical にしない）とし、mutable execution state を agent ごとに隔離する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Constitutionはtool/provider-independentなorganizational propertyだけを定義する。現在のGitHub / Linear / release branch / Worktrunk / Skill等は、それらを満たすOperating Model / Practiceであり、同等以上のguaranteeを示せるより良い手段へ置換できる。agentはprocedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。
+
