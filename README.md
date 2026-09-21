@@ -107,10 +107,21 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ README.md
 ├─ CONTRIBUTING.md
 ├─ LICENSE
+├─ constitution/
+│  └─ CONSTITUTION.md
+├─ organization/
+│  ├─ README.md
+│  └─ profiles/
+│     └─ release-driven-solo.md
+├─ formal/
+│  ├─ Organization.tla
+│  ├─ Organization.cfg
+│  └─ README.md
 ├─ docs/
 │  ├─ policy-overview.md
+│  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0016.md
+│  │  └─ ADR-0001.md ... ADR-0017.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
