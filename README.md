@@ -70,10 +70,11 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示し、両方を二重canonicalにしません。
+標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
 
 - `main` = released/integrated source state
-- `release-x-y-z` = 1週間のsprint / target version integration branch
+- `release-x-y-z` = target version integration branch
+- version bump default: production/stable release = major、通常sprint = minor、sprint内または導入後の微調整 = patch
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
@@ -131,6 +132,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
+- [`ADR-0015`](./docs/adr/ADR-0015.md) — Linear標準化、release version選択、`main` protection baseline、Worktrunk日常利用を統一するrelease governance。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -154,9 +156,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
 - `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
-- `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
-- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
+- `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
+- `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation
 
 ## Core principle
 
-> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、release planning control plane を GitHub Projects または optional Linear profile のどちらかに明示する（同じ field を二重 canonical にしない）とし、mutable execution state を agent ごとに隔離する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
+> Git を source state の canonical SoT、GitHub Issues を durable implementation/dependency SoT、Linear を release planning / health / portfolio control plane とし、mutable execution state を agent ごとに隔離する。`main` は PR + conversation resolution を必須にしつつ approval / 固定 required status check を既定では要求せず、正規更新元を current `release-*` に限定する。release PR merge を含む side effect は ADR-0012 の explicit human authorization 境界に従う。初期化時に project 固有の policy / Skills / quality gates / documentation へ compile し、会話履歴なしでも継続・復旧できる状態を作る。
