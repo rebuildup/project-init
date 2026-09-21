@@ -97,7 +97,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ docs/
 │  ├─ policy-overview.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0014.md
+│  │  └─ ADR-0001.md ... ADR-0015.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -115,6 +115,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
+   ├─ security-audit/
    ├─ security-maintenance/
    ├─ worktree-workflow/
    └─ writing-discipline/
@@ -130,6 +131,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
+- [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -143,7 +145,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
-- `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation
+- `security-audit` — source codeの未知脆弱性をcoverage-ledに探索し、fresh verifierで反証してstructured findingへ確定
+- `security-maintenance` — framework/runtime 脆弱性の intake / triage / remediation と confirmed finding のproject priority化
 - `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
 - `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計

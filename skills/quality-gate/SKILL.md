@@ -165,7 +165,7 @@ manual verificationを暗黙の「見た感じOK」にしない。手順・期�
 | external API adapter | unit + contract/integration + failure-path test |
 | build/package/container | build/package + smoke |
 | release branch | full applicable integration + critical E2E/smoke + release-specific checks |
-| security fix | regression test + vulnerable-path verification + applicable integration/E2E |
+| security fix | regression test + vulnerable-path verification + applicable integration/E2E + affected `security-audit` coverage revalidation when applicable |
 
 これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。
 

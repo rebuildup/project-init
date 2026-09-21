@@ -40,6 +40,7 @@
 - quality gateは固定bundleではなくproject固有にcompileする。
 - verification levelは変更surface/riskから決める。
 - framework/runtime security情報を継続的にpriority化する。
+- source codeの未知security defectは `security-audit` でprincipal / trust boundary / entry surface / attack classのcoverageを明示して探索し、hunterと分離したfresh verifierの反証後にのみconfirmed findingとする。
 - project knowledgeをchat/private memoryではなくrepository-controlled docsへ残す。
 - README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する前に `writing-discipline` をloadして適用する。conversation / investigation / execution contextがcurrent contextに存在するという理由だけでpersistent artifactへserializeしてはいけない。
 - recovery / handoffのoperational stateはreader-facing proseへ混在させず、designated checkpoint / recovery mechanismへ記録する。reader-facing artifactはrecovery journalではない。
@@ -422,6 +423,7 @@ rootに置くもの:
 - `agent-delivery-estimation`
 - `quality-gate`
 - `engineering-decisions`
+- `security-audit`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -1110,6 +1112,10 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 
 projectに適切ならdependency review、code scanning、secret scanning、container scanning、SBOM等を初期化時に導入・修復してください。
 
+### Active source audit
+
+未知のsecurity defectを能動的に探す必要があるprojectでは `security-audit` Skillを導入し、source-visible principal / trust boundary / entry surfaceからcoverage unitを作成してください。candidateはhunter自身で確定せずfresh verifierへ渡し、source外のdeployment/provider/runtime factが決定的なら推測せず `needs_validation` とします。audit中のtarget-controlled executionは `sandbox-runtime` のbounded local isolationに従い、confirmed findingは `security-maintenance` のproject-aware priority判定を経て通常のIssue / remediation / quality / release workflowへhandoffしてください。
+
 ---
 
 ## 26. Reviewer separation
@@ -1282,6 +1288,7 @@ project/runtimeが許す範囲で定期的に:
 - stack update後のcurrent-SHA revalidation policyが明示
 - stack-aware quality profileとdeterministic validation entry pointが存在
 - framework/runtime security advisory intake/priority workflowが存在
+- active source auditを採用するprojectではcoverage ledger / structured verdict / independent verifier / delivery handoffが定義されている
 - fresh contributor/new agent向けdocsが存在
 - session/context消失後にfresh agentがIssue/PR/Git/checkpointからtaskを復旧可能
 - provider/sandbox消失に対するhard checkpoint boundaryが定義
