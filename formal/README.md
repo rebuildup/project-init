@@ -12,12 +12,12 @@ It intentionally does not model GitHub, Linear, Worktrunk, Codex, Claude, Orca, 
 
 - task lifecycle
 - execution attempt identity
-- accepted result identity
+- accepted result identity, including the artifact version it was produced for
 - artifact / validation-evidence binding
 - decision authorization
 - exclusive mutable-resource ownership
-- durable organizational state
-- actor loss / recovery
+- durable attempt/artifact checkpoint identity
+- actor loss / recovery against that durable identity
 - terminal progress
 
 ## Checked safety properties
@@ -32,7 +32,9 @@ It intentionally does not model GitHub, Linear, Worktrunk, Codex, Claude, Orca, 
 
 - `EventuallyTerminal`
 
-The model uses weak fairness for validation and completion so a runnable task cannot remain running forever solely because enabled progress actions are ignored indefinitely.
+The model uses weak fairness for current-result receipt, validation, and completion so a runnable task cannot remain running forever solely because enabled progress actions are ignored indefinitely.
+
+`OrganizationalContinuity` is not a constant durability flag. It requires the durable checkpoint identity to match the current attempt and artifact while a task is running. `Start`, `Retry`, and `MutateArtifact` must advance that durable identity atomically with the work identity; actor loss leaves the durable checkpoint intact, and actor recovery is allowed only when that checkpoint is current. A future transition that changes current work without maintaining the checkpoint can therefore produce a TLC counterexample.
 
 ## Run
 
