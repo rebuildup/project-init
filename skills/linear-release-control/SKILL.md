@@ -1,9 +1,15 @@
 ---
 name: linear-release-control
-description: Linearを標準release planning / health / portfolio control planeとして使い、GitHub Issue / PR中心のexecution stateと二重管理せずreconcileする時に使用する。
+description: current release-driven profileでLinearをrelease planning / health / portfolio Practiceとして使い、GitHub execution stateとのcanonical ownershipを保ってreconcileする時に使用する。
 ---
 
 # Linear Release Control
+
+Layer: **Practice**
+
+Linearはcurrent release-driven profileの標準release planning / health / portfolio toolであり、Constitutionではない。重要なのはLinearというsurfaceではなく、Canonical Consistencyを保ったrelease-level planning ownershipである。
+
+同等以上のportfolio/release-planning guaranteeを持つalternativeへ移行する場合はADR-0017のrefinement contractを使う。
 
 ## Use this Skill when
 
@@ -155,3 +161,15 @@ Loopsもbaselineにしない。利用する場合はstatus summarization / notif
 Linearが利用不能でもimplementation / release integrationを止めない。
 
 GitHub Issue / PR / release branch / repository docsからcanonical execution stateを復旧し、Linear復旧後にProject stateをreconcileする。
+
+## Constitutional mapping
+
+- Canonical Consistency: GitHub execution factsとLinear release-level factsのfield ownershipを分離する
+- Evidence Integrity: release health/progressをGitHubのdurable evidenceからreconcileする
+- Organizational Continuity: release goal/date/healthを一つのagent sessionだけに保持しない
+
+## Re-evaluate / remove
+
+- release planningを別systemが同等以上に担う
+- project規模/形態がLinear control planeを不要にする
+- GitHub等がrelease-level viewを十分に提供し二重surfaceのcostが上回る
