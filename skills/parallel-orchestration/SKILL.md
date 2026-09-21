@@ -5,9 +5,15 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 
 # Parallel Orchestration
 
-非自明な実装をdependency graphへ分解し、Readyまたはstack-readyなnodeをresource/WIP制約内で最大限並行実行する。
+Layer: **Operating Model + Skill**
 
-## Invariants
+非自明な実装をdependency graphへ分解し、Readyまたはstack-readyなnodeをresource/WIP制約内で安全に並行実行する。
+
+Constitutional requirementは「1 worker = 1 particular sandbox」ではなく **Mutable Ownership Safety / Identity Integrity / Organizational Continuity** である。current modelはisolated mutable runtime + immutable snapshot/result + generation fencingでこれを実現する。
+
+より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。
+
+## Current operating guarantees
 
 - 1 implementation worker = 1 isolated mutable runtime。
 - shared working tree / Git index / integration branchを複数workerが直接更新しない。
@@ -23,6 +29,7 @@ description: 複数AIエージェントへtaskを分解・委譲し、immutable 
 - result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
 - validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
+- `security-audit` のcandidate validationではhunterとverifierを同一agentにせず、fresh verifierへimmutable candidate/evidenceを渡す。final record verificationが必要なprofileでも同じseparationを維持する。
 - spawn前に `policy-evaluation` Skillのexecution profileを判定し、mechanical / localized taskへ不要なfan-outを導入しない。
 
 ## Execution profile routing
@@ -205,3 +212,17 @@ GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、acti
 true isolationが使えない場合、shared mutable workspaceで並列実装しない。read-only researchの並列化または安全な直列実装へ縮退する。
 
 stacked PRを安全に維持できない場合もdependency SoTを壊さず、predecessor merge後に通常ticketとして開始する直列workflowへ縮退する。
+
+
+## Organizational outcome checks
+
+orchestrationのqualityはfan-out数や特定Supervisor APIではなく、次のoutcomeで確認する。
+
+- concurrent workersが互いのmutable stateを無調停に破壊しない
+- task / attempt / result identityをretry/recovery後も取り違えない
+- completed resultのevidenceがcurrent artifactへbindされる
+- parent/worker loss後もdurable stateからreconcileできる
+- dependency/authorityを無視して速さだけを最大化しない
+- orchestration overheadがtask価値を上回る場合はsolo executionへ縮退できる
+
+current Supervisor / execution_generation / Worktrunk shapeはこれらを満たす現在のimplementationであり、永続的なAPI contractではない。

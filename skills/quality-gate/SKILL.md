@@ -165,7 +165,7 @@ manual verificationを暗黙の「見た感じOK」にしない。手順・期�
 | external API adapter | unit + contract/integration + failure-path test |
 | build/package/container | build/package + smoke |
 | release branch | full applicable integration + critical E2E/smoke + release-specific checks |
-| security fix | regression test + vulnerable-path verification + applicable integration/E2E |
+| security fix | regression test + vulnerable-path verification + applicable integration/E2E + affected `security-audit` coverage revalidation when applicable |
 
 これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。
 
@@ -188,7 +188,7 @@ profileには最低限:
 - stack reconciliation/revalidation policy
 - release gate
 - canonical validation entry points
-- required CI checks
+- configured CI checks when present
 - coverage policy when meaningful
 - browser/device/OS/architecture matrix
 - CI trigger semantics (`pull_request` / `push` / schedule / dispatch / comment/review event)
@@ -215,6 +215,28 @@ validate:release
 実command名はproject conventionに合わせる。
 
 例外として、platform制約等で1つのlocal commandへ完全統合できない場合は、profileにその適用条件・runner/platform・required evidenceを明示し、agent/CIが別々の暗黙gateを選ばないようにする。
+
+## 4.1 Semantic validation evidence verification
+
+commit / PRのcombined statusが `success` であることだけをquality gate成功の証拠にしない。
+
+repository policy / quality profileは、release・ticket・runtime等の各candidateに対して **どのvalidationがapplicableか** をmachine-readableまたは一意に判定可能な形で持つ。validation identityはlocal deterministic commandでもCI job/checkでもよく、CIの存在や成功を全project共通の必須条件にはしない。
+
+CI/checkが存在する場合は最低限、次を確認する:
+
+- check context / job名がcandidate SHA上に実在する
+- checkが検証対象のcurrent SHA / current PR headを対象としている
+- known failureを無視していない
+- skipped / neutral / cancelled / unrelated bot successをapplicable validationの代替にしない
+- 同名checkでも別workflow / 別event semanticsなら誤同定しない
+- Draftのためreviewをskipしたbot status等をrelease validation成功として数えない
+- current SHAへ更新後、staleな以前のgreenを再利用しない
+
+**validation implementation exists** と **branch protection enforcement** は別invariantとして扱う。
+
+ADR-0016のdefault `main` protectionではfixed required status checksを設定しない。workflowやdeterministic gateが存在しても、それをrulesetのrequired statusへ自動登録しない。repositoryが明示的に安定したrequired status checkを採用する場合だけ、quality profileにそのidentityと適用範囲を記録する。
+
+release-source制約は架空のrequired checkで補わず、merge executor / release automationが `base == main` のとき `head == current release-*` を検証する。
 
 ## 5. 調査だけで終わらず実装する
 
@@ -399,7 +421,7 @@ storage削減とActions minutes削減を混同しない。現在のbottleneckを
 
 - quota不足を理由にrequired verificationを無断削除する
 - native/platform testを単に消してgreenにする
-- required checkをdisableしてusage問題を隠す
+- required verificationをdisableしてusage問題を隠す
 - self-hosted runnerへ移せば安全性検討不要とみなす
 
 高コストverificationが必要なら、PR every-commitからrelease gate / change-sensitive gate / manual full gateへ移せないか評価する。
@@ -459,7 +481,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - previous `validated_sha` とcurrent head SHAを比較
 - SHAが変わったdownstream ticketではaffected required verificationを再実行
 - old green resultをcurrent headのpassとして流用しない
-- required CI/checksをcurrent headで再評価
+- configured CI/checksが存在する場合はcurrent headで再評価
 - predecessor contract/API/schema変更時はdependent contract/integration testを優先して再評価
 
 単なるbranch ref名ではなくresolved immutable SHAをvalidation identityにする。
@@ -485,7 +507,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 - Issue acceptance criteriaを満たす
 - required verification levelを満たす
-- required CI/checksがcurrent SHAで成功
+- configured CI/checksが存在する場合はcurrent SHAで失敗を残していない
 - blocking review解消
 - known limitationを隠さない
 - target release trunk / immediate predecessorとのstaleness確認

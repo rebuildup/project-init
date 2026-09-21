@@ -96,6 +96,8 @@ updated_at
 
 checkpointはmachine-specific absolute pathやsecretへ依存させない。
 
+README / ADR /通常のIssue・PR本文等のreader-facing proseをrecovery journalとして使用しない。Issue / PRをcheckpoint carrierにする場合も、通常本文へ作業履歴を混在させず、recovery用途として明示されたstructured record / handoff surfaceへ分離する。reader-facing prose側は `writing-discipline` に従う。
+
 ## 4. Soft checkpoint / hard checkpoint
 
 すべての小さな操作をremote Gitへcommitしてhistoryを汚さない。

@@ -5,7 +5,13 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 
 # Sandbox Runtime
 
-## Invariants
+Layer: **Practice**
+
+このSkillは主にConstitutionの **Mutable Ownership Safety** と **Organizational Continuity** をruntime boundaryへmaterializeするcurrent Practiceである。
+
+特定sandbox/provider自体を要求するのではなく、taskに必要なfilesystem/process/network/credential/service-state separationのguaranteeを要求する。
+
+## Current practice guarantees
 
 - 1 implementation worker = 1 isolated workspace/runtime。
 - mutable runtime stateはworker間で共有しない。
@@ -14,6 +20,7 @@ description: implementation worker用の独立sandboxを作成・検証し、mac
 - immutable/cacheable stateのみ共有する。
 - provider差はadapterへ閉じ込め、project semanticsを変えない。
 - Worktrunkはworkspace/worktree lifecycle adapterであり、sandbox/runtime isolation boundaryとして扱わない。
+- `security-audit` がtarget-controlled codeを実行する場合も本Skillのnetwork / environment / writable state / resource isolationを満たす。必要controlをenforceできない環境ではhost executionへfallbackせず `needs_validation` とする。
 
 ## Isolate
 
@@ -74,3 +81,17 @@ clone
 -> app/test start
 -> validation
 ```
+
+
+## Refinement criteria
+
+別runtime/provider/native agent environmentへ置換する場合、変更surfaceに必要な次のguaranteeを比較する。
+
+- writable mutable state isolation
+- process/service namespace safety
+- network policy
+- credential boundary
+- resource/lifecycle cleanup
+- durable result extraction / recovery
+
+同等以上ならprovider implementationは自由に置換できる。単なるworktree分離をruntime isolationのproofとして扱わない。

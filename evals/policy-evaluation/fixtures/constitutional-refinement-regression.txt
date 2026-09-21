@@ -1,0 +1,10 @@
+layer=practice
+decision=candidate-refinement
+constitutional=identity,evidence,mutable-ownership,continuity
+evidence=constitution-proves-runtime
+worktrunk=replaceable-not-invariant
+delivery.ticket_branch=drop
+delivery.draft_pr=drop
+delivery.draft_release_pr=drop
+durable_update=none
+risk=surface-unknowns

@@ -1,0 +1,10 @@
+layer=practice
+decision=candidate-refinement
+constitutional=identity,evidence,mutable-ownership,continuity
+evidence=implementation-conformance-required
+worktrunk=mandatory
+delivery.ticket_branch=preserve
+delivery.draft_pr=preserve
+delivery.draft_release_pr=preserve
+durable_update=practice-profile-adr
+risk=surface-unknowns
