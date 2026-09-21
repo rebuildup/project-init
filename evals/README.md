@@ -51,6 +51,7 @@ controls:
 
 ```bash
 bash evals/policy-evaluation/constitutional-contract.sh
+bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
 bash evals/writing-discipline/controls.sh
@@ -63,8 +64,26 @@ fresh agentのanswerを採点:
 
 ```bash
 bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
+bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
 bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
 bash evals/writing-discipline/grade.sh /path/to/writing-answer.md
 bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
 bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
 ```
+
+
+### Constitutional refinement result artifact
+
+For `constitutional-refinement-scenario.md`, run a fresh agent with only the scenario and the minimum referenced policy required to interpret the layer/refinement contract. Capture the ten response lines verbatim at:
+
+```text
+/tmp/constitutional_refinement_answer.txt
+```
+
+Then run:
+
+```bash
+bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+```
+
+The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.sh`.
