@@ -94,11 +94,11 @@
 ### Canonical Consistency
 
 - source / implementation / review / release-planning responsibilityをfield ownershipで分離
--同一factの二重canonical化を避ける
+- 同一factの二重canonical化を避ける
 
 ### Progress
 
--自明なimplementation decisionを不要にoperatorへ返さない
+- 自明なimplementation decisionを不要にoperatorへ返さない
 - review/validation完了後はauthorization等の実blockerがなければ次stateへ進める
 - safety mechanismがdelivery deadlockを作る場合はOperating Modelをre-evaluateする
 

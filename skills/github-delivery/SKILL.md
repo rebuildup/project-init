@@ -350,7 +350,7 @@ DraftからReady for reviewへ移す条件:
 - current SHAに対するticket-level integration quality gateを実行済み
 - blocking known issueが解消済み、または明示的にscope外
 - PR description / assignee / labels / reviewer metadataが現在の実装と一致
-- required reviewerをrequest済み、または意味のあるreviewer不在を明記済み
+- required reviewerをrequest済み。meaningful reviewer不在はreview/merge semanticsへ影響する場合だけreaderに必要な形で説明し、mutable stateとして恒常的にserializeしない
 - target release branchまたはimmediate stack predecessorとのstaleness/conflictを処理済み
 - predecessor変更によるdownstream revalidationを処理済み
 
