@@ -2,6 +2,21 @@
 
 このrepositoryはAI coding agent初期化ポリシーそのものを管理します。
 
+## Policy hierarchy
+
+変更前にruleのlayerを確認してください。
+
+1. Constitution — tool/provider-independentなorganizational property
+2. Operating Model — current role / planning / delivery / review / release topology
+3. Practice — replaceable tool/workflow implementation
+4. Skill — context-dependent judgment/playbook
+
+`constitution/CONSTITUTION.md` が最上位です。具体tool/cadence/branch shapeを、広く使っているという理由だけでConstitutionへ昇格させないでください。
+
+current defaultからのdeviationは、それ自体ではfailureではありません。applicable higher-level obligationを同等以上に満たすrefinementなら許容します。
+
+non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条件も定義し、model/tool capability向上によるpolicy decayを妨げないでください。
+
 ## 基本方針
 
 変更時は `PROMPT.ja.md` と `PROMPT.en.md` のoperational semanticsを一致させてください。
@@ -14,6 +29,10 @@
 
 ## 変更時に確認すること
 
+- ConstitutionのIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを弱めていないか
+- current Practiceのprocedure complianceをConstitutionそのものと誤認していないか
+- より良いalternativeのrefinement/deviation pathを不必要に塞いでいないか
+- obsoleteなnon-constitutional ruleを維持するだけの変更になっていないか
 - project-local原則を弱めていないか
 - root agent fileへ詳細ルールを詰め込む方向へ戻っていないか
 - Skillによるprogressive disclosureを維持しているか
@@ -29,7 +48,7 @@
 - quality gateを固定bundleへ戻していないか
 - framework/runtimeのcurrent official quality/testing guidanceを無視していないか
 - local validationとGitHub Actionsのsemanticsが乖離していないか
-- project-wide policy > design/spec/instruction > existing implementation majority のdecision precedenceを壊していないか
+- Constitution > explicit product/organizational decision・canonical design > Operating Model > Practice > implementation evidence のdecision precedenceを壊していないか
 - project evidenceで解ける自明な判断をuserへ返す方向へ戻していないか
 - user escalation boundaryを曖昧にしていないか
 - framework/runtime security advisoryをofficial sourceから取得する方針を弱めていないか
