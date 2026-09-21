@@ -189,7 +189,7 @@ userへ確認するのは、canonical source conflict、product semantics、publ
 
 PRのquality/readinessとmerge authorizationは別stateです。
 
-Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけ、merge / squash / rebase / stacked landing / auto-merge有効化 / equivalent landingを実行します。
+Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけlandingを実行します。current release-driven profileのGitHub PR landingはmerge commit method (`merge`) に固定し、squash merge / rebase mergeは使用しません。stacked landing / auto-mergeもmerge commit semanticsを満たす場合だけ使用します。
 
 authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
 
@@ -329,6 +329,14 @@ GitHubの保護機能を利用できる場合、`main`をprotected branch/rulese
 
 `main`への正規更新経路は current `release-x-y-z -> main` release PRだけです。branch protection/rulesetだけでheadを制約できなくても、存在しないrequired checkを追加せず、merge executor / release automationでnon-release sourceを拒否します。
 
+### Pull Request merge method
+
+current release-driven profileではGitHub Pull Requestをmerge commitでlandします。squash merge / rebase mergeは使用しません。
+
+repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、初期化/readiness reviewで実設定を確認・修復します。設定変更権限がない場合は差分をblockerまたは明示的configuration limitationとして報告します。
+
+Agent / automationがmerge APIを呼ぶ場合は `merge` methodを明示します。branch-local `git rebase` はPR rebase mergeとは別であり、stack maintenance / conflict解消のため既存policyに従って使用できます。
+
 ### Issue
 
 substantial policy changeはIssueを作成し、目的 / acceptance criteria / scope / dependency / target release / assigneeを日本語で明記します。
@@ -420,6 +428,7 @@ current official sourceを確認すべき対象:
 - stacked PR / dependency integration model変更
 - Draft PR lifecycle / PR metadata contract変更
 - public repository main protection / release-only main integration変更
+- PR merge method / repository merge settings変更
 - decision precedence / user escalation model変更
 - verification taxonomy / quality compiler変更
 - Agent policy eval / execution profile / grader control / context-budget model変更
@@ -451,6 +460,7 @@ current official sourceを確認すべき対象:
 - stacked ticketのDone boundaryがtarget release trunk landingで一貫
 - zero-diff release branchのDraft release PR例外とfirst-difference後必須が一貫
 - public repositoryのmain protection / release-only main integrationがprompt/Skill/ADRと一貫
+- PR landingがmerge commit methodに固定され、squash/rebase merge無効化とmerge executorの`merge`明示がprompt/Skill/ADRで一貫
 - snapshot/resultがresolved immutable identityへpinされている
 - stack predecessor変更後のrevalidation policyが一貫
 - decision precedence / escalation boundaryが一貫

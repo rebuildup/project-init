@@ -41,6 +41,7 @@ current default operating profileは `organization/profiles/release-driven-solo.
 - `main` はreleased/integrated source stateとする。
 - GitHubの保護機能を利用できるrepositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
 - `main`への正規delivery pathは current `release-x-y-z -> main` release PRだけとし、ticket/arbitrary branchからのmergeを禁止する。source branch制約のために存在しないrequired status checkを捏造しない。
+- GitHub Pull Requestのlanding methodはmerge commitに固定し、squash merge / rebase mergeは使用しない。repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、merge executorは`merge`を明示する。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
 - 1週間はplanning cadenceであって工期保証ではない。release / roadmap / milestoneの中長期見積もりは `agent-delivery-estimation` SkillでWork Unit・dependency・実測throughput・human/CI/external wait・usage limitを評価し、AI自身の主観的な日数/月数を根拠にしない。
 - durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issuesで管理し、release planning / health / portfolioはLinearで管理する。GitHub Projectsを標準運用へ導入しない。
@@ -94,6 +95,7 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - env examples / `.gitignore`
 - repository visibility
 - `main` branch protection / ruleset / bypass / conversation resolution / approval count / required-status-check policy
+- repository PR merge method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
 - GitHub Issues / dependency / PR / stacked PR / release workflow / Linear release planning
 - current errors / warnings
 - branch / remote / userのuncommitted changes
@@ -133,6 +135,7 @@ source/work state:
 - ticket review/integration: Pull Requests
 - PR ownership/review/classification: assignee / reviewer/CODEOWNERS / labels / PR metadata
 - `main` protection: Pull Request required / approvals 0 / conversation resolution required / fixed required status checks none by default + release-source policy
+- PR merge method: merge commit only。squash merge / rebase mergeは無効化し、merge executorは`merge`を明示
 - transient execution: Supervisor
 
 各ticket / workerは `base_sha` またはimmutable input snapshotを追跡可能にしてください。
@@ -515,6 +518,24 @@ branch protection/rulesetだけでPR head branch patternを制限できない場
 
 public repositoryで保護が不足し、設定変更権限がある場合は初期化時に作成・修復してください。権限不足ならblockerとして明示してください。
 
+### Pull Request merge method
+
+repository visibilityに関係なく、current release-driven profileのGitHub Pull Request landingは **merge commit** に固定してください。
+
+```text
+allow_merge_commit = true
+allow_squash_merge = false
+allow_rebase_merge = false
+```
+
+初期化 / readiness reviewでrepository merge settingsを実際に確認し、変更権限がある場合は上記へreconcileしてください。権限がない場合は期待設定との差分をblockerまたは明示的configuration limitationとして報告してください。
+
+Agent / automation / release toolingがmerge APIを呼ぶ場合はmethodをrepository defaultへ委ねず `merge` を明示してください。auto-mergeを使う場合もmerge commitだけが有効であることを確認してください。
+
+ここで禁止するのはPRのrebase mergeです。stacked PR追従やconflict解消等のbranch-local `git rebase` は既存のbranch mechanics / validation policyに従って使用できます。stack toolがmerge commit semanticsを保証できない場合、そのlanding pathは使用しないでください。
+
+この設定はmerge authorizationを生成しません。ADR-0012のexplicit user authorization boundaryを維持してください。
+
 ### GitHub Issue / dependency SoT
 
 独立して計画・実装・レビューできるdurable work itemは原則Issueにしてください。
@@ -689,7 +710,7 @@ release PR title/bodyは日本語です。
 
 public repositoryではprotected `main`に対し、このrelease PR以外の経路で変更を入れないでください。
 
-`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。required approving review countは0を標準としますが、blocking review / unresolved conversationは解消してください。mergeを実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / validation evidence / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。
+`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。required approving review countは0を標準としますが、blocking review / unresolved conversationは解消してください。mergeを実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / validation evidence / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。authorization後にPRをlandする場合は `merge` methodを明示し、merge commitを生成してください。
 
 merge後 `main` がそのversionのreleased stateです。
 
@@ -1282,6 +1303,7 @@ project/runtimeが許す範囲で定期的に:
 - `main` = released state、`release-x-y-z` = weekly sprint integration、ticket branch = Issue番号のみ
 - public repositoryでは`main` protection/rulesetが有効でdirect push/editを禁止し、release PRだけが正規更新経路
 - required approval count = 0、conversation resolution = required、固定required status checks = none がmain protection baselineである
+- repository merge settingsが `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` で、PR landingがmerge commit methodに固定される
 - 通常sprint cadence = 1週間、1 sprint = 1 target semantic version。production/stable=major、通常sprint=minor、微調整=patchのdefault bump policyが明示される
 - medium/long-term release forecastは `agent-delivery-estimation` のevidence-based policyを使用し、主観的calendar estimateやlinear agent scalingを採用しない
 - Issue dependency graphがcanonical dependency SoT

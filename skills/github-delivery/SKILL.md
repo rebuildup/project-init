@@ -30,7 +30,7 @@ PRのquality/readinessとmerge side effectのauthorizationを分離する。
 
 Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、landing authorization handlingまで進める。実行できる **landing role** は状況によって次の通り分岐する:
 
-- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge / squash merge / rebase merge / stacked PR landing / auto-merge 有効化 / integration target への直接反映等を landing 操作として実行できる。
+- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge commit method (`merge`) によるPR landing / merge-commit semanticsを満たすstacked PR landing / merge methodが`merge`に固定されたauto-merge / authorization scope内のequivalent landingを実行できる。squash merge / rebase mergeはcurrent profileのPR landing methodとして使用しない。
 - **orchestrated 状況（`parallel-orchestration` の landing handoff boundary 下で shared durable integration state へ ordered landing が必要な場合）**: Coordinator / Supervisor だけが landing 操作を実行する。Agent / subagent / worker は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。
 
 authorization handling 自体は standalone / orchestrated のどちらの状況でも Agent / subagent が進めてよいが、landing 操作は上表の role gating に従う。
@@ -49,6 +49,28 @@ authorizationがなければ、implementation / push / Draft PR / metadata / rev
 authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PRへ伝播させない。authorization後にexpected review fixでhead SHAが変わった場合はcurrent SHAでrequired validationを再実行する。base / target release / scope / included changes等がmaterialに変わった、unrelated changesが入った、またはauthorization scope内か曖昧になった場合は古いauthorizationを再利用せずuserへ再確認する。
 
 quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「landing 操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
+
+## Pull Request merge method
+
+current release-driven profileでGitHub Pull Requestをlandする場合、**merge commit** のみを使用する。
+
+repository settingsは次を標準とする。
+
+```text
+allow_merge_commit = true
+allow_squash_merge = false
+allow_rebase_merge = false
+```
+
+initializer / readiness reviewはrepository visibilityに関係なくこの設定を確認し、変更権限があればreconcileする。権限がない場合は差分をblockerまたは明示的configuration limitationとして報告する。
+
+Agent / automation / release toolingがGitHub merge APIを呼ぶ場合はmethodを暗黙選択せず `merge` を明示する。auto-mergeを使う場合もrepositoryでmerge commitだけが有効であることを確認する。
+
+このruleはPRの **rebase merge** を禁止するものであり、stacked PRのpredecessor追従、conflict解消、branch maintenanceのためのbranch-local `git rebase` は既存policyに従って使用できる。
+
+native stacked-PR landing / external stack toolingがmerge commit semanticsを保証できない場合、そのlanding pathは使用せず、dependency orderに従ってmerge commitでtarget release trunkへlandする方法へfallbackする。
+
+merge method固定はauthorizationを生成しない。ADR-0012のexplicit user authorization boundaryを従来通り維持する。
 
 #### Orchestrated workflow landing boundary
 
@@ -174,7 +196,7 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseする。
 13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
-14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `main` へmergeし、merge commit / resulting `main` SHAを確認する。
+14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
 15. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
 16. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
 17. 未完了ticketは次releaseへ明示的に再計画する。
