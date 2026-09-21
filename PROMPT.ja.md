@@ -10,7 +10,7 @@
 
 基本思想:
 
-> **Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency SoT、release planning control planeをGitHub Projectsまたはoptional Linear profileのどちらかに明示する（同じfieldを二重canonicalにしない）+ 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + release PR mergeを含むside effectはexplicit human authorization境界を要する（ADR-0012）+ project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
+> **Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency SoT、release planning / health / portfolio control planeをLinearに統一する+ 1 implementation worker = 1 isolated mutable runtime + parent/child間はimmutable snapshot/result + Supervisor経由でagent lifecycleを管理 + 会話履歴なしでもdurable checkpointから復旧可能 + 通常1週間のsprintをtarget release versionとして表現 + hard dependencyのlinear pathをstacked PRとして安全にprojection + active durable ticket branchはpublished remote head + immediate Draft PRを持つ + public repositoryではmainを保護しrelease PRからのみ変更する + release PR mergeを含むside effectはexplicit human authorization境界を要する（ADR-0012）+ project固有quality/security/governance profileをcurrent official guidanceからcompile + repository-controlled documentationへknowledgeを永続化 + progressive disclosure + 論理的に安全な最大並列化**
 
 ---
 
@@ -22,11 +22,11 @@
 - parent -> childはimmutable snapshot、child -> parentはimmutable resultで接続する。
 - sandbox lifecycleはworker外のSupervisorが管理する。
 - `main` はreleased/integrated source stateとする。
-- public repositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
-- public repositoryの`main`への正規delivery pathは `release-x-y-z -> main` のrelease PRだけとする。branch protection/rulesetだけでPR headを制約できない場合はrequired checkで `base=main` かつ `head=release-*` / intended target releaseを検証する。
+- GitHubの保護機能を利用できるrepositoryでは`main`をbranch protection/rulesetで保護し、direct push / direct web edit / force push / deletionを通常運用で禁止する。
+- `main`への正規delivery pathは current `release-x-y-z -> main` release PRだけとし、ticket/arbitrary branchからのmergeを禁止する。source branch制約のために存在しないrequired status checkを捏造しない。
 - 通常sprintは1週間とし、active sprintは `release-<major>-<minor>-<patch>` branchで表現する。
 - 1週間はplanning cadenceであって工期保証ではない。release / roadmap / milestoneの中長期見積もりは `agent-delivery-estimation` SkillでWork Unit・dependency・実測throughput・human/CI/external wait・usage limitを評価し、AI自身の主観的な日数/月数を根拠にしない。
-- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issues（Linear profile採用時はrelease-level planningのみLinearを補助control planeとして併用）で管理する。同じfieldをGitHub ProjectsとLinearで二重canonicalにしてはいけない。
+- durable ticketはGitHub Issue、durable work/dependency stateはGitHub Issuesで管理し、release planning / health / portfolioはLinearで管理する。GitHub Projectsを標準運用へ導入しない。
 - Issue dependency graphをcanonical dependency SoTとする。Git branch topologyだけでdependencyを管理しない。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable ticket branch = 1 ticket PRを基本とする。
@@ -34,7 +34,7 @@
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
 - 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてから、GitHub Issueを明示closeする。**GitHub Projectsを planning control plane に使う repository** ではticket Done境界として Project の ticket status を更新する。**optional Linear profile を採用した repository** ではLinearがticket を全面mirrorしない契約（ADR-0014 / `linear-release-control` Skill）のため、ticket Done 境界は GitHub Issue close のみで成立する。Linear Project status の Done / Completed 更新はrelease-level reconciliationで別途行い、個々の ticket Done 境界に含めない。
+- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからGitHub Issueを明示closeする。Linearはrelease-level stateのみreconcileし、ticketを全面mirrorしない。
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
@@ -71,13 +71,13 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - architecture / design / ADR
 - test / lint / type / build / coverage configuration
 - smoke/integration/E2E infrastructure
-- GitHub Actions / CI/CD / required checks
+- GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
 - env examples / `.gitignore`
 - repository visibility
-- public repositoryの`main` branch protection / ruleset / bypass / required release-source check
-- GitHub Issues / dependency / PR / stacked PR / release workflow（release planning control planeはGitHub Projectsまたはoptional Linear profileのいずれか一方を明示）
+- `main` branch protection / ruleset / bypass / conversation resolution / approval count / required-status-check policy
+- GitHub Issues / dependency / PR / stacked PR / release workflow / Linear release planning
 - current errors / warnings
 - branch / remote / userのuncommitted changes
 
@@ -470,6 +470,8 @@ main
 通常sprint期間は **1週間** です。
 1 sprint = 1 target semantic version = 1 release integration branchです。
 
+version bumpは、production/stable release = major、通常sprint = minor、sprint内または導入後の微調整 = patch をdefault判断とし、外部version contract等がない限り毎回userへ選択を質問しません。
+
 この1週間はplanning cadenceであり、選択したscopeが1週間で完了するというestimateではありません。release date、roadmap、milestone、capacity、agent数変更による短縮効果を見積もる場合は `agent-delivery-estimation` Skillを使用してください。material unknownを任意の保守値で埋めず、必要ならcomplete / conditional / unavailableを返してください。
 
 release branch:
@@ -488,11 +490,11 @@ repository visibilityを確認してください。public repositoryでは`main`
 
 - direct push / direct web edit / force push / deletionを通常運用で禁止
 - `main`変更にPull Requestを必須化
-- release gateのrequired checks/review/conversation resolution等を満たすまでmerge不可
+- unresolved review conversationを残したままmerge不可。approval数は0を標準とし、固定required status checkは既定で設定しない
 - normal actor/adminが保護を日常的にbypassする運用を作らない
 - `main`への正規delivery pathを `release-x-y-z -> main` のrelease PRだけに限定
 
-branch protection/rulesetだけでPR head branch patternを制限できない場合、`base == main` のPRで `head` がcanonical `release-*` patternかつintended target releaseであることを検証するrequired GitHub Action/status checkを追加してください。
+branch protection/rulesetだけでPR head branch patternを制限できない場合も、存在しないCI/check名をrequired status checkとして固定しないでください。merge executor / release automationは `base == main` なら `head == current release-*` を確認し、それ以外のmergeを拒否してください。
 
 public repositoryで保護が不足し、設定変更権限がある場合は初期化時に作成・修復してください。権限不足ならblockerとして明示してください。
 
@@ -1273,8 +1275,8 @@ project/runtimeが許す範囲で定期的に:
 - child resultをimmutable commit/ref/diffとして回収可能
 - `main` = released state、`release-x-y-z` = weekly sprint integration、ticket branch = Issue番号のみ
 - public repositoryでは`main` protection/rulesetが有効でdirect push/editを禁止し、release PRだけが正規更新経路
-- branch protection/rulesetだけでsource branchを制限できない場合、required release-source checkが存在
-- 通常sprint cadence = 1週間、1 sprint = 1 target semantic version
+- required approval count = 0、conversation resolution = required、固定required status checks = none がmain protection baselineである
+- 通常sprint cadence = 1週間、1 sprint = 1 target semantic version。production/stable=major、通常sprint=minor、微調整=patchのdefault bump policyが明示される
 - medium/long-term release forecastは `agent-delivery-estimation` のevidence-based policyを使用し、主観的calendar estimateやlinear agent scalingを採用しない
 - Issue dependency graphがcanonical dependency SoT
 - independent ticketはrelease base、same-release linear hard dependencyはstacked PRを使用可能
