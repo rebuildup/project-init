@@ -12,15 +12,16 @@ description: 実装・設計・修正方針を自律的に決定する時に、p
 project内のtechnical/product decisionは原則として次の順で確認する。
 
 1. **Constitution / tool-independent organizational invariant**
-2. **explicit product / organizational decision・public contract・canonical design/specification**
-3. **current Operating Model**
-4. **applicable Practice contract / project-local quality・security・delivery profile**
-5. **coherent existing implementation evidence**
-6. framework/runtime/SDKのcurrent official guidance
-7. established ecosystem convention
-8. local best judgment
+2. **applicable public/external contract・persisted-data・protocol/schema compatibility obligation**
+3. **explicit product / organizational decision・canonical design/specification・explicit task instruction**
+4. **current Operating Model**
+5. **applicable Practice contract / project-local quality・security・delivery profile**
+6. **coherent existing implementation evidence**
+7. framework/runtime/SDKのcurrent official guidance
+8. established ecosystem convention
+9. local best judgment
 
-同一levelで矛盾する場合は、よりspecificかつ新しいcanonical sourceを優先する。
+同一levelで矛盾する場合は、よりspecificかつ新しいcanonical sourceを優先する。ただしinternal design/specificationは、上位に存在するpublic/external contract、released client、persisted data、protocol/schema等のcompatibility obligationを暗黙にoverrideしない。
 
 userの現在の明示要求が上位system/policyと矛盾しない限りtask scopeとして尊重するが、会話内の曖昧な表現からproject-wide policyを暗黙に上書きしない。
 
