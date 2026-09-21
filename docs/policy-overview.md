@@ -470,7 +470,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
 - durable work workflow -> GitHub Issues / PR configuration; release planning control plane -> Linearのいずれか一方を明示
-- main protection -> Pull Request required / approvals 0 / conversation resolution required / no fixed required status checks by default + release-source policy enforced by merge executor/release automation
+- main protection -> Pull Request required / approvals 0 / conversation resolution required / no fixed required status checks by default。GitHub ruleset単体ではPR head patternを制約できないため、release-source policyはmerge executor/release automationでpreflightし、machine-enforced範囲を誇張しない
 
 へ分解します。
 
