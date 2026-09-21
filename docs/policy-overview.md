@@ -2,6 +2,19 @@
 
 AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡す、project-local AI agent環境構築用のポリシープロンプトです。
 
+## Policy hierarchy
+
+project-init のcanonical hierarchyは次です。
+
+1. **Constitution** — tool/provider-independentなorganizational property
+2. **Operating Model** — 現在のrole / planning / delivery / review / release topology
+3. **Practice** — Worktrunk / GitHub / Linear / CI等による交換可能な実装
+4. **Skill** — context-dependent judgmentのprogressive disclosure
+
+[`constitution/CONSTITUTION.md`](../constitution/CONSTITUTION.md) が最上位contractです。current workflowは [`organization/profiles/release-driven-solo.md`](../organization/profiles/release-driven-solo.md) にまとめ、具体toolをConstitutionへ昇格させません。
+
+default practiceへの従属より、上位guaranteeを維持したproject全体最適を優先します。同等以上のguaranteeを説明できるalternativeへのdeviationは正常なpathです。
+
 ## Files
 
 - `PROMPT.ja.md` — 日本語版の初期化prompt本体。
@@ -71,7 +84,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 基本思想:
 
-> Gitをsource stateのcanonical SoT、GitHub Issuesをdurable implementation/dependency stateのcanonical SoT、release planning control planeをLinearのどちらかに明示する（同じfieldを二重canonicalにしない）+ mutable execution stateをagentごとに隔離する + immutable snapshot/resultで委譲する + Coordinator/Supervisor経由でshared durable integration stateへのordered landingを制御する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
+> 最上位ではIdentity / Authority / Evidence / Mutable Ownership / Continuity / Canonical Consistency / Progressを守る。Git / GitHub / Linear / Worktrunk / Supervisor / release branchはcurrent operating profileによる実装であり、Constitutionを満たす限り置換可能とする。tateへのordered landingを制御する + 会話履歴なしでもdurable checkpointから復旧可能にする + 通常1週間のrelease sprintをintegration cadenceとする + hard dependencyのlinear pathをstacked PRとして安全にprojectionする + active durable ticket branchをpublished remote head + Draft PRなしで放置しない + public repositoryではmainを保護しrelease PRからのみ変更する + project固有quality/security/governance profileをcompileする + repository-controlled documentationへknowledgeを永続化する + progressive disclosure + 最大安全並列化
 
 ## Execution model
 
@@ -475,3 +488,12 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 へ分解します。
 
 再実行はidempotent reconciliationとして扱い、正しい状態なら変更しないことも正常です。
+
+
+## Refinement / policy decay
+
+non-constitutional ruleは永久化しません。各Operating Model / Practiceは、必要な範囲でimplements / assumptions / guarantees / evidence / known limits / deviation / re-evaluate / remove条件を持ちます。
+
+新しいagent/runtime/toolが同等以上のguaranteeをより単純に提供する場合、current defaultを降格・削除できます。policy migrationではsemantic-loss preventionと同じ強さでobsolete-rule removalを扱います。
+
+formal modelは `formal/Organization.tla` に置き、abstract organizationのsafety/liveness counterexample探索に使用します。model checkingの成功をreal implementation全体のproofとして扱いません。
