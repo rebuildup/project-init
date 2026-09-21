@@ -646,7 +646,7 @@ GitHubは`main`と差分がないrelease branchにはPRを作れないため、z
 
 Draft release PRにはassignee / reviewer / labels / release goal / included Issues を設定し、sprint中のdurable release surfaceとして維持してください。release PR 本文の validation evidence は repository の CI 形態に応じて **条件付き** で扱います:
 
-- **native CI checks（GitHub Actions / workflow run）が available な repository**: native checks を canonical evidence とし、`github-delivery` の ready-to-merge semantic は GitHub UI上のrequired check status で判定する。validated SHA pinned reference と workflow run status の PR 本文への pin / 転写は **readerが evidence を再 fetch する必要が生じた場合に限り** 行い、Draft → Ready / merge candidate の必須 rule として固定化しない。
+- **native CI checks（GitHub Actions / workflow run）が available な repository**: native checks はvalidation evidenceの一部としてcurrent SHAとの対応と失敗有無を確認する。ただしCI successや特定check名をready-to-mergeの普遍的必須条件にせず、project-specific applicable validation全体で判定する。validated SHA pinned reference と workflow run status の PR 本文への pin / 転写は **readerが evidence を再 fetch する必要が生じた場合に限り** 行い、Draft → Ready / merge candidate の必須 rule として固定化しない。
 - **CI が configured でない repository（policy/docs only など）**: validated SHA pinned reference と `evals/` 配下の canonical control reproduction block を release evidence として本文へ残す（`evals/` controls を fresh agent / reviewer / CI runner から再取得できる形）。
 
 いずれの場合も `writing-discipline` に従い full snapshot の無条件 serialize は避け、reader が必要時に evidence を再 fetch できる pointer を本文に残す方針は共通です。
