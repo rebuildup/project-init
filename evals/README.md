@@ -1,13 +1,14 @@
-# Agent Policy Evals
+# Organization / Agent Policy Evals
 
-このdirectoryは、Agent policy / Skillが「存在する」だけでなく、fresh agentがcold contextから意図したbehaviorを再現できるかを検証するためのrepository-controlled evalを管理します。
+このdirectoryは、Constitution / Operating Model / Practice / Skillが「存在する」だけでなく、resulting organizationが必要なinvariant/outcomeを維持し、fresh agentがcold contextから必要なjudgmentを再現できるかを検証するrepository-controlled evalを管理します。
 
 ## Model
 
 policy verificationを2つに分けます。
 
 - **deterministic checks**: command / config / file / schema / metadata / exact relationship等、同じinputなら同じ結果を要求できるもの
-- **latent evals**: prioritization / decomposition / escalation / review等、agentがpolicyを読んで判断する必要があるもの
+- **latent evals**: prioritization / decomposition / escalation / review / refinement等、agentがpolicyを読んで判断する必要があるもの
+- **formal model**: concurrency / identity / authority / progress等のabstract organizational semanticsについてcounterexampleを探索するもの
 
 latent evalのmodel invocation自体はprovider固有runnerへ固定しません。scenarioとgrader / controlsをrepositoryへ保持し、manual runner / CI service / local agentのどれからでも同じanswer artifactを採点できるようにします。
 
@@ -37,6 +38,8 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 ## Current evals
 
+- `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
+- `policy-evaluation/constitutional-refinement-scenario.md` — current Practiceより強いnative mechanismをtool-name complianceで拒否せず、上位guaranteeからrefinement判断できるかを確認するcold scenario
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
 - `writing-discipline/scenario.md` — persistent proseのpre-write routing / reader content selection / conversation・execution・recovery context serialization防止
@@ -47,6 +50,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 controls:
 
 ```bash
+bash evals/policy-evaluation/constitutional-contract.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
 bash evals/writing-discipline/controls.sh
