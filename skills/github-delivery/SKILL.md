@@ -52,7 +52,7 @@ quality gateは「mergeしてよい品質か」を判定する。merge authoriza
 
 ## Pull Request merge method
 
-current release-driven profileでは、GitHub PR landingは **merge commit (`merge`) のみ**（ADR-0018）。repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` へreconcileし、権限不足なら差分をblocker/limitationとして報告する。Agent / automationはmerge APIで`merge`を明示する。
+current release-driven profileでは、GitHub PR landingは **merge commit (`merge`) のみ**（ADR-0018）。repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` へreconcileし、権限不足なら差分をblocker/limitationとして報告する。Agent / automationはmerge APIでmethodを暗黙選択せず `merge` を明示する。
 
 squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance / conflict解消のbranch mechanicsとして許可する。stack landingがmerge commit semanticsを保証できない場合はordered merge-commit landingへfallbackする。method固定からauthorizationを導出しない。
 #### Orchestrated workflow landing boundary
