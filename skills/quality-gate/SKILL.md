@@ -188,7 +188,7 @@ profileには最低限:
 - stack reconciliation/revalidation policy
 - release gate
 - canonical validation entry points
-- required CI checks
+- configured CI checks when present
 - coverage policy when meaningful
 - browser/device/OS/architecture matrix
 - CI trigger semantics (`pull_request` / `push` / schedule / dispatch / comment/review event)
@@ -487,7 +487,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - previous `validated_sha` とcurrent head SHAを比較
 - SHAが変わったdownstream ticketではaffected required verificationを再実行
 - old green resultをcurrent headのpassとして流用しない
-- required CI/checksをcurrent headで再評価
+- configured CI/checksが存在する場合はcurrent headで再評価
 - predecessor contract/API/schema変更時はdependent contract/integration testを優先して再評価
 
 単なるbranch ref名ではなくresolved immutable SHAをvalidation identityにする。
@@ -513,7 +513,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 - Issue acceptance criteriaを満たす
 - required verification levelを満たす
-- required CI/checksがcurrent SHAで成功
+- configured CI/checksが存在する場合はcurrent SHAで失敗を残していない
 - blocking review解消
 - known limitationを隠さない
 - target release trunk / immediate predecessorとのstaleness確認
