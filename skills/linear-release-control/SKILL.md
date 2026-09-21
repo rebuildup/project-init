@@ -1,6 +1,6 @@
 ---
 name: linear-release-control
-description: Linearをoptionalなrelease planning / health / portfolio control planeとして使い、GitHub Issue / PR中心のexecution stateと二重管理せずreconcileする時に使用する。
+description: Linearを標準release planning / health / portfolio control planeとして使い、GitHub Issue / PR中心のexecution stateと二重管理せずreconcileする時に使用する。
 ---
 
 # Linear Release Control
@@ -99,7 +99,7 @@ code changeのscope / acceptance criteriaはGitHub Issueへ置き、Linear Issue
 
 1. implementationはGitHub Issue / ticket PRで追跡する。
 2. LinearへPR本文・CI log・review discussionを複製しない。
-3. release判断へ影響するblockerだけProject / optional Linear Issueへ反映する。
+3. release判断へ影響するblockerだけProject / Linear Issueへ反映する。
 4. Project UpdateはGitHub actual stateを確認してから作成する。
 
 Project Updateの標準内容:
@@ -123,7 +123,7 @@ Project Updateの標準内容:
 
 Interactive PM操作ではChatGPT等のLinear connector/pluginを使用してよい。
 
-external agentがLinearへ直接アクセスする場合はLinear公式remote MCPをoptional capabilityとして使える。
+external agentがLinearへ直接アクセスする場合はLinear公式remote MCPをcapabilityとして使える。
 
 - Coordinator / release manager: `https://mcp.linear.app/mcp`
 - read-only worker: `https://mcp.linear.app/mcp/readonly`
