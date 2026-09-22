@@ -80,7 +80,7 @@ predecessor_issue_or_pr
 predecessor_sha
 base_sha
 checkpoint_sha_or_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 status
 completed_steps
 next_steps
@@ -163,8 +163,8 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 4. release branchでは`main`との差分を確認する。zero-diffならDraft release PR不要、differenceが存在するならDraft release PRとmetadataを確認・修復する。
 5. latest valid recovery checkpointを読む。
 6. canonical design/policy/decision refsを再確認する。
-7. observed generationに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、new `execution_generation` と一意なlease/fencing tokenを確定する。競合した場合は同じgenerationを共有せず、stateを再読してやり直す。
-8. active child/subagent stateをSupervisorへ問い合わせ、current generation/tokenとの関係をreconcileする。
+7. observed fencing identityに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、新しいfencing identityを確定する。current implementationでgeneration方式を使う場合はnew `execution_generation` と一意なlease/fencing tokenを発行する。競合した場合はownershipを共有せず、stateを再読してやり直す。
+8. active child/subagent stateをlogical Supervisorへ問い合わせ、current fencing identityとの関係をreconcileする。
 9. current workspaceをcheckpointからrecreateする。
 10. stack-ready workではrecorded predecessor SHAとcurrent intended predecessor stateを比較し、差があればstale baseとしてreconcileする。
 11. completed/pending validationをcurrent snapshotに対して再評価する。
