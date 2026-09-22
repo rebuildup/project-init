@@ -111,6 +111,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  └─ CONSTITUTION.md
 ├─ organization/
 │  ├─ README.md
+│  ├─ execution-roles.md
 │  └─ profiles/
 │     └─ release-driven-solo.md
 ├─ formal/
@@ -159,6 +160,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0016`](./docs/adr/ADR-0016.md) — current release-driven profileのLinear / version / `main` protection / Worktrunk defaults。
 - [`ADR-0017`](./docs/adr/ADR-0017.md) — Constitution / Operating Model / Practice / Skillを分離し、refinement・policy decay・formal modelを導入するorganizational architecture。
 - [`ADR-0018`](./docs/adr/ADR-0018.md) — current release-driven profileのPR landingをmerge commitへ固定し、squash/rebase mergeを無効化する判断。
+- [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -166,7 +168,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 通常 task では必要な Skill だけを読み込みます。ただし、README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する場合、`writing-discipline` はpre-writeの必須routingとして扱います。
 
-- `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
+- `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
