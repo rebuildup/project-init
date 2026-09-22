@@ -1,7 +1,7 @@
 kind	path	bytes
 always_on_total	__always_on_total__	0
 skill	skills/agent-delivery-estimation/SKILL.md	21299
-skill	skills/agent-recovery/SKILL.md	12788
+skill	skills/agent-recovery/SKILL.md	13279
 skill	skills/correctness-assurance/SKILL.md	17437
 skill	skills/design-refinement/SKILL.md	6146
 skill	skills/engineering-decisions/SKILL.md	11680
@@ -9,7 +9,7 @@ skill	skills/github-delivery/SKILL.md	22965
 skill	skills/interaction-discipline/SKILL.md	8623
 skill	skills/linear-release-control/SKILL.md	5665
 skill	skills/onboarding/SKILL.md	14475
-skill	skills/parallel-orchestration/SKILL.md	11879
+skill	skills/parallel-orchestration/SKILL.md	15115
 skill	skills/policy-evaluation/SKILL.md	14216
 skill	skills/quality-gate/SKILL.md	20495
 skill	skills/sandbox-runtime/SKILL.md	3272
