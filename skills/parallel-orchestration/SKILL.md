@@ -11,11 +11,21 @@ Layer: **Operating Model + Skill**
 
 Constitutional requirementは「1 worker = 1 particular sandbox」ではなく **Mutable Ownership Safety / Identity Integrity / Organizational Continuity** である。current modelはisolated mutable runtime + immutable snapshot/result + generation fencingでこれを実現する。
 
-より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。
+より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。Worker / Supervisor のlogical roleと observational / mutable / durable attempt の分類は `organization/execution-roles.md` と ADR-0019 をcanonical sourceとする。
+
+## Attempt-class routing
+
+spawn前にroleだけでなくexecution attempt classを決める。
+
+- **observational**: research / exploration / independent review / read-only diagnostics。source/runtimeのmutable ownershipを持たない限りbranch / Draft PR / sandbox / fencing / durable checkpointを要求しない。
+- **mutable**: independent implementationやstateful execution。明示的mutable-ownership boundary、base/result identity、stale result rejectionを要求する。
+- **durable**: Issue-level / long-running / background / remote execution。mutable要件に加えてdurable discoverability、checkpoint/recovery、fencingを要求する。
+
+観測用subagentがsourceを変更し始めた場合はmutableへ、session/provider lossを越えて継続すべきworkになった場合はdurableへpromotionする。
 
 ## Current operating guarantees
 
-- 1 implementation worker = 1 isolated mutable runtime。
+- concurrent mutable implementation workerごとにisolated runtime、serialization、transaction等の明示的mutable-ownership boundaryを持つ。current defaultは1 worker = 1 isolated mutable runtime。
 - shared working tree / Git index / integration branchを複数workerが直接更新しない。
 - parent -> child はimmutable snapshot。
 - child -> parent はimmutable commit/ref/diff + validation result。
@@ -25,7 +35,7 @@ Constitutional requirementは「1 worker = 1 particular sandbox」ではなく *
 - durable planning unitはGitHub Issue、短命な内部subtaskはSupervisor taskとしてよい。
 - Issue dependency graphがdurable dependency SoTであり、Git branch topologyだけでdependencyを管理しない。
 - child lifecycleはparent model processではなくSupervisorが所有する。
-- すべてのmutable worker task/resultに `execution_generation` を必須で付与する。初期generationは `1` とし、recovery/reassignment時にSupervisorが原子的に進める。
+- durable worker task/resultはstale attemptを排除できるfencing identityを持つ。current implementationでは `execution_generation` を使用し、初期generationは `1`、recovery/reassignment時にSupervisorが原子的に進める。
 - result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
 - validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
@@ -95,6 +105,8 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 
 ## Spawn contract
 
+observational workerはobjective / scope / authority / expected evidenceの最小contractでよい。mutable workerでは次を基準とし、durable workerではfencing / recovery fieldsを必須化する。
+
 mutable workerの最低限input:
 
 ```text
@@ -111,8 +123,9 @@ expected_draft_pr
 assignee_expectation
 reviewer_expectation
 label_expectation
-execution_generation
+fencing_identity_or_execution_generation
 role
+attempt_class
 allowed_tools
 filesystem_policy
 network_policy
@@ -146,6 +159,8 @@ Ephemeral immutable ref/resultはこのcontractの対象外。
 
 ## Result contract
 
+observational resultはsource mutationを含まず、evidence provenanceと対象artifact identityを返す。mutable/durable workerは次を基準とする。
+
 mutable workerの最低限output:
 
 ```text
@@ -154,7 +169,8 @@ issue_or_task_id
 target_release
 base_snapshot
 predecessor_snapshot
-execution_generation
+fencing_identity_or_execution_generation
+attempt_class
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -162,7 +178,7 @@ validation_results
 known_issues
 ```
 
-current `execution_generation` と一致しないresultは自動統合しない。
+applicableなcurrent fencing identity（current implementationでは `execution_generation`）と一致しないresultは自動統合しない。
 
 recorded predecessor/base snapshotとcurrent expected baseが異なるresultはstale candidateとしてreconcileし、盲目的に統合しない。
 
