@@ -334,7 +334,7 @@ issue_or_task_id
 target_release
 base_snapshot
 predecessor_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -822,7 +822,7 @@ predecessor_issue_or_pr
 predecessor_sha
 base_sha
 checkpoint_sha_or_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 status
 completed_steps
 next_steps
