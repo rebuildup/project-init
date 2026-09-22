@@ -137,6 +137,25 @@ UI/UX、native platform、hardware integration等でautomationが十分でない
 
 manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
 
+### Verification Executor / native environment
+
+verificationはimplementation workerと同じworkspace topologyを必須にしない。ADR-0020に従い、検証対象をimmutable candidate identityへpinし、environment identityとevidence provenanceを記録する。
+
+最低限のevidence shape:
+
+```text
+candidate_identity
+environment_identity
+procedure_or_command
+observed_result
+evidence_artifacts
+source_mutation_observed
+```
+
+Windows-native、macOS-native、GUI application、physical device、installed build、CI runner等のsingleton environmentは、必要ならexclusive lease / serializationで安全に使用する。worktreeを作れないこと自体をverification skip理由にしない。
+
+unexpectedなtracked source/config mutationが確認されたvalidationは、current candidateのclean evidenceとして扱わずreconcile/re-runする。
+
 ## 3. 動作確認ゲートを変更riskから決める
 
 全ticketに全test levelを機械的に要求しない。
@@ -191,6 +210,7 @@ profileには最低限:
 - configured CI checks when present
 - coverage policy when meaningful
 - browser/device/OS/architecture matrix
+- native/device/GUI verificationのcandidate materializationとenvironment ownership policy
 - CI trigger semantics (`pull_request` / `push` / schedule / dispatch / comment/review event)
 - runner policyとplatform matrixの起動条件
 - expensive/native/platform-specific gateの適用条件
@@ -467,7 +487,7 @@ PR topologyは固定しない:
 - changed boundaryに必要なunit/smoke/integration/contract/E2E
 - formatter/lint/type/static/build等のapplicable checks
 - required CI checks
-- current head SHAとvalidation evidenceの一致
+- current head SHA / immutable artifact identityとvalidation evidenceの一致
 - immediate PR base / target release trunkとのstaleness確認
 
 「all unit tests green」だけをintegration completionにしない。
