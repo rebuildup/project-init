@@ -92,7 +92,7 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 3. canonical Issue dependency graphからtask graphを作る。
 4. linear hard dependency segmentでstacked PRが適切かを判断する。
 5. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
-6. Supervisorがmutable taskへcurrent `execution_generation` と実行policyを割り当ててspawnする。
+6. Supervisorがdurable taskへcurrent fencing identity（current defaultでは `execution_generation`）と実行policyを割り当ててspawnする。
 7. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
 8. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
 9. meaningful boundaryでcheckpointする。
