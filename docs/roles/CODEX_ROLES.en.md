@@ -6,7 +6,7 @@ Re-evaluate it when Codex models, pricing, availability, subagent behavior, mode
 
 These are project-defined logical roles, not official job assignments made by OpenAI.
 
-For execution isolation, snapshot/result semantics, and Git integration, treat `ADR-0003` and the project-local parallel-orchestration Skill as canonical.
+For logical Worker / Supervisor roles and execution-attempt classes, treat `organization/execution-roles.md` and ADR-0019 as canonical. For execution isolation, snapshot/result semantics, and Git integration, treat `ADR-0003` and the project-local parallel-orchestration Skill as canonical. Model names are not the roles themselves.
 
 ## Sol — coordinator / supervisor role
 
