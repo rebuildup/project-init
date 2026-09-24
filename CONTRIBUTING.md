@@ -122,6 +122,8 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0015: active source security audit / advisory maintenance separation
 - ADR-0016: current release-driven profileのLinear / version intent / main protection / Worktrunk defaults
 - ADR-0017: Constitution / Operating Model / Practice / Skill hierarchy、refinement、policy decay、formal model
+- ADR-0018: merge-commit-only pull request landing
+- ADR-0023: Infisical-first application secret management
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -303,6 +305,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/writing-discipline/SKILL.md`
 - `skills/interaction-discipline/SKILL.md`
 - `skills/security-audit/SKILL.md`
+- `skills/secrets-management/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
@@ -449,6 +452,7 @@ current official sourceを確認すべき対象:
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
 - full promptと標準Skill群の整合
 - README / CONTRIBUTING / ADR整合
+- current Infisical Practice変更時はself-host endpoint / Cloud fallback / project pointer semanticsがPROMPT ja/en・profile・ADR・Skillで一貫
 - broken Markdown structureがない
 - conflicting rulesがない
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
