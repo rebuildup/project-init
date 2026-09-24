@@ -487,7 +487,7 @@ PR topologyは固定しない:
 - changed boundaryに必要なunit/smoke/integration/contract/E2E
 - formatter/lint/type/static/build等のapplicable checks
 - required CI checks
-- current head SHA / immutable artifact identityとvalidation evidenceの一致
+- current head SHAまたはcurrent head SHA / snapshotにprovenanceで結び付いたimmutable artifact identityとvalidation evidenceの一致
 - immediate PR base / target release trunkとのstaleness確認
 
 「all unit tests green」だけをintegration completionにしない。
