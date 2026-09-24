@@ -10,9 +10,9 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress form the highest-level Constitution. Current Git / GitHub / Linear / release-branch / Worktrunk / Supervisor / Skill choices are an Operating Model and Practices that implement the Constitution and may be replaced by mechanisms with equivalent or stronger guarantees. Optimize the whole project subject to the Constitution and explicit decisions; procedure compliance is not an objective by itself.**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress form the highest-level Constitution. Current Git / GitHub / Linear / release-branch / Worktrunk / mise / Supervisor / Skill choices are an Operating Model and Practices that implement the Constitution and may be replaced by mechanisms with equivalent or stronger guarantees. Optimize the whole project subject to the Constitution and explicit decisions; procedure compliance is not an objective by itself.**
 
-The current default operating profile is defined in `organization/profiles/release-driven-solo.md`. Existing weekly release sprint / GitHub delivery / Linear / Worktrunk behavior remains the current default, but it is not itself constitutional correctness.
+The current default operating profile is defined in `organization/profiles/release-driven-solo.md`. Existing weekly release sprint / GitHub delivery / Linear / Worktrunk / mise behavior remains the current default, but it is not itself constitutional correctness.
 
 ---
 
@@ -385,6 +385,24 @@ First-class local targets:
 
 For portable web/backend work, reuse the same Linux sandbox definition where practical and hide host differences behind Supervisor/runtime adapters.
 
+### Project toolchain / bootstrap default
+
+In the current release-driven profile, use mise as the default Practice for project-local runtimes and development CLI bootstrap.
+
+- when mise can manage a runtime or development CLI prerequisite usefully, commit a root `mise.toml` as repository-controlled configuration
+- use `mise install` as the standard fresh-clone / CI / agent tool bootstrap; when a committed mise lockfile is the reproducibility mechanism, require `mise install --locked`
+- do not depend on interactive shell activation for correctness; automation, CI, and agents should normally use `mise exec -- <command>` or `mise run <task>`
+- do not use `latest` as the only reproducibility contract for a required tool; use an exact pin, a bounded version request plus a committed mise lockfile, or an ecosystem-native canonical version source
+- if a canonical version source such as `rust-toolchain.toml` or package-manager metadata already exists, do not add an independent conflicting mise pin; consume/respect the native source where supported or document authority plus divergence checks
+- do not reinterpret compatibility floors such as `engines >=...` as the development version pin
+- mise tasks may wrap canonical build/test/lint scripts, but must not duplicate quality-gate or dependency-manager ownership
+- for external/untrusted PR checkouts, an agent must not run `mise install`, `mise exec`, or `mise run` against repository-controlled mise configuration/tasks without a documented trust review or a bounded sandbox; prefer `MISE_SAFE=1` for supported inspection-only operations before trust is established, and never treat mise itself as an isolation boundary
+- mise does not replace OS packages/system libraries, Nix/NixOS host provisioning, containers/sandboxes, Worktrunk, secret management, or worker isolation
+- on a host where mise is unsupported or incompatible, use an explicit fallback with equivalent version/reproducibility guarantees; never silently fall back to arbitrary host-global tools
+- mise is a Practice, not a Constitutional invariant, and may be replaced under ADR-0017 refinement when another mechanism preserves or strengthens the guarantees
+
+Do not add empty mise configuration merely for policy compliance when the project has no meaningful runtime or CLI prerequisite for it to manage.
+
 Treat Apple Silicon `arm64` as first class and validate differences from x86_64 CI/remote where relevant.
 
 Do not treat WSL itself as worker isolation. Prefer the WSL Linux filesystem for high-frequency Linux-oriented build/watch workloads.
@@ -414,6 +432,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 - dependency / remote-publication / Draft PR lifecycle pointer
 - public-main-protection pointer when applicable
 - decision-precedence pointer
+- project toolchain declaration / mise bootstrap
 - environment bootstrap
 - Supervisor/subagent/recovery entry point
 - validation entry point
