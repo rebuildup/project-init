@@ -26,6 +26,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-audit/SKILL.md` — unknown vulnerabilityのreconnaissance / coverage-led hunting / independent verification / structured reporting。
+- `skills/secrets-management/SKILL.md` — Infisical-firstのapplication secret SoT、self-hosted `https://secrets.rebuildup.dev` をcurrent default control planeとする運用、repository-controlled env schema、CLI-first runtime injection、Machine Identity / GitHub OIDC、agent least-privilege。
 - `skills/security-maintenance/SKILL.md` — framework/runtime脆弱性収集・priority・対応workflowとconfirmed findingのproject priority化。
 - `skills/onboarding/SKILL.md` — fresh contributor向けdocumentation設計・検証。
 - `skills/agent-recovery/SKILL.md` — session/sandbox/context中断からのdurable recovery。
@@ -439,6 +440,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `quality-gate`
 - `engineering-decisions`
 - `security-audit`
+- `secrets-management`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
