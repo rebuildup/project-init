@@ -9,7 +9,7 @@ Layer: **Operating Model + Skill**
 
 非自明な実装をdependency graphへ分解し、Readyまたはstack-readyなnodeをresource/WIP制約内で安全に並行実行する。
 
-Constitutional requirementは「1 worker = 1 particular sandbox」ではなく **Mutable Ownership Safety / Identity Integrity / Organizational Continuity** である。current modelはisolated mutable runtime + immutable snapshot/result + generation fencingでこれを実現する。
+Constitutional requirementは「1 worker = 1 particular sandbox」ではなく **Mutable Ownership Safety / Identity Integrity / Organizational Continuity** である。current modelはisolated mutable runtime + immutable snapshot/result + fencing identity（現在はgeneration-based fencing）でこれを実現する。
 
 より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。Worker / Supervisor のlogical roleと observational / mutable / durable attempt の分類は `organization/execution-roles.md` と ADR-0019 をcanonical sourceとする。
 
@@ -36,7 +36,7 @@ spawn前にroleだけでなくexecution attempt classを決める。
 - Issue dependency graphがdurable dependency SoTであり、Git branch topologyだけでdependencyを管理しない。
 - child lifecycleはparent model processではなくSupervisorが所有する。
 - durable worker task/resultはstale attemptを排除できるfencing identityを持つ。current implementationでは `execution_generation` を使用し、初期generationは `1`、recovery/reassignment時にSupervisorが原子的に進める。
-- result統合前にcurrent generationとの一致を検証し、stale generationを統合しない。
+- result統合前にapplicableなcurrent fencing identityとの一致を検証し、stale identityを統合しない。
 - validation resultはvalidated SHA/snapshotにpinし、stack rebase/update後の別SHAへ流用しない。
 - long-running task / context limit / sandbox recreationでは `agent-recovery` Skillを適用する。
 - `security-audit` のcandidate validationではhunterとverifierを同一agentにせず、fresh verifierへimmutable candidate/evidenceを渡す。final record verificationが必要なprofileでも同じseparationを維持する。
@@ -72,7 +72,7 @@ orchestration側から少なくとも次の観測可能情報を提供する。
 
 agent数増加を線形speedupとみなさない。task mixやhuman/CI bottleneckが異なる期間のthroughput差をagent数の因果効果と断定しない。
 
-estimate達成のためにisolation、snapshot/result、generation fencing、WIP/resource safetyを弱めてはならない。安全なorchestration invariantはforecastより優先する。
+estimate達成のためにisolation、snapshot/result、fencing identity、WIP/resource safetyを弱めてはならない。安全なorchestration invariantはforecastより優先する。
 
 ## Dependency readiness
 
@@ -96,7 +96,7 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 7. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
 8. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
 9. meaningful boundaryでcheckpointする。
-10. worker resultをinspectし、result generationとbase snapshotがcurrent expected stateに一致することを確認する。
+10. worker resultをinspectし、applicableなcurrent fencing identityとbase snapshotがcurrent expected stateに一致することを確認する。
 11. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
 12. integration checkpointごとにrequired validationを行う。
 13. predecessor変更でupstack/downstream branchが更新された場合、affected validationを再実行する。
@@ -132,6 +132,8 @@ network_policy
 budget
 expected_result
 ```
+
+durable workerでは上記に加えて、`recovery_boundary`、durable checkpoint/evidence reference、durable discoverability metadataを必須とする。resume/recovery時は`checkpoint_sha_or_snapshot`も必須とする。
 
 dependency / durable GitHub deliveryを使わない短命taskでは該当しないfieldはnull/omittedでよい。
 
@@ -178,6 +180,8 @@ validation_results
 known_issues
 ```
 
+durable workerでは上記に加えて、`checkpoint_sha_or_snapshot`、`status`、`completed_steps`、`next_steps`、`pending_validation`、`external_side_effects`、`artifact_refs`、`updated_at`を含むrecovery handoffを必須とする。GitHub/branch deliveryの場合はpublished remote head、Draft PR identity、Issue/branch metadataも必須とする。
+
 applicableなcurrent fencing identity（current implementationでは `execution_generation`）と一致しないresultは自動統合しない。
 
 recorded predecessor/base snapshotとcurrent expected baseが異なるresultはstale candidateとしてreconcileし、盲目的に統合しない。
@@ -219,7 +223,7 @@ review後にhead SHAが変わった場合、古いapproval/validationがcurrent 
 
 parent agentが停止してもsafeなchildを自動破棄しない。
 
-recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、current generationを確認してから統合する。
+recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、applicableなcurrent fencing identityを確認してから統合する。
 
 GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + Draft PRがない状態を正常状態として扱わない。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とする。
 
