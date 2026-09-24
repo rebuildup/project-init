@@ -59,6 +59,7 @@ The following rules are the current Operating Model / Practices. They implement 
 - Required verification levels are selected from change surface/risk.
 - Continuously triage framework/runtime security information.
 - For unknown source-code security defects, use `security-audit` to make principal / trust-boundary / entry-surface / attack-class coverage explicit, and confirm a finding only after a fresh verifier independent from the hunter has tried to refute it.
+- For application/service secret values, use Infisical as the current default SoT unless encrypted secret-in-Git is an explicit requirement. The current default control plane is self-hosted `https://secrets.rebuildup.dev` (API: `https://secrets.rebuildup.dev/api`). Keep the secret schema / required keys / non-secret metadata repository-controlled, and keep the current-default provider endpoint plus applicable project ID / environment/path mapping discoverable in repository-controlled metadata. Prefer CLI-first runtime injection, make wrappers/CI select the endpoint explicitly rather than silently falling back to managed Infisical Cloud, and use OIDC + scoped Machine Identities on the self-hosted control plane for GitHub Actions when available. Progressively disclose the provider procedure through the `secrets-management` Skill.
 - Persist project knowledge in repository-controlled docs rather than chat/private memory.
 - Before creating or modifying persistent reader-facing prose such as README/documentation, ADRs, Issues, Pull Requests, commit messages, code comments, review comments, or release notes, load and apply `writing-discipline`. Do not serialize conversation, investigation, or execution context into persistent artifacts merely because it exists in the current context.
 - Keep recovery/handoff operational state out of reader-facing prose and record it through the designated checkpoint/recovery mechanism. A reader-facing artifact is not a recovery journal.
@@ -92,7 +93,7 @@ At minimum inspect:
 - GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
-- env examples / `.gitignore`
+- env schema / examples / `.gitignore` / secret-provider configuration / identity scope
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / release-source policy
 - repository PR merge-method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
@@ -121,7 +122,7 @@ Canonical state should be representable by at least:
 1. canonical Git remote
 2. released ref: `main` or an explicitly equivalent branch
 3. active release ref: `release-x-y-z`
-4. repository-controlled environment definition
+4. repository-controlled environment / secret schema + selected secret-value provider state
 5. GitHub Issue work + dependency state (canonical SoT)
 6. release planning control plane — Linear, declared as the sole plane
 7. project-wide policy / architecture / design / specification / ADRs
@@ -131,6 +132,7 @@ Canonical state should be representable by at least:
 Source/work state:
 
 - released code/config/design: `main`
+- application/service secret values: selected secret provider (current default: Infisical). The repository canonically stores schema / required keys / non-secret metadata, not secret values
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues (canonical SoT)
 - release planning control plane: Linear, whichever the project declares — not a durable SoT
@@ -428,6 +430,7 @@ Default Skills:
 - `quality-gate`
 - `engineering-decisions`
 - `security-audit`
+- `secrets-management`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
