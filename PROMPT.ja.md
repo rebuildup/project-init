@@ -278,7 +278,7 @@ spawn request候補:
 - filesystem/network policy
 - budget / timeout / maximum depth
 - expected result format
-- parent execution generation
+- parent fencing identity / current implementationがgeneration方式の場合のexecution generation
 
 subagent/workerへdurable branch作成権限を与える場合、その権限はremote publication + Draft PR作成・metadata設定とセットです。GitHubはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成後にfirst meaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にDraft PRを作成してください。
 
@@ -335,6 +335,7 @@ target_release
 base_snapshot
 predecessor_snapshot
 fencing_identity_or_execution_generation
+attempt_class
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -876,7 +877,7 @@ fresh agentはprevious conversationを推測しないでください。
 10. stale base / predecessor / conflicting integrationを確認。
 11. remaining planを再構成。
 12. safeな最小verificationでreconstructed stateを確認。
-13. execution generation/leaseを更新して続行。
+13. applicableなfencing identityを原子的に再取得または更新して続行。
 
 native resumeに成功してもbranch/PR/checkpointとの整合を確認してから続行してください。
 
@@ -891,7 +892,7 @@ parentが死亡してもsafeならchildを即cancelしないでください。
 recovered parent/coordinatorは:
 
 - child一覧を再発見
-- input snapshot / predecessor snapshot / execution generationを確認
+- input snapshot / predecessor snapshot / applicableなcurrent fencing identityを確認
 - running / completed / failed / orphanedを分類
 - completed resultをimmutable resultとして回収
 - durable branch childではpublished remote head / Draft PR identity / metadataをreconcile
@@ -902,14 +903,15 @@ recovered parent/coordinatorは:
 
 network partitionやtimeout後に旧agentと新agentが同時実行される可能性を前提にしてください。
 
-Supervisorはtaskごとにleaseまたはgeneration/fencing tokenを持たせてください。
+Supervisorはtaskごとにleaseまたはfencing identityを持たせてください。
 
-- recovery時に `execution_generation` を進める
-- worker resultへgenerationを付与
-- stale generationからのbranch integration / external writeを拒否
+- recovery/reassignment時はobserved current identityから新しいfencing identityを原子的に取得
+- current implementationがgeneration方式の場合だけ、そのidentity transitionとして `execution_generation` を進める
+- worker resultへapplicableなfencing identityを付与
+- stale fencing identityからのbranch integration / external writeを拒否
 - heartbeat消失だけで即同一side effectを再実行しない
 
-同じticket branchへ複数generationが同時pushすることを通常運用にしないでください。
+同じticket branchへ複数fencing identityが同時pushすることを通常運用にしないでください。
 
 ---
 
@@ -1322,7 +1324,7 @@ project/runtimeが許す範囲で定期的に:
 - fresh contributor/new agent向けdocsが存在
 - session/context消失後にfresh agentがIssue/PR/Git/checkpointからtaskを復旧可能
 - provider/sandbox消失に対するhard checkpoint boundaryが定義
-- execution generation/fencingでduplicate continuationを防止可能
+- fencing identityでduplicate continuationを防止可能
 - parent loss後にchild state/resultを再発見可能
 - external side effectのambiguous retryを防ぐjournal/idempotency policyが存在
 - partial/stale validationをfull passとして再利用しない
