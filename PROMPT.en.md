@@ -277,7 +277,7 @@ Spawn input may include:
 - filesystem/network policy
 - budget / timeout / maximum depth
 - expected result format
-- parent execution generation
+- parent fencing identity / execution generation when the current implementation uses generation-based fencing
 
 If a subagent/worker is allowed to create a durable branch, that authority includes remote publication, Draft PR creation, and metadata maintenance. GitHub must be able to resolve the remote head and the head must differ from its base, so after branch creation the worker must immediately create the first meaningful commit, publish it to the canonical remote, verify that the remote branch head SHA matches that commit SHA, and then immediately create the Draft PR.
 
@@ -333,7 +333,8 @@ issue_or_task_id
 target_release
 base_snapshot
 predecessor_snapshot
-execution_generation
+fencing_identity_or_execution_generation
+attempt_class
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -768,7 +769,7 @@ predecessor_issue_or_pr
 predecessor_sha
 base_sha
 checkpoint_sha_or_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 status
 completed_steps
 next_steps
@@ -822,7 +823,7 @@ A fresh agent must not guess what the previous agent was thinking.
 10. check stale base / predecessor / integration conflicts
 11. reconstruct the remaining plan
 12. run minimal safe verification to trust reconstructed state
-13. advance execution lease/generation and continue
+13. atomically reacquire or advance the applicable fencing identity and continue
 
 Even after native resume succeeds, reconcile it with branch/PR/checkpoint state before continuing.
 
@@ -837,7 +838,7 @@ Do not automatically cancel safe children just because the parent dies.
 A recovered parent/coordinator should:
 
 - rediscover children
-- verify input snapshot / predecessor snapshot / execution generation
+- verify input snapshot / predecessor snapshot / applicable current fencing identity
 - classify running/completed/failed/orphaned
 - collect completed immutable results
 - reconcile published remote head / Draft PR identity / metadata for durable-branch children
@@ -846,14 +847,15 @@ A recovered parent/coordinator should:
 
 Assume an old agent and a recovered agent can overlap after a network partition or timeout.
 
-Give each task a lease or execution generation/fencing token.
+Give each task a lease or fencing identity.
 
-- advance `execution_generation` on recovery
-- attach generation to worker results
-- reject branch integration / external writes from stale generations
+- on recovery/reassignment, atomically acquire a new fencing identity from the observed current identity
+- if the current implementation uses generation-based fencing, advance `execution_generation` as part of that identity transition
+- attach the applicable fencing identity to worker results
+- reject branch integration / external writes from stale fencing identities
 - do not interpret heartbeat loss as permission to blindly repeat side effects
 
-Do not normally allow multiple generations to push the same ticket branch concurrently.
+Do not normally allow multiple fencing identities to push the same ticket branch concurrently.
 
 ---
 
@@ -1261,7 +1263,7 @@ Verify at least:
 - fresh-contributor/new-agent documentation exists
 - after session/context loss, a fresh agent can recover the task from Issue/PR/Git/checkpoint state
 - a hard-checkpoint boundary exists for provider/sandbox loss
-- execution generation/fencing prevents duplicate continuation
+- fencing identity prevents duplicate continuation
 - child state/results remain discoverable after parent loss
 - side-effect journaling/idempotency prevents ambiguous retries
 - partial/stale validation is not reused as a full pass
