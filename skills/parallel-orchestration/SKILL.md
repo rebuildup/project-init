@@ -11,7 +11,7 @@ Layer: **Operating Model + Skill**
 
 Constitutional requirementは「1 worker = 1 particular sandbox」ではなく **Mutable Ownership Safety / Identity Integrity / Organizational Continuity** である。current modelはisolated mutable runtime + immutable snapshot/result + fencing identity（現在はgeneration-based fencing）でこれを実現する。
 
-より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。Worker / Supervisor のlogical roleと observational / mutable / durable attempt の分類は `organization/execution-roles.md` と ADR-0019 をcanonical sourceとする。
+より強いagent/runtimeが同等以上のguaranteeを別mechanismで提供する場合は、ADR-0017のrefinement contractに従って置換できる。Worker / Supervisor のlogical roleと observational / mutable / durable attempt の分類は `organization/execution-roles.md` と ADR-0019 をcanonical sourceとする。Herdrをselected runtime Practiceとして使う場合は `herdr-runtime` Skillを適用するが、Herdr lifecycle stateをcanonical task/result stateにしない。
 
 ## Attempt-class routing
 
