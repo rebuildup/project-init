@@ -93,6 +93,7 @@ badgeは装飾ではなく、projectの現在状態・配布情報・信頼性�
 最低限:
 
 - supported host: macOS / WSL/Linux等
+- project-local toolchain bootstrap: mise採用時は `mise.toml` / version authority / lock strategyを記述し、lockfile運用なら `mise install --locked` をcanonical bootstrapにする
 - runtime/sandbox bootstrap
 - dependency install
 - env setup
@@ -106,6 +107,8 @@ badgeは装飾ではなく、projectの現在状態・配布情報・信頼性�
 を実repoのcommandから記述する。
 
 存在しないcommandや古いsetupを推測で書かない。
+
+mise採用projectはshell activationへ依存せず `mise exec -- ...` / `mise run <task>` を使える形にし、native canonical version sourceとの二重pinを避ける。external/untrusted PRではmise command実行前にtrust reviewまたはbounded sandboxを必須とし、mise自体をisolation boundaryにしない。
 
 ## 5. Architecture guide
 
@@ -218,6 +221,7 @@ docsもquality gateの対象にする。
 - bootstrap/run/validation command変更
 - architecture boundary変更
 - framework/runtime migration
+- mise / toolchain bootstrap / version authority / lock strategy変更
 - environment/host support変更
 - sprint cadence / release workflow変更
 - stacked PR / dependency workflow変更
@@ -335,6 +339,10 @@ GitHubのstored secret valueを後から読み戻せることをbootstrap/recove
 - home directory config / implicit persistent memoryに依存していないか
 - `.tmp/` / `.reference/` / actual envがignoredか
 - env examples / lock/reproducibility configがcommittedか
+- mise等のrepository-controlled bootstrap pathとcanonical `mise exec` / `mise run` entry pointをfresh environmentで再現できるか
+- mise lockfile運用ならbounded request + `mise install --locked` で不足entryを検出できるか
+- external/untrusted PRでmise実行前のtrust review / bounded sandbox gateがあるか
+- native canonical version sourceとmiseに競合する二重pinがないか
 - `.reference/` がなくてもbuild/test/runできるか
 - local validationとCIが同じcanonical semanticsを呼ぶか
 - documented bootstrap/run/validation commandをfresh environmentで実行できるか
