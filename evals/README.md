@@ -40,6 +40,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 - `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
 - `policy-evaluation/merge-method-contract.sh` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
+- `policy-evaluation/mise-toolchain-contract.sh` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / prompt / onboardingへ接続され、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
 - `policy-evaluation/constitutional-refinement-scenario.md` — current Practiceより強いnative mechanismをtool-name complianceで拒否せず、上位guaranteeからrefinement判断できるかを確認するcold scenario
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
@@ -53,6 +54,7 @@ controls:
 ```bash
 bash evals/policy-evaluation/constitutional-contract.sh
 bash evals/policy-evaluation/merge-method-contract.sh
+bash evals/policy-evaluation/mise-toolchain-contract.sh
 bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
