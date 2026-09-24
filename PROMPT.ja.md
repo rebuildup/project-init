@@ -10,9 +10,9 @@
 
 基本思想:
 
-> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress を最上位のConstitutionとする。現在のGit / GitHub / Linear / release branch / Worktrunk / Supervisor / Skillは、そのConstitutionを実現するOperating Model / Practiceであり、同等以上のguaranteeを示せるより良いmechanismへ置換可能とする。procedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress を最上位のConstitutionとする。現在のGit / GitHub / Linear / release branch / Worktrunk / mise / Supervisor / Skillは、そのConstitutionを実現するOperating Model / Practiceであり、同等以上のguaranteeを示せるより良いmechanismへ置換可能とする。procedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。**
 
-current default operating profileは `organization/profiles/release-driven-solo.md` に定義する。既存のweekly release sprint / GitHub delivery / Linear / Worktrunk等はこのprofileとして維持するが、Constitutionそのものとして扱わない。
+current default operating profileは `organization/profiles/release-driven-solo.md` に定義する。既存のweekly release sprint / GitHub delivery / Linear / Worktrunk / mise等はこのprofileとして維持するが、Constitutionそのものとして扱わない。
 
 ---
 
@@ -400,6 +400,24 @@ implementation workerでは最低限次を隔離してください。
 
 portable Web/backend taskは可能な限り同じLinux sandbox definitionを使い、host差をSupervisor/runtime adapterへ閉じ込めてください。
 
+### Project toolchain / bootstrap default
+
+current release-driven profileでは、project-local runtime / development CLI の標準bootstrap Practiceとしてmiseを使用してください。
+
+- runtime / development CLI prerequisiteをmiseで扱える場合、root `mise.toml` をrepository-controlled configurationとしてcommitする
+- fresh clone / CI / agentでは `mise install` を標準tool bootstrapとし、committed mise lockfileをreproducibility mechanismとして使う場合は `mise install --locked` を必須とする
+- shell activationへ依存せず、automation / CI / agentは原則 `mise exec -- <command>` または `mise run <task>` からproject tool environmentを使用する
+- required toolを `latest` だけで表現せず、exact pin、bounded version request + committed mise lockfile、またはecosystem-native canonical version sourceで再現可能にする
+- `rust-toolchain.toml`、package-manager metadata等のcanonical version sourceが既にある場合、mise側へ独立した競合pinを追加しない。miseのidiomatic version integration等で既存sourceを尊重するか、authorityとdivergence checkを明示する
+- `engines >=...` 等のcompatibility floorをdevelopment version pinとして誤用しない
+- mise taskは既存のcanonical build/test/lint scriptをwrapしてよいが、quality gateやdependency managerのownershipを複製しない
+- external/untrusted PR checkoutでは、repository-controlledなmise config/taskに対するdocumented trust reviewまたはbounded sandboxなしにagentが `mise install` / `mise exec` / `mise run` を実行してはいけない。inspection-onlyで対応可能ならtrust確立前は `MISE_SAFE=1` を優先し、mise自体をisolation boundaryとして扱わない
+- miseはOS package/system library、Nix/NixOS host provisioning、container/sandbox、Worktrunk、secret manager、worker isolationの代替ではない
+- miseがunsupported / incompatibleなhostでは、同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用し、arbitraryなhost-global toolへsilent fallbackしない
+- miseはPracticeでありConstitutionではない。同等以上のguaranteeを持つmechanismへADR-0017のrefinement contractで置換可能
+
+projectにmeaningfulなruntime / CLI prerequisiteがなくmiseを追加しても実質的な保証が増えない場合は、空の設定を形式的に追加する必要はありません。
+
 Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/remoteとの差を必要に応じて検証してください。
 
 WSL自体をworker isolationとみなしてはいけません。Linux-oriented repoは高頻度build/watchではWSL Linux filesystem側を優先してください。
@@ -431,6 +449,7 @@ rootに置くもの:
 - dependency / remote publication / Draft PR lifecycle pointer
 - public main protection pointer when applicable
 - decision precedence pointer
+- project toolchain declaration / mise bootstrap
 - environment bootstrap
 - Supervisor/subagent/recovery entry point
 - validation entry point

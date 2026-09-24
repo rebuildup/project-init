@@ -6,6 +6,7 @@ constitution="$root/constitution/CONSTITUTION.md"
 profile="$root/organization/profiles/release-driven-solo.md"
 formal="$root/formal/Organization.tla"
 
+# Report a constitutional contract failure and stop the check.
 fail() {
   printf 'constitutional-contract: FAIL: %s\n' "$*" >&2
   exit 1
@@ -21,9 +22,13 @@ do
 done
 
 # Tool/provider/workflow names belong below the Constitution layer.
-for forbidden in   "Worktrunk"   "Linear"   "GitHub"   "Codex"   "Claude"   "Orca"   "release-x-y-z"   "Draft PR"
+for forbidden in   "Worktrunk"   "mise"   "Linear"   "GitHub"   "Codex"   "Claude"   "Orca"   "release-x-y-z"   "Draft PR"
 do
-  if grep -Fq "$forbidden" "$constitution"; then
+  if [ "$forbidden" = "mise" ]; then
+    if grep -Eq '(^|[^[:alnum:]_])mise([^[:alnum:]_]|$)' "$constitution"; then
+      fail "tool/workflow-specific term leaked into Constitution: $forbidden"
+    fi
+  elif grep -Fq "$forbidden" "$constitution"; then
     fail "tool/workflow-specific term leaked into Constitution: $forbidden"
   fi
 done
