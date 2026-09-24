@@ -8,7 +8,7 @@ project-init のcanonical hierarchyは次です。
 
 1. **Constitution** — tool/provider-independentなorganizational property
 2. **Operating Model** — 現在のrole / planning / delivery / review / release topology
-3. **Practice** — Worktrunk / GitHub / Linear / CI等による交換可能な実装
+3. **Practice** — Worktrunk / mise / GitHub / Linear / CI等による交換可能な実装
 4. **Skill** — context-dependent judgmentのprogressive disclosure
 
 [`constitution/CONSTITUTION.md`](../constitution/CONSTITUTION.md) が最上位contractです。current workflowは [`organization/profiles/release-driven-solo.md`](../organization/profiles/release-driven-solo.md) にまとめ、具体toolをConstitutionへ昇格させません。
@@ -56,6 +56,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0016.md` — Linear標準化、release version intent、main protection baseline、Worktrunk default。
 - `ADR-0017.md` — Constitution / Operating Model / Practice / Skillの階層化とrefinement-based governance。
 - `ADR-0018.md` — current release-driven profileのPR landingをmerge commitへ固定し、repository merge settingsをreconcileする方針。
+- `ADR-0022.md` — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、reproducibilityとnative version sourceとの責務境界を定義する方針。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
@@ -87,7 +88,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 
 基本思想:
 
-> 最上位ではIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを守る。Git / GitHub / Linear / Worktrunk / Supervisor / release branchはcurrent operating profileによる実装であり、Constitutionを満たす限り置換可能とする。
+> 最上位ではIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを守る。Git / GitHub / Linear / Worktrunk / mise / Supervisor / release branchはcurrent operating profileによる実装であり、Constitutionを満たす限り置換可能とする。
 
 ## Execution model
 
@@ -128,6 +129,8 @@ Agent Supervisor
 - remote Linux sandbox
 
 portable Web/backend taskはmacOSでもWindows/WSLでも可能な限り同じLinux sandbox definitionで実行し、CI/remoteとの差を減らします。
+
+project-local runtime / development CLI の標準bootstrap layerはmiseです。repositoryで `mise.toml` を管理し、fresh clone / CI / agentは `mise install` と `mise exec -- ...` / `mise run <task>` を標準入口として使用します。committed mise lockfileをreproducibility mechanismとして使う場合は `mise install --locked` を使用し、既存のecosystem-native canonical version sourceがある場合は独立した競合pinを作らず、exact pin・bounded version request + committed mise lockfile・native canonical sourceのいずれかで再現性を維持します。miseはNix/container/system package/sandbox/secret managerの代替ではありません。
 
 Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/remoteとの差を必要に応じて検証します。
 
