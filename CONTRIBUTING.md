@@ -71,6 +71,9 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
 - macOS / Apple Silicon、Windows+WSL、Linux/NixOSのportabilityを壊していないか
+- project-local runtime / development CLIがrepository-controlledなmiseまたは同等保証の明示的mechanismから再現できるか
+- miseと `rust-toolchain.toml` 等のnative canonical version sourceに競合する二重pinがないか
+- miseをOS/system package、Nix/container、secret management、worker isolationの代替として扱っていないか
 - WSL自体をworker isolationとして扱っていないか
 - `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
@@ -123,6 +126,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0016: current release-driven profileのLinear / version intent / main protection / Worktrunk defaults
 - ADR-0017: Constitution / Operating Model / Practice / Skill hierarchy、refinement、policy decay、formal model
 - ADR-0018: merge-commit-only pull request landing
+- ADR-0019: logical Worker / Supervisor roles and tiered execution attempts
+- ADR-0020: verification executors and worktree-independent native validation
+- ADR-0021: Herdr as an optional agent runtime Practice
+- ADR-0022: mise as default project-local toolchain/bootstrap Practice
 - ADR-0023: Infisical-first application secret management
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
@@ -276,6 +283,7 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 
 - project purpose/scope理解
 - architecture/boundary理解
+- project toolchain declaration / mise bootstrap
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - weekly sprint / Issue selection / dependency / stack判断
