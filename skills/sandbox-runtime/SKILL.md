@@ -11,6 +11,8 @@ Layer: **Practice**
 
 特定sandbox/provider自体を要求するのではなく、taskに必要なfilesystem/process/network/credential/service-state separationのguaranteeを要求する。
 
+実装用mutable workspaceとverification環境を同一視しない。ADR-0020のVerification Executorは、sourceをauthoringしない限りimplementation worker用worktree/sandbox topologyを要求せず、検証対象artifact identityとenvironment ownershipを別contractで扱う。
+
 ## Current practice guarantees
 
 - 1 implementation worker = 1 isolated workspace/runtime。
@@ -65,6 +67,25 @@ WSL/Linuxのlocal workspace materializationではWorktrunkをpreferred frontend�
 - `wt merge main` 等をGitHub delivery policyの代替integration pathとして使わない。
 
 詳細な操作は `worktree-workflow` Skillに置き、このSkillではisolation semanticsをcanonicalに保つ。
+
+## Verification-only native environments
+
+Windows native / macOS native / GUI application / physical device / installed application / CI等でworktreeを作れない、または作ることが検証対象を歪める場合は、verification-only executorとして扱える。
+
+優先materialization:
+
+1. immutable package / installed artifact / image digest / deployment revision
+2. clean dedicated checkout
+3. disposable clone / snapshot
+4. unavoidable場合のみexclusive leaseを取ったsingleton checkout
+
+verification executorは最低限、candidate identity、environment identity、procedure、result、evidence artifact、source mutation有無を記録する。
+
+singleton environmentはparallelizeを要求しない。exclusive lease / serialization / queue等でMutable Ownership Safetyを満たす。
+
+unexpectedなtracked source/config mutationが生じた場合、そのままcurrent candidateのverification evidenceとして採用しない。expected behaviorとしてmutation自体を検証する場合を除き、clean candidateで再実行する。
+
+verification中にfix実装へ移る場合は、新しいmutable Worker attemptとして切り替える。
 
 ## Portability
 

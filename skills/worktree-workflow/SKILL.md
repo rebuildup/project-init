@@ -13,6 +13,8 @@ Worktrunk自体はConstitutionではない。採用理由はworkspace lifecycle 
 
 単にagentがnative `git worktree` に慣れていることはdeviation evidenceにならない。native WindowsをこのSkillの必須targetにはしない。
 
+このSkillは主に**authoring workspace lifecycle**を扱う。ADR-0020のverification-only executorへworktree作成を機械的に要求しない。Windows native等でproject/tooling constraintによりworktreeが使えない検証は`sandbox-runtime` / `quality-gate`のverification contractへrouteする。
+
 ## Current practice guarantees
 
 - Worktrunkはworkspace lifecycle toolであり、execution isolation boundaryではない。
@@ -178,7 +180,17 @@ wt switch release-x-y-z
 
 ## Fallback and recovery
 
-Worktrunkが利用できない場合はnative `git worktree`へ縮退してよい。ただしbranch naming、isolated runtime、port/state uniqueness、Draft PR lifecycle等のsemanticsは維持する。
+### Authoring
+
+Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、Draft PR lifecycle等のapplicable semanticsは維持する。
+
+worktree自体を作れないauthoring environmentでは、同じshared checkoutへ複数workerを並行配置しない。isolated clone / sandbox / serialized ownership等、同等以上のmutable ownership guaranteeを選ぶ。
+
+### Verification-only
+
+verification-only executionはworktree fallback chainの対象ではない。immutable candidate artifactをcleanにmaterializeできれば、package / installed build / clean checkout / disposable clone / serialized singleton checkout等を利用できる。
+
+singleton checkoutを使う場合はdirty stateを暗黙に上書きせず、exclusive ownershipとbefore/after state auditを行う。validation中にsource authoringへ移行した場合はmutable worker policyへpromotionする。
 
 fresh environmentではGit refs、Issue/PR metadata、committed `.config/wt.toml`、project docsからworkflowを再構成できなければならない。user-level Worktrunk configだけに必要情報を残さない。
 
