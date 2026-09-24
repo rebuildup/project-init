@@ -59,6 +59,7 @@ current default operating profileは `organization/profiles/release-driven-solo.
 - verification levelは変更surface/riskから決める。
 - framework/runtime security情報を継続的にpriority化する。
 - source codeの未知security defectは `security-audit` でprincipal / trust boundary / entry surface / attack classのcoverageを明示して探索し、hunterと分離したfresh verifierの反証後にのみconfirmed findingとする。
+- application / serviceのsecret valueは、encrypted secret-in-Gitがexplicit requirementでない限りInfisicalをcurrent default SoTとする。current default control planeはself-hosted `https://secrets.rebuildup.dev`（API: `https://secrets.rebuildup.dev/api`）とし、repositoryにはsecret schema / required key / non-secret metadataに加えて、current defaultで使用するprovider endpoint / project ID / environment/path mapping等のnon-secret pointerをdiscoverableに保持する。通常操作はCLI-first、runtime injectionを優先し、wrapper / CIはendpointを明示してmanaged Cloudへ暗黙fallbackさせない。GitHub Actionsは可能ならself-host側のOIDC + scoped Machine Identityを使用する。詳細は `secrets-management` Skillへprogressive disclosureする。
 - project knowledgeをchat/private memoryではなくrepository-controlled docsへ残す。
 - README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する前に `writing-discipline` をloadして適用する。conversation / investigation / execution contextがcurrent contextに存在するという理由だけでpersistent artifactへserializeしてはいけない。
 - recovery / handoffのoperational stateはreader-facing proseへ混在させず、designated checkpoint / recovery mechanismへ記録する。reader-facing artifactはrecovery journalではない。
@@ -92,7 +93,7 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
-- env examples / `.gitignore`
+- env schema / examples / `.gitignore` / secret provider configuration / identity scope
 - repository visibility
 - `main` branch protection / ruleset / bypass / conversation resolution / approval count / required-status-check policy
 - repository PR merge method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
@@ -119,7 +120,7 @@ canonical stateは最低限次で表現してください。
 1. canonical Git remote
 2. released ref: `main` またはprojectが明示する同等branch
 3. active release ref: `release-x-y-z`
-4. repository-controlled environment definition
+4. repository-controlled environment / secret schema + selected secret-value provider state
 5. GitHub Issue work + dependency state（canonical SoT）
 6. Linear release planning / health / portfolio control plane
 7. project-wide policy / architecture / design / specification / ADR
@@ -129,6 +130,7 @@ canonical stateは最低限次で表現してください。
 source/work state:
 
 - released code/config/design: `main`
+- application / service secret values: selected secret provider（current default: Infisical）。repositoryはschema / required key / non-secret metadataをcanonicalに持ち、secret valueを持たない
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues（canonical SoT）
 - release planning / health / portfolio control plane: Linear Projects / Initiatives。durable implementation/dependency SoTはGitHub Issues
@@ -445,6 +447,7 @@ rootに置くもの:
 - `quality-gate`
 - `engineering-decisions`
 - `security-audit`
+- `secrets-management`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`

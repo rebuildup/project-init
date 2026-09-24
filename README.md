@@ -141,6 +141,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
+   ├─ secrets-management/
    ├─ security-audit/
    ├─ security-maintenance/
    ├─ worktree-workflow/
@@ -161,6 +162,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0016`](./docs/adr/ADR-0016.md) — current release-driven profileのLinear / version / `main` protection / Worktrunk defaults。
 - [`ADR-0017`](./docs/adr/ADR-0017.md) — Constitution / Operating Model / Practice / Skillを分離し、refinement・policy decay・formal modelを導入するorganizational architecture。
 - [`ADR-0018`](./docs/adr/ADR-0018.md) — current release-driven profileのPR landingをmerge commitへ固定し、squash/rebase mergeを無効化する判断。
+- [`ADR-0023`](./docs/adr/ADR-0023.md) — application secret valueをInfisicalへ集約し、current default control planeをself-hosted `https://secrets.rebuildup.dev` としたうえで、repository-controlled schema / CLI-first / OIDC / least-privilegeを標準化するPractice。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。

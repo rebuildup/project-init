@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0023
 
 ## Purpose
 
@@ -52,6 +52,21 @@
 - worktree自体をruntime isolation proofとして扱わない
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
+
+### Secret / environment defaults
+
+- application / serviceのsecret valueはInfisicalをcurrent default SoTとする
+- current default control planeはself-hosted `https://secrets.rebuildup.dev` とし、APIは `https://secrets.rebuildup.dev/api`
+- current defaultで使用するprovider endpoint / project ID / environment/path mapping等のnon-secret pointerをrepositoryからdiscoverableにする
+- wrapper / CI / runtimeはprovider endpointを明示し、managed Infisical Cloudへ暗黙fallbackしない
+- required key / type / validation / non-secret metadataはrepository-controlled schemaとして保持する
+- normal local workflowはCLI-firstとし、runtime injectionを優先する
+- plaintext `.env` をcanonical storeにしない
+- human / agent / CIはidentityを分離し、project / environment / path / actionをleast privilegeにする
+- GitHub Actionsは利用可能ならOIDC + scoped Machine Identityを使用し、long-lived master credentialをdefaultにしない
+- generic CIへproduction secretを渡さない
+- NixOS / dotfiles / bootstrap等 encrypted secret-in-Git がexplicit requirementならSOPS等へdeviateできる
+- provider-specific procedureは `secrets-management` Skillへprogressive disclosureする
 
 ### Quality / evidence
 
