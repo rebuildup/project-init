@@ -14,6 +14,12 @@ must_contain() {
   grep -Fq "$text" "$R/$file" || fail "$file missing: $text"
 }
 
+must_match() {
+  local file=$1
+  local pattern=$2
+  grep -Eq "$pattern" "$R/$file" || fail "$file missing pattern: $pattern"
+}
+
 PROFILE="organization/profiles/release-driven-solo.md"
 SKILL="skills/github-delivery/SKILL.md"
 PROMPT_JA="PROMPT.ja.md"
@@ -22,21 +28,21 @@ CONTRIB="CONTRIBUTING.md"
 ADR="docs/adr/ADR-0018.md"
 
 must_contain "$PROFILE" "PR landing method: merge commit only"
-must_contain "$PROFILE" 'allow_merge_commit=true'
-must_contain "$PROFILE" 'allow_squash_merge=false'
-must_contain "$PROFILE" 'allow_rebase_merge=false'
+must_match "$PROFILE" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
+must_match "$PROFILE" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
+must_match "$PROFILE" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
 
-must_contain "$SKILL" 'allow_merge_commit = true'
-must_contain "$SKILL" 'allow_squash_merge = false'
-must_contain "$SKILL" 'allow_rebase_merge = false'
+must_match "$SKILL" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
+must_match "$SKILL" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
+must_match "$SKILL" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
 must_contain "$SKILL" 'methodを暗黙選択せず `merge` を明示'
 
-must_contain "$PROMPT_JA" 'allow_merge_commit=true'
-must_contain "$PROMPT_JA" 'allow_squash_merge=false'
-must_contain "$PROMPT_JA" 'allow_rebase_merge=false'
-must_contain "$PROMPT_EN" 'allow_merge_commit=true'
-must_contain "$PROMPT_EN" 'allow_squash_merge=false'
-must_contain "$PROMPT_EN" 'allow_rebase_merge=false'
+must_match "$PROMPT_JA" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
+must_match "$PROMPT_JA" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
+must_match "$PROMPT_JA" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
+must_match "$PROMPT_EN" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
+must_match "$PROMPT_EN" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
+must_match "$PROMPT_EN" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
 
 must_contain "$CONTRIB" 'current release-driven profileではGitHub Pull Requestをmerge commitでlandします。'
 must_contain "$ADR" 'current release-driven profileでGitHub Pull Requestをlandする場合、標準methodは **merge commit** のみとする。'

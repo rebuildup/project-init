@@ -71,6 +71,9 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - user-requested scopeを独自MVPへ縮小する余地を増やしていないか
 - hidden state / unrecoverable local stateを増やしていないか
 - macOS / Apple Silicon、Windows+WSL、Linux/NixOSのportabilityを壊していないか
+- project-local runtime / development CLIがrepository-controlledなmiseまたは同等保証の明示的mechanismから再現できるか
+- miseと `rust-toolchain.toml` 等のnative canonical version sourceに競合する二重pinがないか
+- miseをOS/system package、Nix/container、secret management、worker isolationの代替として扱っていないか
 - WSL自体をworker isolationとして扱っていないか
 - `.env` / `.tmp/` / `.reference/` policyと矛盾しないか
 - canonical Git remote/refをsource SoTとして維持しているか
@@ -122,6 +125,12 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0015: active source security audit / advisory maintenance separation
 - ADR-0016: current release-driven profileのLinear / version intent / main protection / Worktrunk defaults
 - ADR-0017: Constitution / Operating Model / Practice / Skill hierarchy、refinement、policy decay、formal model
+- ADR-0018: merge-commit-only pull request landing
+- ADR-0019: logical Worker / Supervisor roles and tiered execution attempts
+- ADR-0020: verification executors and worktree-independent native validation
+- ADR-0021: Herdr as an optional agent runtime Practice
+- ADR-0022: mise as default project-local toolchain/bootstrap Practice
+- ADR-0023: Infisical-first application secret management
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -274,6 +283,7 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 
 - project purpose/scope理解
 - architecture/boundary理解
+- project toolchain declaration / mise bootstrap
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - weekly sprint / Issue selection / dependency / stack判断
@@ -303,6 +313,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/writing-discipline/SKILL.md`
 - `skills/interaction-discipline/SKILL.md`
 - `skills/security-audit/SKILL.md`
+- `skills/secrets-management/SKILL.md`
 - `skills/security-maintenance/SKILL.md`
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
@@ -449,6 +460,7 @@ current official sourceを確認すべき対象:
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
 - full promptと標準Skill群の整合
 - README / CONTRIBUTING / ADR整合
+- current Infisical Practice変更時はself-host endpoint / Cloud fallback / project pointer semanticsがPROMPT ja/en・profile・ADR・Skillで一貫
 - broken Markdown structureがない
 - conflicting rulesがない
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない

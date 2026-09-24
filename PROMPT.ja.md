@@ -10,9 +10,9 @@
 
 基本思想:
 
-> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress を最上位のConstitutionとする。現在のGit / GitHub / Linear / release branch / Worktrunk / Supervisor / Skillは、そのConstitutionを実現するOperating Model / Practiceであり、同等以上のguaranteeを示せるより良いmechanismへ置換可能とする。procedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress を最上位のConstitutionとする。現在のGit / GitHub / Linear / release branch / Worktrunk / mise / Supervisor / Skillは、そのConstitutionを実現するOperating Model / Practiceであり、同等以上のguaranteeを示せるより良いmechanismへ置換可能とする。procedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。**
 
-current default operating profileは `organization/profiles/release-driven-solo.md` に定義する。既存のweekly release sprint / GitHub delivery / Linear / Worktrunk等はこのprofileとして維持するが、Constitutionそのものとして扱わない。
+current default operating profileは `organization/profiles/release-driven-solo.md` に定義する。既存のweekly release sprint / GitHub delivery / Linear / Worktrunk / mise等はこのprofileとして維持するが、Constitutionそのものとして扱わない。
 
 ---
 
@@ -59,6 +59,7 @@ current default operating profileは `organization/profiles/release-driven-solo.
 - verification levelは変更surface/riskから決める。
 - framework/runtime security情報を継続的にpriority化する。
 - source codeの未知security defectは `security-audit` でprincipal / trust boundary / entry surface / attack classのcoverageを明示して探索し、hunterと分離したfresh verifierの反証後にのみconfirmed findingとする。
+- application / serviceのsecret valueは、encrypted secret-in-Gitがexplicit requirementでない限りInfisicalをcurrent default SoTとする。current default control planeはself-hosted `https://secrets.rebuildup.dev`（API: `https://secrets.rebuildup.dev/api`）とし、repositoryにはsecret schema / required key / non-secret metadataに加えて、current defaultで使用するprovider endpoint / project ID / environment/path mapping等のnon-secret pointerをdiscoverableに保持する。通常操作はCLI-first、runtime injectionを優先し、wrapper / CIはendpointを明示してmanaged Cloudへ暗黙fallbackさせない。GitHub Actionsは可能ならself-host側のOIDC + scoped Machine Identityを使用する。詳細は `secrets-management` Skillへprogressive disclosureする。
 - project knowledgeをchat/private memoryではなくrepository-controlled docsへ残す。
 - README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する前に `writing-discipline` をloadして適用する。conversation / investigation / execution contextがcurrent contextに存在するという理由だけでpersistent artifactへserializeしてはいけない。
 - recovery / handoffのoperational stateはreader-facing proseへ混在させず、designated checkpoint / recovery mechanismへ記録する。reader-facing artifactはrecovery journalではない。
@@ -92,7 +93,7 @@ Git worktree自体は禁止ではありません。既にisolatedなsandbox内�
 - GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
-- env examples / `.gitignore`
+- env schema / examples / `.gitignore` / secret provider configuration / identity scope
 - repository visibility
 - `main` branch protection / ruleset / bypass / conversation resolution / approval count / required-status-check policy
 - repository PR merge method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
@@ -119,7 +120,7 @@ canonical stateは最低限次で表現してください。
 1. canonical Git remote
 2. released ref: `main` またはprojectが明示する同等branch
 3. active release ref: `release-x-y-z`
-4. repository-controlled environment definition
+4. repository-controlled environment / secret schema + selected secret-value provider state
 5. GitHub Issue work + dependency state（canonical SoT）
 6. Linear release planning / health / portfolio control plane
 7. project-wide policy / architecture / design / specification / ADR
@@ -129,6 +130,7 @@ canonical stateは最低限次で表現してください。
 source/work state:
 
 - released code/config/design: `main`
+- application / service secret values: selected secret provider（current default: Infisical）。repositoryはschema / required key / non-secret metadataをcanonicalに持ち、secret valueを持たない
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues（canonical SoT）
 - release planning / health / portfolio control plane: Linear Projects / Initiatives。durable implementation/dependency SoTはGitHub Issues
@@ -278,7 +280,7 @@ spawn request候補:
 - filesystem/network policy
 - budget / timeout / maximum depth
 - expected result format
-- parent execution generation
+- parent fencing identity / current implementationがgeneration方式の場合のexecution generation
 
 subagent/workerへdurable branch作成権限を与える場合、その権限はremote publication + Draft PR作成・metadata設定とセットです。GitHubはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成後にfirst meaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にDraft PRを作成してください。
 
@@ -334,7 +336,8 @@ issue_or_task_id
 target_release
 base_snapshot
 predecessor_snapshot
-execution_generation
+fencing_identity_or_execution_generation
+attempt_class
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -397,6 +400,24 @@ implementation workerでは最低限次を隔離してください。
 
 portable Web/backend taskは可能な限り同じLinux sandbox definitionを使い、host差をSupervisor/runtime adapterへ閉じ込めてください。
 
+### Project toolchain / bootstrap default
+
+current release-driven profileでは、project-local runtime / development CLI の標準bootstrap Practiceとしてmiseを使用してください。
+
+- runtime / development CLI prerequisiteをmiseで扱える場合、root `mise.toml` をrepository-controlled configurationとしてcommitする
+- fresh clone / CI / agentでは `mise install` を標準tool bootstrapとし、committed mise lockfileをreproducibility mechanismとして使う場合は `mise install --locked` を必須とする
+- shell activationへ依存せず、automation / CI / agentは原則 `mise exec -- <command>` または `mise run <task>` からproject tool environmentを使用する
+- required toolを `latest` だけで表現せず、exact pin、bounded version request + committed mise lockfile、またはecosystem-native canonical version sourceで再現可能にする
+- `rust-toolchain.toml`、package-manager metadata等のcanonical version sourceが既にある場合、mise側へ独立した競合pinを追加しない。miseのidiomatic version integration等で既存sourceを尊重するか、authorityとdivergence checkを明示する
+- `engines >=...` 等のcompatibility floorをdevelopment version pinとして誤用しない
+- mise taskは既存のcanonical build/test/lint scriptをwrapしてよいが、quality gateやdependency managerのownershipを複製しない
+- external/untrusted PR checkoutでは、repository-controlledなmise config/taskに対するdocumented trust reviewまたはbounded sandboxなしにagentが `mise install` / `mise exec` / `mise run` を実行してはいけない。inspection-onlyで対応可能ならtrust確立前は `MISE_SAFE=1` を優先し、mise自体をisolation boundaryとして扱わない
+- miseはOS package/system library、Nix/NixOS host provisioning、container/sandbox、Worktrunk、secret manager、worker isolationの代替ではない
+- miseがunsupported / incompatibleなhostでは、同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用し、arbitraryなhost-global toolへsilent fallbackしない
+- miseはPracticeでありConstitutionではない。同等以上のguaranteeを持つmechanismへADR-0017のrefinement contractで置換可能
+
+projectにmeaningfulなruntime / CLI prerequisiteがなくmiseを追加しても実質的な保証が増えない場合は、空の設定を形式的に追加する必要はありません。
+
 Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/remoteとの差を必要に応じて検証してください。
 
 WSL自体をworker isolationとみなしてはいけません。Linux-oriented repoは高頻度build/watchではWSL Linux filesystem側を優先してください。
@@ -428,6 +449,7 @@ rootに置くもの:
 - dependency / remote publication / Draft PR lifecycle pointer
 - public main protection pointer when applicable
 - decision precedence pointer
+- project toolchain declaration / mise bootstrap
 - environment bootstrap
 - Supervisor/subagent/recovery entry point
 - validation entry point
@@ -444,6 +466,7 @@ rootに置くもの:
 - `quality-gate`
 - `engineering-decisions`
 - `security-audit`
+- `secrets-management`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -822,7 +845,7 @@ predecessor_issue_or_pr
 predecessor_sha
 base_sha
 checkpoint_sha_or_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 status
 completed_steps
 next_steps
@@ -876,7 +899,7 @@ fresh agentはprevious conversationを推測しないでください。
 10. stale base / predecessor / conflicting integrationを確認。
 11. remaining planを再構成。
 12. safeな最小verificationでreconstructed stateを確認。
-13. execution generation/leaseを更新して続行。
+13. applicableなfencing identityを原子的に再取得または更新して続行。
 
 native resumeに成功してもbranch/PR/checkpointとの整合を確認してから続行してください。
 
@@ -891,7 +914,7 @@ parentが死亡してもsafeならchildを即cancelしないでください。
 recovered parent/coordinatorは:
 
 - child一覧を再発見
-- input snapshot / predecessor snapshot / execution generationを確認
+- input snapshot / predecessor snapshot / applicableなcurrent fencing identityを確認
 - running / completed / failed / orphanedを分類
 - completed resultをimmutable resultとして回収
 - durable branch childではpublished remote head / Draft PR identity / metadataをreconcile
@@ -902,14 +925,15 @@ recovered parent/coordinatorは:
 
 network partitionやtimeout後に旧agentと新agentが同時実行される可能性を前提にしてください。
 
-Supervisorはtaskごとにleaseまたはgeneration/fencing tokenを持たせてください。
+Supervisorはtaskごとにleaseまたはfencing identityを持たせてください。
 
-- recovery時に `execution_generation` を進める
-- worker resultへgenerationを付与
-- stale generationからのbranch integration / external writeを拒否
+- recovery/reassignment時はobserved current identityから新しいfencing identityを原子的に取得
+- current implementationがgeneration方式の場合だけ、そのidentity transitionとして `execution_generation` を進める
+- worker resultへapplicableなfencing identityを付与
+- stale fencing identityからのbranch integration / external writeを拒否
 - heartbeat消失だけで即同一side effectを再実行しない
 
-同じticket branchへ複数generationが同時pushすることを通常運用にしないでください。
+同じticket branchへ複数fencing identityが同時pushすることを通常運用にしないでください。
 
 ---
 
@@ -1322,7 +1346,7 @@ project/runtimeが許す範囲で定期的に:
 - fresh contributor/new agent向けdocsが存在
 - session/context消失後にfresh agentがIssue/PR/Git/checkpointからtaskを復旧可能
 - provider/sandbox消失に対するhard checkpoint boundaryが定義
-- execution generation/fencingでduplicate continuationを防止可能
+- fencing identityでduplicate continuationを防止可能
 - parent loss後にchild state/resultを再発見可能
 - external side effectのambiguous retryを防ぐjournal/idempotency policyが存在
 - partial/stale validationをfull passとして再利用しない

@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023
 
 ## Purpose
 
@@ -47,11 +47,34 @@
 
 ### Workspace/runtime defaults
 
+- project-local toolchain/bootstrap frontend: mise
+- runtime / development CLI prerequisitesは原則repository-controlledな `mise.toml` からmaterializeする
+- fresh clone / CI / agentのbootstrapは `mise install`、committed mise lockfileをreproducibility mechanismとして使う場合は `mise install --locked`、command executionは `mise exec -- ...` / `mise run <task>` を標準入口とする
+- required toolはexact pin、bounded version request + committed mise lockfile、または既存ecosystem-native canonical version sourceのいずれかでreproducibleにする
+- `rust-toolchain.toml` 等のnative canonical version sourceがある場合、mise側へ独立した競合pinを作らない
+- external/untrusted PR checkoutでrepository-controlledなmise config/taskをagentが実行する前に、documented trust reviewまたはbounded sandboxを必須とし、mise自体をisolation boundaryとして扱わない
+- miseはOS/system package、container/sandbox、secret management、worker isolationの代替にしない
+- mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する
 - WSL/Linux worktree frontend: Worktrunk
 - Worktrunk unavailable/incompatible時: native Git worktree fallback
 - worktree自体をruntime isolation proofとして扱わない
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
+
+### Secret / environment defaults
+
+- application / serviceのsecret valueはInfisicalをcurrent default SoTとする
+- current default control planeはself-hosted `https://secrets.rebuildup.dev` とし、APIは `https://secrets.rebuildup.dev/api`
+- current defaultで使用するprovider endpoint / project ID / environment/path mapping等のnon-secret pointerをrepositoryからdiscoverableにする
+- wrapper / CI / runtimeはprovider endpointを明示し、managed Infisical Cloudへ暗黙fallbackしない
+- required key / type / validation / non-secret metadataはrepository-controlled schemaとして保持する
+- normal local workflowはCLI-firstとし、runtime injectionを優先する
+- plaintext `.env` をcanonical storeにしない
+- human / agent / CIはidentityを分離し、project / environment / path / actionをleast privilegeにする
+- GitHub Actionsは利用可能ならOIDC + scoped Machine Identityを使用し、long-lived master credentialをdefaultにしない
+- generic CIへproduction secretを渡さない
+- NixOS / dotfiles / bootstrap等 encrypted secret-in-Git がexplicit requirementならSOPS等へdeviateできる
+- provider-specific procedureは `secrets-management` Skillへprogressive disclosureする
 
 ### Quality / evidence
 
@@ -113,7 +136,7 @@ explicit user/project decisionとして固定されたrelease scope/version/publ
 次の場合はprofile全体または一部を見直します。
 
 - agent/runtimeが同等以上のisolation/recovery/review semanticsをより単純に提供する
-- GitHub/Linear/Worktrunkの役割を別systemが置換する
+- GitHub/Linear/Worktrunk/miseの役割を別systemが置換する
 - release branch modelがcontinuous delivery等に対して逆効果になる
 - weekly cadenceがproject objectiveへ合わない
 - eval/実績から特定procedureの追加価値が消えた

@@ -6,7 +6,7 @@ Codexのmodel、pricing、availability、subagent behavior、model routing、nat
 
 これはOpenAIが各modelに公式に割り当てた職務ではなく、project側のlogical role policyです。
 
-実行isolation、snapshot/result protocol、Git integrationについては `ADR-0003` とproject-local parallel-orchestration Skillをcanonical sourceとしてください。
+logical Worker / Supervisor roleとexecution attempt classは `organization/execution-roles.md` / ADR-0019、実行isolation・snapshot/result protocol・Git integrationは `ADR-0003` とproject-local parallel-orchestration Skillをcanonical sourceとしてください。model名はroleそのものではありません。
 
 ## Sol — coordinator / supervisor role
 

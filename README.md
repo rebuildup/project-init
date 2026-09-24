@@ -12,7 +12,7 @@
 - [`skills/`](./skills/) — context-dependent judgment / playbook
 - [`docs/adr/`](./docs/adr/) — long-lived decision history
 
-現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk等の既存workflowはここで維持されます。
+現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk / mise等の既存workflowはここで維持されます。
 
 ## Usage
 
@@ -111,6 +111,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  └─ CONSTITUTION.md
 ├─ organization/
 │  ├─ README.md
+│  ├─ execution-roles.md
 │  └─ profiles/
 │     └─ release-driven-solo.md
 ├─ formal/
@@ -121,7 +122,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0018.md
+│  │  └─ ADR-0001.md ... ADR-0023.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -132,6 +133,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ herdr-runtime/
    ├─ interaction-discipline/
    ├─ linear-release-control/
    ├─ onboarding/
@@ -139,6 +141,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ policy-evaluation/
    ├─ quality-gate/
    ├─ sandbox-runtime/
+   ├─ secrets-management/
    ├─ security-audit/
    ├─ security-maintenance/
    ├─ worktree-workflow/
@@ -159,6 +162,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0016`](./docs/adr/ADR-0016.md) — current release-driven profileのLinear / version / `main` protection / Worktrunk defaults。
 - [`ADR-0017`](./docs/adr/ADR-0017.md) — Constitution / Operating Model / Practice / Skillを分離し、refinement・policy decay・formal modelを導入するorganizational architecture。
 - [`ADR-0018`](./docs/adr/ADR-0018.md) — current release-driven profileのPR landingをmerge commitへ固定し、squash/rebase mergeを無効化する判断。
+- [`ADR-0022`](./docs/adr/ADR-0022.md) — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、native version source・Nix/containerとの責務境界を定義する判断。
+- [`ADR-0023`](./docs/adr/ADR-0023.md) — application secret valueをInfisicalへ集約し、current default control planeをself-hosted `https://secrets.rebuildup.dev` としたうえで、repository-controlled schema / CLI-first / OIDC / least-privilegeを標準化するPractice。
+- [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -166,9 +172,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 通常 task では必要な Skill だけを読み込みます。ただし、README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する場合、`writing-discipline` はpre-writeの必須routingとして扱います。
 
-- `parallel-orchestration` — subagent 分解・snapshot/result・stack-ready dependency 統合
+- `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
+- `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / recovery boundary
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
@@ -186,5 +193,5 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Core principle
 
-> Constitutionはtool/provider-independentなorganizational propertyだけを定義する。現在のGitHub / Linear / release branch / Worktrunk / Skill等は、それらを満たすOperating Model / Practiceであり、同等以上のguaranteeを示せるより良い手段へ置換できる。agentはprocedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。
+> Constitutionはtool/provider-independentなorganizational propertyだけを定義する。現在のGitHub / Linear / release branch / Worktrunk / mise / Skill等は、それらを満たすOperating Model / Practiceであり、同等以上のguaranteeを示せるより良い手段へ置換できる。agentはprocedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。
 

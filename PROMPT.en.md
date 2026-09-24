@@ -10,9 +10,9 @@ Do not copy this entire document into `AGENTS.md` or `CLAUDE.md`.
 
 Core model:
 
-> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress form the highest-level Constitution. Current Git / GitHub / Linear / release-branch / Worktrunk / Supervisor / Skill choices are an Operating Model and Practices that implement the Constitution and may be replaced by mechanisms with equivalent or stronger guarantees. Optimize the whole project subject to the Constitution and explicit decisions; procedure compliance is not an objective by itself.**
+> **Identity Integrity + Authority Integrity + Evidence Integrity + Mutable Ownership Safety + Organizational Continuity + Canonical Consistency + Progress form the highest-level Constitution. Current Git / GitHub / Linear / release-branch / Worktrunk / mise / Supervisor / Skill choices are an Operating Model and Practices that implement the Constitution and may be replaced by mechanisms with equivalent or stronger guarantees. Optimize the whole project subject to the Constitution and explicit decisions; procedure compliance is not an objective by itself.**
 
-The current default operating profile is defined in `organization/profiles/release-driven-solo.md`. Existing weekly release sprint / GitHub delivery / Linear / Worktrunk behavior remains the current default, but it is not itself constitutional correctness.
+The current default operating profile is defined in `organization/profiles/release-driven-solo.md`. Existing weekly release sprint / GitHub delivery / Linear / Worktrunk / mise behavior remains the current default, but it is not itself constitutional correctness.
 
 ---
 
@@ -59,6 +59,7 @@ The following rules are the current Operating Model / Practices. They implement 
 - Required verification levels are selected from change surface/risk.
 - Continuously triage framework/runtime security information.
 - For unknown source-code security defects, use `security-audit` to make principal / trust-boundary / entry-surface / attack-class coverage explicit, and confirm a finding only after a fresh verifier independent from the hunter has tried to refute it.
+- For application/service secret values, use Infisical as the current default SoT unless encrypted secret-in-Git is an explicit requirement. The current default control plane is self-hosted `https://secrets.rebuildup.dev` (API: `https://secrets.rebuildup.dev/api`). Keep the secret schema / required keys / non-secret metadata repository-controlled, and keep the current-default provider endpoint plus applicable project ID / environment/path mapping discoverable in repository-controlled metadata. Prefer CLI-first runtime injection, make wrappers/CI select the endpoint explicitly rather than silently falling back to managed Infisical Cloud, and use OIDC + scoped Machine Identities on the self-hosted control plane for GitHub Actions when available. Progressively disclose the provider procedure through the `secrets-management` Skill.
 - Persist project knowledge in repository-controlled docs rather than chat/private memory.
 - Before creating or modifying persistent reader-facing prose such as README/documentation, ADRs, Issues, Pull Requests, commit messages, code comments, review comments, or release notes, load and apply `writing-discipline`. Do not serialize conversation, investigation, or execution context into persistent artifacts merely because it exists in the current context.
 - Keep recovery/handoff operational state out of reader-facing prose and record it through the designated checkpoint/recovery mechanism. A reader-facing artifact is not a recovery journal.
@@ -92,7 +93,7 @@ At minimum inspect:
 - GitHub Actions / CI/CD / project-specific validation
 - dependency/security tooling
 - README / CONTRIBUTING / docs
-- env examples / `.gitignore`
+- env schema / examples / `.gitignore` / secret-provider configuration / identity scope
 - repository visibility
 - public-repository `main` branch protection / rulesets / bypass state / release-source policy
 - repository PR merge-method settings (`allow_merge_commit` / `allow_squash_merge` / `allow_rebase_merge`)
@@ -121,7 +122,7 @@ Canonical state should be representable by at least:
 1. canonical Git remote
 2. released ref: `main` or an explicitly equivalent branch
 3. active release ref: `release-x-y-z`
-4. repository-controlled environment definition
+4. repository-controlled environment / secret schema + selected secret-value provider state
 5. GitHub Issue work + dependency state (canonical SoT)
 6. release planning control plane — Linear, declared as the sole plane
 7. project-wide policy / architecture / design / specification / ADRs
@@ -131,6 +132,7 @@ Canonical state should be representable by at least:
 Source/work state:
 
 - released code/config/design: `main`
+- application/service secret values: selected secret provider (current default: Infisical). The repository canonically stores schema / required keys / non-secret metadata, not secret values
 - active sprint integration: `release-x-y-z`
 - ticket/priority/status/version/dependency: GitHub Issues (canonical SoT)
 - release planning control plane: Linear, whichever the project declares — not a durable SoT
@@ -277,7 +279,7 @@ Spawn input may include:
 - filesystem/network policy
 - budget / timeout / maximum depth
 - expected result format
-- parent execution generation
+- parent fencing identity / execution generation when the current implementation uses generation-based fencing
 
 If a subagent/worker is allowed to create a durable branch, that authority includes remote publication, Draft PR creation, and metadata maintenance. GitHub must be able to resolve the remote head and the head must differ from its base, so after branch creation the worker must immediately create the first meaningful commit, publish it to the canonical remote, verify that the remote branch head SHA matches that commit SHA, and then immediately create the Draft PR.
 
@@ -333,7 +335,8 @@ issue_or_task_id
 target_release
 base_snapshot
 predecessor_snapshot
-execution_generation
+fencing_identity_or_execution_generation
+attempt_class
 result_commit_or_ref
 draft_pr_identity
 summary
@@ -382,6 +385,24 @@ First-class local targets:
 
 For portable web/backend work, reuse the same Linux sandbox definition where practical and hide host differences behind Supervisor/runtime adapters.
 
+### Project toolchain / bootstrap default
+
+In the current release-driven profile, use mise as the default Practice for project-local runtimes and development CLI bootstrap.
+
+- when mise can manage a runtime or development CLI prerequisite usefully, commit a root `mise.toml` as repository-controlled configuration
+- use `mise install` as the standard fresh-clone / CI / agent tool bootstrap; when a committed mise lockfile is the reproducibility mechanism, require `mise install --locked`
+- do not depend on interactive shell activation for correctness; automation, CI, and agents should normally use `mise exec -- <command>` or `mise run <task>`
+- do not use `latest` as the only reproducibility contract for a required tool; use an exact pin, a bounded version request plus a committed mise lockfile, or an ecosystem-native canonical version source
+- if a canonical version source such as `rust-toolchain.toml` or package-manager metadata already exists, do not add an independent conflicting mise pin; consume/respect the native source where supported or document authority plus divergence checks
+- do not reinterpret compatibility floors such as `engines >=...` as the development version pin
+- mise tasks may wrap canonical build/test/lint scripts, but must not duplicate quality-gate or dependency-manager ownership
+- for external/untrusted PR checkouts, an agent must not run `mise install`, `mise exec`, or `mise run` against repository-controlled mise configuration/tasks without a documented trust review or a bounded sandbox; prefer `MISE_SAFE=1` for supported inspection-only operations before trust is established, and never treat mise itself as an isolation boundary
+- mise does not replace OS packages/system libraries, Nix/NixOS host provisioning, containers/sandboxes, Worktrunk, secret management, or worker isolation
+- on a host where mise is unsupported or incompatible, use an explicit fallback with equivalent version/reproducibility guarantees; never silently fall back to arbitrary host-global tools
+- mise is a Practice, not a Constitutional invariant, and may be replaced under ADR-0017 refinement when another mechanism preserves or strengthens the guarantees
+
+Do not add empty mise configuration merely for policy compliance when the project has no meaningful runtime or CLI prerequisite for it to manage.
+
 Treat Apple Silicon `arm64` as first class and validate differences from x86_64 CI/remote where relevant.
 
 Do not treat WSL itself as worker isolation. Prefer the WSL Linux filesystem for high-frequency Linux-oriented build/watch workloads.
@@ -411,6 +432,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 - dependency / remote-publication / Draft PR lifecycle pointer
 - public-main-protection pointer when applicable
 - decision-precedence pointer
+- project toolchain declaration / mise bootstrap
 - environment bootstrap
 - Supervisor/subagent/recovery entry point
 - validation entry point
@@ -427,6 +449,7 @@ Default Skills:
 - `quality-gate`
 - `engineering-decisions`
 - `security-audit`
+- `secrets-management`
 - `security-maintenance`
 - `onboarding`
 - `agent-recovery`
@@ -768,7 +791,7 @@ predecessor_issue_or_pr
 predecessor_sha
 base_sha
 checkpoint_sha_or_snapshot
-execution_generation
+fencing_identity_or_execution_generation
 status
 completed_steps
 next_steps
@@ -822,7 +845,7 @@ A fresh agent must not guess what the previous agent was thinking.
 10. check stale base / predecessor / integration conflicts
 11. reconstruct the remaining plan
 12. run minimal safe verification to trust reconstructed state
-13. advance execution lease/generation and continue
+13. atomically reacquire or advance the applicable fencing identity and continue
 
 Even after native resume succeeds, reconcile it with branch/PR/checkpoint state before continuing.
 
@@ -837,7 +860,7 @@ Do not automatically cancel safe children just because the parent dies.
 A recovered parent/coordinator should:
 
 - rediscover children
-- verify input snapshot / predecessor snapshot / execution generation
+- verify input snapshot / predecessor snapshot / applicable current fencing identity
 - classify running/completed/failed/orphaned
 - collect completed immutable results
 - reconcile published remote head / Draft PR identity / metadata for durable-branch children
@@ -846,14 +869,15 @@ A recovered parent/coordinator should:
 
 Assume an old agent and a recovered agent can overlap after a network partition or timeout.
 
-Give each task a lease or execution generation/fencing token.
+Give each task a lease or fencing identity.
 
-- advance `execution_generation` on recovery
-- attach generation to worker results
-- reject branch integration / external writes from stale generations
+- on recovery/reassignment, atomically acquire a new fencing identity from the observed current identity
+- if the current implementation uses generation-based fencing, advance `execution_generation` as part of that identity transition
+- attach the applicable fencing identity to worker results
+- reject branch integration / external writes from stale fencing identities
 - do not interpret heartbeat loss as permission to blindly repeat side effects
 
-Do not normally allow multiple generations to push the same ticket branch concurrently.
+Do not normally allow multiple fencing identities to push the same ticket branch concurrently.
 
 ---
 
@@ -1261,7 +1285,7 @@ Verify at least:
 - fresh-contributor/new-agent documentation exists
 - after session/context loss, a fresh agent can recover the task from Issue/PR/Git/checkpoint state
 - a hard-checkpoint boundary exists for provider/sandbox loss
-- execution generation/fencing prevents duplicate continuation
+- fencing identity prevents duplicate continuation
 - child state/results remain discoverable after parent loss
 - side-effect journaling/idempotency prevents ambiguous retries
 - partial/stale validation is not reused as a full pass
