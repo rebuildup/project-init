@@ -140,11 +140,11 @@ Cargo 1.91+の`build.build-dir`をexternal locationへ移す場合も、workspac
 - read-only toolchain cache
 - bounded compiler cache such as `sccache`
 
-`sccache`を採用する場合は`build.rustc-wrapper`または`RUSTC_WRAPPER`で接続する。parallel checkout / Git worktreeのabsolute path差によるmissを避けるため、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`によるpath normalizationを検討する。absolute machine pathはproject truthにせずuser/runtime configへ置き、local cache sizeはhost capacityに応じてboundedにする。local storageを使う場合、同じ`SCCACHE_DIR`へ複数の独立sccache serverを競合させず、同一hostでは単一serverを共有するかserverごとにstorageを分離する。repository-required toolとして採用する場合は既存mise policyに従ってversion/provisioningを再現可能にする。
+`sccache`を採用する場合は`build.rustc-wrapper`または`RUSTC_WRAPPER`で接続する。ただし2026-09-27時点のsccache v0.17.0では、Rust hash keyへ`SCCACHE_BASEDIRS` / `basedirs`を適用するissue #2652が未解決である。Rustのparallel checkout / Git worktreeで`basedirs`だけによりcross-worktree hitが成立すると仮定しない。`--remap-path-prefix`はcompiler outputへ埋め込まれるpathを安定化できるが、cache-key normalizationの代替ではない。cross-worktree Rust reuseを有効化する場合は、使用するsccache version / rustc-Cargo configuration / path flagsを記録し、複数worktree間のhit/missを実測する。未検証ならfuture-facing optimizationとして扱う。absolute machine pathはproject truthにせずuser/runtime configへ置き、local cache sizeはhost capacityに応じてboundedにする。local storageを使う場合、同じ`SCCACHE_DIR`へ複数の独立sccache serverを競合させず、同一hostでは単一serverを共有するかserverごとにstorageを分離する。repository-required toolとして採用する場合は既存mise policyに従ってversion/provisioningを再現可能にする。
 
 ### Worktree bootstrap
 
-Rust `target/`をsymlinkしたり、単一directoryとして共有してはいけない。一方、Worktrunkの`wt step copy-ignored`がfilesystemのreflinkを使える場合は、各worktreeに独立pathを保ったcopy-on-write seedとして利用してよい。
+Rust `target/`をsymlinkしたり、単一directoryとして共有してはいけない。一方、Worktrunkの`wt step copy-ignored`がfilesystemのreflinkを使える場合は、`--require-include`を必須とし、repository-controlled `.worktreeinclude`で承認済みseed pathだけをallowlistした場合に限り、各worktreeに独立pathを保ったcopy-on-write seedとして利用してよい。Rust target seedでは`target/`を基本allowlistとし、`.env`、credential、token、socket、DB、その他mutable runtime stateを含めない。
 
 WorktrunkはAPFS / btrfs / XFS / ReFS等ではreflinkを使用できる。reflink対応が実測で確認できたhostでは、compatibleなbase worktreeから`target/`をseedすることでinitial disk増加を抑えつつcold startを短縮できる。
 
@@ -155,7 +155,7 @@ ext4 / NTFS等ではfull copyになるため巨大な`target/`をコピーしな
 exclude = ["target/"]
 ```
 
-を標準候補とする。`.worktreeinclude`に`target/`を含めるのもreflink capabilityを確認したhost/projectだけにする。
+を標準候補とする。`wt step copy-ignored`は`--require-include`なしで実行せず、`.worktreeinclude`はrepository-controlled allowlistとしてreviewする。`target/`を含めるのもreflink capabilityを確認したhost/projectだけにする。
 
 CoW seedはmutable-directory sharingではないが、seed artifact自体をvalidation evidenceにしない。新worktreeでは通常どおりCargoのfingerprint/rebuildとrequired validationを実行する。
 
