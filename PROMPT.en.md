@@ -401,6 +401,14 @@ First-class local targets:
 
 For portable web/backend work, reuse the same Linux sandbox definition where practical and hide host differences behind Supervisor/runtime adapters.
 
+### Adaptive agent orchestration
+
+For cross-boundary or judgment-heavy work with multiple independently useful top-level work units, use `parallel-orchestration` for adaptive fan-out and fan-in. Do not optimize for agent count. Start with the smallest useful fan-out and adapt from Ready work, uncertainty, WIP, provider/host resources, human-review capacity, and CI/external waits.
+
+Prefer native subagents for short-lived helpers that remain internal to one parent Worker. Promote work to a top-level Worker when it needs independent lifecycle, mutable ownership, background continuity, provider separation, or human attach/observability. Where Herdr is available, `herdr-runtime` may serve as an optional Supervisor/session Practice so a Coordinator or Supervisor agent can start, prompt, wait on, read from, and collect results from sibling Workers. Herdr lifecycle state is telemetry, not the source of truth for result admission or task completion.
+
+Fan in competitive exploration by evidence, measurement, and validation rather than majority vote. Concurrent mutable candidates require separate ownership isolation and immutable result identity for every attempt.
+
 ### Project toolchain / bootstrap default
 
 In the current release-driven profile, use mise as the default Practice for project-local runtimes and development CLI bootstrap.
@@ -459,6 +467,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 Default Skills:
 
 - `parallel-orchestration`
+- `herdr-runtime`
 - `sandbox-runtime`
 - `github-delivery`
 - `agent-delivery-estimation`
