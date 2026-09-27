@@ -140,7 +140,7 @@ Cargo 1.91+の`build.build-dir`をexternal locationへ移す場合も、workspac
 - read-only toolchain cache
 - bounded compiler cache such as `sccache`
 
-`sccache`を採用する場合は`build.rustc-wrapper`または`RUSTC_WRAPPER`で接続する。parallel checkout / Git worktreeのabsolute path差によるmissを避けるため、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`によるpath normalizationを検討する。absolute machine pathはproject truthにせずuser/runtime configへ置き、local cache sizeはhost capacityに応じてboundedにする。
+`sccache`を採用する場合は`build.rustc-wrapper`または`RUSTC_WRAPPER`で接続する。parallel checkout / Git worktreeのabsolute path差によるmissを避けるため、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`によるpath normalizationを検討する。absolute machine pathはproject truthにせずuser/runtime configへ置き、local cache sizeはhost capacityに応じてboundedにする。local storageを使う場合、同じ`SCCACHE_DIR`へ複数の独立sccache serverを競合させず、同一hostでは単一serverを共有するかserverごとにstorageを分離する。repository-required toolとして採用する場合は既存mise policyに従ってversion/provisioningを再現可能にする。
 
 ### Worktree bootstrap
 
@@ -197,7 +197,21 @@ target footprintが継続的に問題になるprojectでは、cleanupだけで�
 - `cargo build --timings` で高cost compile unitを調べる
 - virtual workspaceを含めappropriate Cargo resolverを確認する
 - unused default featuresがproject evidenceで確認できたdirect dependencyだけ`default-features = false` + explicit featuresを検討する
-- full debugger variable informationが不要なら`[profile.dev] debug = "line-tables-only"`を容量削減候補として計測する
+- project MSRVがstring debug levelをsupportし、通常開発でfull debugger variable informationを必要としないなら、Cargo公式build-performance guidanceの次のshapeを優先候補として計測する
+
+```toml
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
+
+[profile.debugging]
+inherits = "dev"
+debug = true
+```
+
+通常devではworkspace memberをbacktraceに必要なline infoへ抑え、dependency debug infoを生成しない。full debugger sessionは`--profile debugging`へopt-inする。
 
 dependency default featureやlibrary feature surfaceはpublic behaviorへ影響し得るため、disk optimizationだけを理由に一括変更しない。
 
