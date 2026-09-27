@@ -55,6 +55,25 @@ orchestration strengthはtask sizeの印象ではなくexecution profileから�
 
 execution profileは `quality-gate` のverification risk taxonomyを置換しない。orchestration/review強度とtest levelを別々に決定する。
 
+## Adaptive fan-out / fan-in
+
+fan-outはagent数ではなくadmitted progressを最適化する。まず独立して価値を出せる最小数で開始し、各fan-in boundaryで再評価する。
+
+mode:
+
+- **independent decomposition**: Ready / stack-readyな独立nodeを並行実行する。
+- **competitive exploration**: uncertain problemへ複数のobservational candidateを独立に作らせる。多数決ではなくevidence / measurement / validationで比較する。
+- **specialist separation**: builder / reviewer / benchmark / security等を責務分離する。
+- **speculative execution**: reviewable immutable predecessor snapshotへexact pinできる場合だけ先行する。predecessor変更時はstaleとしてreconcileする。
+
+competitive mutable implementationは、各attemptが独立mutable ownership boundary、同一base/input identity、immutable result contractを持つ場合だけ許可する。満たせなければobservational explorationまたは直列implementationへ縮退する。
+
+追加spawnはReady work、uncertainty、WIP、provider/host resource、human review、CI/external wait、retry/stale率、回収costを見て判断する。idle capacityだけを理由にworkを分割しない。追加Workerのmarginal valueよりorchestration/integration bottleneckが大きい場合はfan-outを止める。
+
+短命でparent内部に閉じるhelperはnative subagentを優先する。independent lifecycle / mutable ownership / background continuity / provider separation / human attachが必要ならtop-level Workerへ昇格する。Herdrを使う場合の具体mappingは `herdr-runtime` に従う。
+
+fan-in時はtask/attempt/base/fencing/result identityとapplicable evidenceを確認する。複数agentの同意だけをcorrectness evidenceにしない。
+
 ## Capacity / delivery-estimation coupling
 
 scheduleやroadmapを理由にWIP / spawn数 / agent数を増減する場合は、`agent-delivery-estimation` Skillを参照する。
