@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024
 
 ## Purpose
 
@@ -59,7 +59,7 @@
 - Worktrunk unavailable/incompatible時: native Git worktree fallback
 - Rust/Cargo projectではconcurrent worktree間で`target-dir` / `build.build-dir`を共有せず、Cargo registry/git cacheと必要に応じたbounded `sccache`を共有候補とする
 - short-lived agent worktreeのincremental compilationはreuse期間とdisk footprintを見て`CARGO_INCREMENTAL=0`を選べる。long-lived interactive checkoutへ機械的に伝播させない
-- Rust `target/`をWorktrunk ignored-file copyで複製せず、cleanupはselective `cargo clean`とworktree lifecycleを優先する
+- Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyはreflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する
 - worktree自体をruntime isolation proofとして扱わない
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
