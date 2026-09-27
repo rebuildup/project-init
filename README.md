@@ -122,7 +122,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0024.md
+│  │  └─ ADR-0001.md ... ADR-0025.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -165,6 +165,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0022`](./docs/adr/ADR-0022.md) — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、native version source・Nix/containerとの責務境界を定義する判断。
 - [`ADR-0023`](./docs/adr/ADR-0023.md) — application secret valueをInfisicalへ集約し、current default control planeをself-hosted `https://secrets.rebuildup.dev` としたうえで、repository-controlled schema / CLI-first / OIDC / least-privilegeを標準化するPractice。
 - [`ADR-0024`](./docs/adr/ADR-0024.md) — Rust/Cargo worktreeのmutable build outputを隔離しつつ、reflink seed・sccache・selective cleanup・profile tuningで容量とcold-startを最適化するPractice。
+- [`ADR-0025`](./docs/adr/ADR-0025.md) — adaptive fan-out / fan-in、native subagentとtop-level Workerのrouting、Herdrによるagent-driven Supervisor loopを定義する方針。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -176,7 +177,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
-- `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / recovery boundary
+- `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
