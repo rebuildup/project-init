@@ -122,7 +122,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0023.md
+│  │  └─ ADR-0001.md ... ADR-0024.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -164,6 +164,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0018`](./docs/adr/ADR-0018.md) — current release-driven profileのPR landingをmerge commitへ固定し、squash/rebase mergeを無効化する判断。
 - [`ADR-0022`](./docs/adr/ADR-0022.md) — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、native version source・Nix/containerとの責務境界を定義する判断。
 - [`ADR-0023`](./docs/adr/ADR-0023.md) — application secret valueをInfisicalへ集約し、current default control planeをself-hosted `https://secrets.rebuildup.dev` としたうえで、repository-controlled schema / CLI-first / OIDC / least-privilegeを標準化するPractice。
+- [`ADR-0024`](./docs/adr/ADR-0024.md) — Rust/Cargo worktreeのmutable build outputを隔離しつつ、reflink seed・sccache・selective cleanup・profile tuningで容量とcold-startを最適化するPractice。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
@@ -189,7 +190,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
-- `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation
+- `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
 
 ## Core principle
 

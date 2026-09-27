@@ -370,6 +370,22 @@ Do not share writable application DBs, concurrently-mutated dependency/build dir
 
 Principle: **share only immutable/cacheable state; isolate mutable state**.
 
+
+### Rust / Cargo worktree build cache
+
+When a Rust/Cargo project is detected, explicitly evaluate per-worktree `target/` growth.
+
+- do not share or symlink the same `target-dir` / `CARGO_TARGET_DIR` / `build.build-dir` across concurrent mutable worktrees
+- Cargo registry/git dependency caches and read-only toolchain caches may be shared
+- `sccache` is a compiler-cache candidate, but as of 2026-09-27 sccache v0.17.0 still has open issue #2652 for applying `SCCACHE_BASEDIRS` / `basedirs` to the Rust hash key. Do not assume Rust cross-worktree hits without verification; when adopting them, record the sccache version, rustc/Cargo configuration, path flags, and measured hit/miss evidence. `--remap-path-prefix` stabilizes paths embedded in compiler output and is not a substitute for cache-key normalization. Incremental Rust crates cannot be cached by sccache, so `CARGO_INCREMENTAL=0` is the standard candidate only when measured cross-worktree sccache reuse is being pursued. Do not race multiple sccache servers against the same local storage
+- seed `target/` with `wt step copy-ignored` only with `--require-include` and a repository-controlled `.worktreeinclude` allowlist containing approved non-secret cache paths such as `target/`; never include `.env`, credentials, tokens, sockets, databases, or other mutable/sensitive runtime state. Also require verified reflink use on filesystems such as APFS / btrfs / XFS / ReFS, and exclude `target/` on hosts such as ext4 / NTFS where the operation becomes a full copy
+- short-lived/disposable agent worktrees may have little reuse for incremental state; compare disk footprint and build timings and consider `CARGO_INCREMENTAL=0` there without mechanically imposing it on long-lived interactive checkouts
+- do not make `cargo clean` a routine build step; inspect with `--dry-run` and prefer selective `--doc` / `--release` / `--profile` / `--target` / `-p` cleanup before a full clean. Reserve full clean for recovery or material disk pressure
+- a worktree-local `target/` is normally reclaimed with `wt remove`, so do not duplicate that reclamation with a full clean immediately before removal
+- inspect artifact production with `cargo tree -e features`, `cargo tree -d`, `cargo build --timings`, and relevant resolver/profile settings. Tune unused default features from project evidence. When MSRV and debugger requirements allow it, prioritize evaluation of Cargo's recommended dev `debug = "line-tables-only"` + dependency `debug = false` + opt-in full-debug profile. Do not change library/public feature contracts merely as a disk optimization
+
+Route detailed procedure to the `worktree-workflow` Skill and ADR-0024.
+
 ---
 
 ## 9. Runtime / host / provider portability
@@ -459,7 +475,7 @@ Default Skills:
 - `writing-discipline` — reader-oriented writing / reconstruction into standalone artifacts decoupled from working context / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear as optional release planning / health / portfolio control plane contract (only when adopted)
-- `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation contract
+- `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation / Rust-Cargo build-cache lifecycle contract
 
 Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. When an existing Skill is found, do not skip it merely because it is present; unless it is explicitly pinned or frozen, verify source freshness and reconcile any differences. Do not make `--global` the default.
 
