@@ -57,7 +57,7 @@ execution profileは `quality-gate` のverification risk taxonomyを置換しな
 
 ## Adaptive fan-out / fan-in
 
-fan-outはagent数ではなくadmitted progressを最適化する。まず独立して価値を出せる最小数で開始し、各fan-in boundaryで再評価する。
+fan-outはagent数ではなくadmitted progressを最適化する。まず **smallest useful fan-out**（独立して価値を出せる最小数）で開始し、各fan-in boundaryで再評価する。
 
 mode:
 
