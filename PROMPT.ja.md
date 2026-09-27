@@ -392,12 +392,12 @@ Rust/Cargo projectを検出した場合、worktreeごとの`target/`肥大化を
 
 - concurrent mutable worktree間で同じ`target-dir` / `CARGO_TARGET_DIR` / `build.build-dir`を共有・symlinkしない
 - Cargo registry/git dependency cacheとread-only toolchain cacheは共有してよい
-- cross-worktree compiler reuseが有効なら`sccache`を候補にし、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`でparallel checkoutのpath差をnormalizeし、cache sizeをboundedにする
+- cross-worktree compiler reuseが有効なら`sccache`を候補にし、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`でparallel checkoutのpath差をnormalizeし、cache sizeをboundedにする。incremental crateはsccacheでcacheできないため、short-lived agent worktreeでsccache reuseを狙う場合は`CARGO_INCREMENTAL=0`を標準候補にする。同じlocal storageへ複数sccache serverを競合させない
 - `wt step copy-ignored`による`target/` seedは、APFS / btrfs / XFS / ReFS等でreflink利用を実際に確認できる場合だけ許容する。ext4 / NTFS等でfull copyになるhostでは`target/`をexcludeする
 - short-lived/disposable agent worktreeではincremental cacheのreuse期間が短い場合があるため、disk footprintとbuild timingを比較し`CARGO_INCREMENTAL=0`を候補にする。long-lived interactive checkoutへ機械的に適用しない
 - `cargo clean`をroutine build stepにせず、`--dry-run`確認後に`--doc` / `--release` / `--profile` / `--target` / `-p`等のselective cleanupを優先する。full cleanはrecoveryまたは強いdisk pressure時に限定する
 - worktree-local `target/`は通常`wt remove`と一緒に回収されるため、remove直前のfull cleanを重複させない
-- `cargo tree -e features`、`cargo tree -d`、`cargo build --timings`等でartifact productionを調べ、unused default features、resolver、dev debug info（例: `line-tables-only`）をevidence-drivenに調整する。library/public feature contractはdisk optimizationだけで変更しない
+- `cargo tree -e features`、`cargo tree -d`、`cargo build --timings`等でartifact productionを調べ、unused default features、resolverをevidence-drivenに調整する。MSRV/debugger要件が許せばCargo公式推奨のdev `debug = "line-tables-only"` + dependency `debug = false` + opt-in full-debug profileを優先候補として評価する。library/public feature contractはdisk optimizationだけで変更しない
 
 詳細は`worktree-workflow` SkillとADR-0024へrouteしてください。
 
