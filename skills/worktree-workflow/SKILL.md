@@ -144,14 +144,20 @@ Cargo 1.91+の`build.build-dir`をexternal locationへ移す場合も、workspac
 
 ### Worktree bootstrap
 
-`wt step copy-ignored`を使うprojectでは、Rust `target/`を新worktreeへコピーしない。project configでcopy-ignoredを有効にする場合は例えば:
+Rust `target/`をsymlinkしたり、単一directoryとして共有してはいけない。一方、Worktrunkの`wt step copy-ignored`がfilesystemのreflinkを使える場合は、各worktreeに独立pathを保ったcopy-on-write seedとして利用してよい。
+
+WorktrunkはAPFS / btrfs / XFS / ReFS等ではreflinkを使用できる。reflink対応が実測で確認できたhostでは、compatibleなbase worktreeから`target/`をseedすることでinitial disk増加を抑えつつcold startを短縮できる。
+
+ext4 / NTFS等ではfull copyになるため巨大な`target/`をコピーしない。Worktrunkのsummaryでreflink利用を確認できないhostではproject config等で:
 
 ```toml
 [step.copy-ignored]
 exclude = ["target/"]
 ```
 
-のように追加excludeへ含める。`.worktreeinclude`を使う場合も`target/`をincludeしない。
+を標準候補とする。`.worktreeinclude`に`target/`を含めるのもreflink capabilityを確認したhost/projectだけにする。
+
+CoW seedはmutable-directory sharingではないが、seed artifact自体をvalidation evidenceにしない。新worktreeでは通常どおりCargoのfingerprint/rebuildとrequired validationを実行する。
 
 ### Incremental compilation
 
