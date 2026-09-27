@@ -392,8 +392,8 @@ Rust/Cargo projectを検出した場合、worktreeごとの`target/`肥大化を
 
 - concurrent mutable worktree間で同じ`target-dir` / `CARGO_TARGET_DIR` / `build.build-dir`を共有・symlinkしない
 - Cargo registry/git dependency cacheとread-only toolchain cacheは共有してよい
-- cross-worktree compiler reuseが有効なら`sccache`を候補にし、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`でparallel checkoutのpath差をnormalizeし、cache sizeをboundedにする。incremental crateはsccacheでcacheできないため、short-lived agent worktreeでsccache reuseを狙う場合は`CARGO_INCREMENTAL=0`を標準候補にする。同じlocal storageへ複数sccache serverを競合させない
-- `wt step copy-ignored`による`target/` seedは、APFS / btrfs / XFS / ReFS等でreflink利用を実際に確認できる場合だけ許容する。ext4 / NTFS等でfull copyになるhostでは`target/`をexcludeする
+- `sccache`はcompiler cache候補だが、2026-09-27時点のv0.17.0ではRust hash keyへの`SCCACHE_BASEDIRS` / `basedirs`適用issue #2652が未解決である。Rust cross-worktree hitを未検証のまま前提にせず、採用時はsccache version / rustc-Cargo configuration / path flagsと実測hit/missを記録する。`--remap-path-prefix`はcompiler outputのpath安定化でありcache-key normalizationの代替ではない。incremental crateはsccacheでcacheできないため、short-lived agent worktreeで実測済みsccache reuseを狙う場合は`CARGO_INCREMENTAL=0`を標準候補にする。同じlocal storageへ複数sccache serverを競合させない
+- `wt step copy-ignored`による`target/` seedは、`--require-include`とrepository-controlled `.worktreeinclude` allowlistを必須とし、`target/`等の承認済みnon-secret cache pathだけを対象にする。`.env`、credential、token、socket、DB等のmutable/sensitive stateを含めない。さらにAPFS / btrfs / XFS / ReFS等でreflink利用を実際に確認できる場合だけ許容し、ext4 / NTFS等でfull copyになるhostでは`target/`をexcludeする
 - short-lived/disposable agent worktreeではincremental cacheのreuse期間が短い場合があるため、disk footprintとbuild timingを比較し`CARGO_INCREMENTAL=0`を候補にする。long-lived interactive checkoutへ機械的に適用しない
 - `cargo clean`をroutine build stepにせず、`--dry-run`確認後に`--doc` / `--release` / `--profile` / `--target` / `-p`等のselective cleanupを優先する。full cleanはrecoveryまたは強いdisk pressure時に限定する
 - worktree-local `target/`は通常`wt remove`と一緒に回収されるため、remove直前のfull cleanを重複させない
