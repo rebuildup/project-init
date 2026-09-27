@@ -1,6 +1,6 @@
 ---
 name: worktree-workflow
-description: current release-driven profileでWorktrunkをWSL/Linux workspace lifecycle Practiceとして使い、同等以上のguaranteeを持つalternativeへのrefinementも判断する時に使用する。
+description: current release-driven profileでWorktrunkをWSL/Linux workspace lifecycle Practiceとして使い、Rust/Cargo worktreeのbuild-output isolation・cache reuse・cleanupを含め、同等以上のguaranteeを持つalternativeへのrefinementも判断する時に使用する。
 ---
 
 # Worktree Workflow
@@ -116,6 +116,86 @@ url = "http://localhost:{{ branch | hash_port }}"
 ```
 
 例のplaceholderをそのままcommitしてはいけない。Vite / Next.js / backend CLI / env-based server等、実際のcommand semanticsへ変換する。
+
+## Rust / Cargo build output and cache
+
+Rust/Cargo projectでは、`target/`肥大化をworktree lifecycle上の明示的なresource concernとして扱う。ただし容量削減のためにcorrectness-sensitiveなmutable build outputを共有してはいけない。詳細なdecisionはADR-0024に従う。
+
+### Default boundary
+
+concurrentにbuildされ得るworktree間では次を共有しない。
+
+- `target-dir` / `CARGO_TARGET_DIR`
+- Cargo `build.build-dir`
+- incremental compilation state
+- `target/`へのsymlinkや同一external build directory
+
+Cargoのtarget directory lockingはparallel buildを直列化し得るうえ、divergent Git worktreeが同じbuild directoryを共有した場合のfingerprint/artifact correctness issueがcurrent Cargoで報告されている。したがって「全worktreeを1個のtargetへ向ける」を標準optimizationにしない。
+
+Cargo 1.91+の`build.build-dir`をexternal locationへ移す場合も、workspace pathごとに一意なdirectoryを使い、そのdirectoryのcleanup ownershipを定義する。異なるmutable worktreeへ同じbuild directoryを割り当てない。
+
+共有候補は次に限定する。
+
+- Cargo registry / git dependency download cache
+- read-only toolchain cache
+- bounded compiler cache such as `sccache`
+
+`sccache`を採用する場合は`build.rustc-wrapper`または`RUSTC_WRAPPER`で接続する。parallel checkout / Git worktreeのabsolute path差によるmissを避けるため、compatible versionでは`SCCACHE_BASEDIRS` / `basedirs`によるpath normalizationを検討する。absolute machine pathはproject truthにせずuser/runtime configへ置き、local cache sizeはhost capacityに応じてboundedにする。
+
+### Worktree bootstrap
+
+`wt step copy-ignored`を使うprojectでは、Rust `target/`を新worktreeへコピーしない。project configでcopy-ignoredを有効にする場合は例えば:
+
+```toml
+[step.copy-ignored]
+exclude = ["target/"]
+```
+
+のように追加excludeへ含める。`.worktreeinclude`を使う場合も`target/`をincludeしない。
+
+### Incremental compilation
+
+incremental compilationは一律に無効化しない。
+
+- long-lived interactive checkout: Cargo dev defaultのincremental buildを標準候補とする
+- short-lived / disposable agent worktree: reuse期間が短くdisk amplificationが大きい場合、`CARGO_INCREMENTAL=0`を優先候補とする
+- project-wide `[profile.dev] incremental = false` はclean build / representative rebuild / disk footprintを比較してから採用する
+
+sccacheはincremental crateのcacheabilityとtrade-offを持つため、短命worktreeでは「incrementalを保持すること」自体を目的化しない。
+
+### Reclamation
+
+`cargo clean`をroutine build/test stepへ入れない。disk pressureやstale artifact recoveryでは狭いcleanupを先に選ぶ。
+
+```bash
+cargo clean --dry-run -v
+cargo clean --doc
+cargo clean --release
+cargo clean --profile <name>
+cargo clean --target <triple>
+cargo clean -p <package>
+```
+
+full `cargo clean` はcache corruption、toolchain/profile regime change、active worktreeの強いdisk pressure、externalized per-worktree build directoryのretirement等、rebuild costよりreclamation benefitが大きい場合に限定する。
+
+通常のworktree-local `target/` はworktree directoryと一緒に削除されるため、`wt remove`直前にfull cleanを二重実行しない。external build directoryを採用したprojectだけは、worktree removal時にそのworktree固有directoryを安全にreclaimするhook/taskを用意する。
+
+Cargo global cache auto-GCはregistry/git等のglobal cache用であり、current Cargoのtarget build artifact lifecycleの代替として扱わない。
+
+### Reduce what gets built
+
+target footprintが継続的に問題になるprojectでは、cleanupだけでなくartifact production自体を調べる。
+
+- `cargo tree -e features` で実際に有効なfeatureとenable元を調べる
+- `cargo tree -d` でduplicate dependency versionを調べる
+- `cargo build --timings` で高cost compile unitを調べる
+- virtual workspaceを含めappropriate Cargo resolverを確認する
+- unused default featuresがproject evidenceで確認できたdirect dependencyだけ`default-features = false` + explicit featuresを検討する
+- full debugger variable informationが不要なら`[profile.dev] debug = "line-tables-only"`を容量削減候補として計測する
+
+dependency default featureやlibrary feature surfaceはpublic behaviorへ影響し得るため、disk optimizationだけを理由に一括変更しない。
+
+recursive cleaner等のthird-party toolはhost convenienceとして使ってよいが、project correctnessの必須依存にしない。unmaintained toolをcurrent defaultへ固定しない。
 
 ## Port allocation
 
