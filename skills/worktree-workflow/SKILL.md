@@ -167,7 +167,7 @@ incremental compilationは一律に無効化しない。
 - short-lived / disposable agent worktree: reuse期間が短くdisk amplificationが大きい場合、`CARGO_INCREMENTAL=0`を優先候補とする
 - project-wide `[profile.dev] incremental = false` はclean build / representative rebuild / disk footprintを比較してから採用する
 
-sccacheはincremental crateのcacheabilityとtrade-offを持つため、短命worktreeでは「incrementalを保持すること」自体を目的化しない。
+sccacheはincrementally compiled Rust crateをcacheできない。short-lived agent worktreeでcross-worktree sccache reuseを狙う場合は`CARGO_INCREMENTAL=0`を明示することを標準候補とする。long-lived interactive checkoutではedit/rebuild latencyとの比較で決め、「incrementalを保持すること」自体を目的化しない。
 
 ### Reclamation
 
