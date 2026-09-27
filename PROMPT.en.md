@@ -377,12 +377,12 @@ When a Rust/Cargo project is detected, explicitly evaluate per-worktree `target/
 
 - do not share or symlink the same `target-dir` / `CARGO_TARGET_DIR` / `build.build-dir` across concurrent mutable worktrees
 - Cargo registry/git dependency caches and read-only toolchain caches may be shared
-- when cross-worktree compiler reuse is valuable, consider `sccache`; on compatible versions use `SCCACHE_BASEDIRS` / `basedirs` to normalize parallel-checkout paths and keep local cache storage bounded
+- when cross-worktree compiler reuse is valuable, consider `sccache`; on compatible versions use `SCCACHE_BASEDIRS` / `basedirs` to normalize parallel-checkout paths and keep local cache storage bounded. Incremental Rust crates cannot be cached by sccache, so `CARGO_INCREMENTAL=0` is the standard candidate when short-lived agent worktrees are intended to reuse sccache results. Do not race multiple sccache servers against the same local storage
 - seed `target/` with `wt step copy-ignored` only when reflink use is actually verified on filesystems such as APFS / btrfs / XFS / ReFS; exclude `target/` on hosts such as ext4 / NTFS where the operation becomes a full copy
 - short-lived/disposable agent worktrees may have little reuse for incremental state; compare disk footprint and build timings and consider `CARGO_INCREMENTAL=0` there without mechanically imposing it on long-lived interactive checkouts
 - do not make `cargo clean` a routine build step; inspect with `--dry-run` and prefer selective `--doc` / `--release` / `--profile` / `--target` / `-p` cleanup before a full clean. Reserve full clean for recovery or material disk pressure
 - a worktree-local `target/` is normally reclaimed with `wt remove`, so do not duplicate that reclamation with a full clean immediately before removal
-- inspect artifact production with `cargo tree -e features`, `cargo tree -d`, `cargo build --timings`, and relevant resolver/profile settings. Tune unused default features and dev debug info such as `line-tables-only` only from project evidence, and do not change library/public feature contracts merely as a disk optimization
+- inspect artifact production with `cargo tree -e features`, `cargo tree -d`, `cargo build --timings`, and relevant resolver/profile settings. Tune unused default features from project evidence. When MSRV and debugger requirements allow it, prioritize evaluation of Cargo's recommended dev `debug = "line-tables-only"` + dependency `debug = false` + opt-in full-debug profile. Do not change library/public feature contracts merely as a disk optimization
 
 Route detailed procedure to the `worktree-workflow` Skill and ADR-0024.
 
