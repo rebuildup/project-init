@@ -36,7 +36,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/writing-discipline/SKILL.md` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline。
 - `skills/interaction-discipline/SKILL.md` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing。
 - `skills/linear-release-control/SKILL.md` — Linearをoptional release planning / health / portfolio control planeとして使う契約（採用時のみ）。
-- `skills/worktree-workflow/SKILL.md` — WorktrunkをWSL/Linuxのworktree操作layerとして使う契約 / branch base / port allocation。
+- `skills/worktree-workflow/SKILL.md` — WorktrunkをWSL/Linuxのworktree操作layerとして使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
 - `ADR-0002.md` — 低コストsafeguardとtime-sensitive role分離。
@@ -57,6 +57,8 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0017.md` — Constitution / Operating Model / Practice / Skillの階層化とrefinement-based governance。
 - `ADR-0018.md` — current release-driven profileのPR landingをmerge commitへ固定し、repository merge settingsをreconcileする方針。
 - `ADR-0022.md` — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、reproducibilityとnative version sourceとの責務境界を定義する方針。
+- `ADR-0023.md` — application secret valueをInfisicalへ集約するcurrent secret-management Practice。
+- `ADR-0024.md` — Rust/Cargo worktreeのmutable build output隔離、reflink seed、sccache、cleanup/profile tuningの標準Practice。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
