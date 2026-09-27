@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025
 
 ## Purpose
 
@@ -61,6 +61,9 @@
 - short-lived agent worktreeのincremental compilationはreuse期間とdisk footprintを見て`CARGO_INCREMENTAL=0`を選べる。long-lived interactive checkoutへ機械的に伝播させない
 - Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyは`--require-include` + repository-controlled `.worktreeinclude` allowlistを必須とし、承認済みnon-secret cache pathだけを対象にする。reflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する
 - worktree自体をruntime isolation proofとして扱わない
+- cross-boundary / judgment-heavy workで独立したtop-level workが複数ある場合、Herdrをoptional adaptive Supervisor runtimeとして使用できる
+- fan-outはsmallest useful fan-outから開始し、Ready work / uncertainty / WIP / resource / human-review / CI bottleneckを見て増減する。agent数自体をoptimization targetにしない
+- short-lived helperはnative subagentを優先し、independent lifecycle / mutable ownership / background continuity / provider separation / human attachが必要なworkだけtop-level Workerへ昇格する
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
 
