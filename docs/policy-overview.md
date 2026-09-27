@@ -19,7 +19,8 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 
 - `PROMPT.ja.md` — 日本語版の初期化prompt本体。
 - `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
-- `skills/parallel-orchestration/SKILL.md` — subagent分解・snapshot/result統合・stack-ready dependency execution。
+- `skills/parallel-orchestration/SKILL.md` — adaptive fan-out / fan-in、subagent分解・snapshot/result統合・stack-ready dependency execution。
+- `skills/herdr-runtime/SKILL.md` — Herdrをoptional Supervisor/session Practiceとして使うagent-driven orchestration adapter。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
 - `skills/github-delivery/SKILL.md` — Issues / weekly release sprint / stacked PR / Draft PR / release integration。release planning control planeはLinear。
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
@@ -59,6 +60,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0022.md` — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、reproducibilityとnative version sourceとの責務境界を定義する方針。
 - `ADR-0023.md` — application secret valueをInfisicalへ集約するcurrent secret-management Practice。
 - `ADR-0024.md` — Rust/Cargo worktreeのmutable build output隔離、reflink seed、sccache、cleanup/profile tuningの標準Practice。
+- `ADR-0025.md` — adaptive fan-out / fan-inとHerdrによるagent-driven Supervisor loopの標準方針。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
