@@ -434,6 +434,18 @@ current release-driven profileでは、project-local runtime / development CLI �
 
 projectにmeaningfulなruntime / CLI prerequisiteがなくmiseを追加しても実質的な保証が増えない場合は、空の設定を形式的に追加する必要はありません。
 
+### Cloudflare CLI default
+
+Cloudflareを利用するprojectでは、Cloudflare control plane / resource API / supported Worker lifecycleのprimary CLIを `cf` としてください。
+
+- Cloudflare documentationやexampleがWranglerで記述されていても、その表記だけでWranglerを選ばず、まず `cf cli search` 等でcurrent `cf` surfaceに同等操作があるか確認する
+- 同等workflowを `cf` で実行できる場合は `cf` を使用し、新規script / CI / agent instructionをWrangler前提で増やさない
+- `cf` が未対応、互換性不足、または対象workflowでWranglerへ委譲する場合だけ、Wranglerをexplicit compatibility fallbackとして残す
+- Wrangler fallbackは必要なworkflowへboundedにし、silent fallbackにしない。tool update / initialization reconciliation時に `cf` capabilityを再確認し、不要になったfallbackを縮小・削除する
+- `cf` が内部的にWranglerへ委譲するprojectでは、表面commandを `cf` に統一してもWrangler dependencyを誤って削除しない
+- Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
+- `cf` / WranglerはPracticeでありConstitutionではない。詳細なdecision boundaryはADR-0026を参照する
+
 Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/remoteとの差を必要に応じて検証してください。
 
 WSL自体をworker isolationとみなしてはいけません。Linux-oriented repoは高頻度build/watchではWSL Linux filesystem側を優先してください。
