@@ -64,6 +64,18 @@
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
 
+### Cloudflare CLI defaults
+
+Cloudflareを利用するprojectでは、Cloudflare control plane / resource API / supported Worker lifecycleのprimary CLIを `cf` とする。
+
+- Cloudflare documentationやexampleがWranglerで記述されていても、それだけをWrangler採用の根拠にしない。まず `cf cli search` 等でcurrent `cf` surfaceに同等操作があるか確認する
+- `cf` で同等のworkflowを実行できる場合は `cf` を使用し、新規automationやagent instructionをWrangler前提で増やさない
+- `cf` が未対応、互換性不足、または対象workflowでWranglerへ委譲する場合は、Wranglerをexplicit compatibility fallbackとして残してよい
+- Wrangler fallbackは必要なworkflowへboundedにし、silent fallbackにしない。tool upgrade / project reconciliation時に `cf` capabilityを再確認し、不要になったfallbackを縮小・削除する
+- `cf` がWranglerへ内部委譲するprojectでは、表面commandを `cf` に統一できてもWrangler dependencyを誤って削除しない
+- Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
+- `cf` / WranglerはPracticeでありConstitutionではない。provider/tool capabilityの変化に応じて同等以上のguaranteeを持つmechanismへ置換できる
+
 ### Secret / environment defaults
 
 - application / serviceのsecret valueはInfisicalをcurrent default SoTとする
