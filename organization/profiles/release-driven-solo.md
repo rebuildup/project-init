@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0026
 
 ## Purpose
 
