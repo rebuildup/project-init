@@ -416,6 +416,14 @@ Rust/Cargo projectを検出した場合、worktreeごとの`target/`肥大化を
 
 portable Web/backend taskは可能な限り同じLinux sandbox definitionを使い、host差をSupervisor/runtime adapterへ閉じ込めてください。
 
+### Adaptive agent orchestration
+
+cross-boundary / judgment-heavy workで独立して価値を出せるtop-level workが複数ある場合、`parallel-orchestration` でadaptive fan-out / fan-inを行ってください。agent数を目的化せずsmallest useful fan-outから開始し、Ready work、uncertainty、WIP、provider/host resource、human review、CI/external waitを見て増減します。
+
+short-livedでparent内部に閉じるhelperはnative subagentを優先します。independent lifecycle / mutable ownership / background continuity / provider separation / human attachが必要ならtop-level Workerへ昇格できます。Herdrが利用可能な環境では `herdr-runtime` をoptional Supervisor/session Practiceとして使い、Coordinator / Supervisor agent自身がsibling Workerをstart / prompt / wait / readしてresultを回収できます。Herdr lifecycle stateはtelemetryであり、result admissionやtask completionのSoTにはしません。
+
+competitive explorationは多数決ではなくevidence / measurement / validationでfan-inしてください。mutable candidateを並行実装する場合はattemptごとのownership isolationとimmutable result identityを必須とします。
+
 ### Project toolchain / bootstrap default
 
 current release-driven profileでは、project-local runtime / development CLI の標準bootstrap Practiceとしてmiseを使用してください。
@@ -488,6 +496,7 @@ rootに置くもの:
 標準Skill候補:
 
 - `parallel-orchestration`
+- `herdr-runtime`
 - `sandbox-runtime`
 - `github-delivery`
 - `agent-delivery-estimation`

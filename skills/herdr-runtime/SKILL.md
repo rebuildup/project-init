@@ -1,6 +1,6 @@
 ---
 name: herdr-runtime
-description: Herdrをoptional Supervisor/session Practiceとして使い、project-initのWorker execution attemptをpane/agent lifecycleへ安全にmappingする時に使用する。
+description: Herdrをoptional Supervisor/session Practiceとして使い、Worker execution attemptの安全なmappingに加えてagent-driven fan-out / observe / collectを行う時に使用する。
 ---
 
 # Herdr Runtime
@@ -75,6 +75,36 @@ project-init logical capabilityからHerdrへmappingする場合のcurrent shape
 このmappingはcommand compatibility layerであり、organizational contractではない。
 
 特にcancelは `ctrl+c` を送っただけで完了とみなさない。process/agent stateとdurable side effectをreconcileし、durable Workerならfencing ownershipを更新してからreplacement attemptをadmitする。
+
+## Agent-driven Supervisor loop
+
+Herdr-managedなCoordinator / Supervisor agentは、`HERDR_ENV=1` を確認したうえでHerdr CLI/APIからsibling top-level Workerを起動・委譲・回収してよい。fan-out判断は `parallel-orchestration` のadaptive policyに従い、Herdr paneを増やすこと自体を目的にしない。
+
+current command surfaceでは概ね次を使用する。
+
+```bash
+herdr agent list
+herdr agent start <worker-name> --kind <agent-kind> --pane <pane-id>
+herdr agent prompt <worker-name> "<bounded-task>" --wait --timeout <ms>
+herdr agent read <worker-name> --source recent-unwrapped --lines <n>
+```
+
+workspace / tab / pane creationを行う場合はcommandが返したJSON IDを取得し、IDやpane placementを推測しない。
+
+Supervisor loop:
+
+1. execution profile / dependency / attempt class / fan-out modeを決める。
+2. mutable WorkerならHerdrより先にworkspace/runtime ownershipをmaterializeする。
+3. execution surfaceとagentを作る。
+4. bounded task contractをpromptする。
+5. `agent wait` / `agent read` / lifecycle telemetryでobserveする。
+6. `blocked`、timeout、`agent_prompt_stalled` 等をreconcileしてからretry/reassignする。
+7. immutable result / evidenceを回収し、base / fencing / validation / authorityを確認する。
+8. remaining workとbottleneckを再評価し、spawn / continue / stopを選ぶ。
+
+official Herdr Agent Skillはcommand adapterとして利用できるが、project-initのattempt / ownership / evidence / admission semanticsを置換しない。導入する場合はproject-local Skill policyに従うか、`herdr --skill` 等のinstalled releaseに対応したsourceを利用し、global installationをproject correctnessの前提にしない。
+
+remote machineを使う場合はtargetを明示する。machine/server failure後に別machineやlocalへsilent fallbackして同じmutable attemptを二重継続しない。
 
 ## Spawn flow
 

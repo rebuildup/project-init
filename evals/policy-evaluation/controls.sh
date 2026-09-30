@@ -64,6 +64,14 @@ else
   RC=1
 fi
 
+if herdr_out=$(bash "$R/evals/policy-evaluation/herdr-orchestration-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "Herdr orchestration contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "Herdr orchestration contract"
+  printf '%s\n' "$herdr_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if refinement_out=$(bash "$R/evals/policy-evaluation/constitutional-refinement-controls.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "constitutional refinement controls"
 else
