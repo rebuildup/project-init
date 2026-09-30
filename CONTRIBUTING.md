@@ -169,7 +169,7 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡
 - active durable ticket branchをpublished remote head + PRなしで継続しない。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移する
 - PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとして作成し、完成済みPRをDraftのまま残さない
 - 上記publish + PR state lifecycle ruleはCoordinator / human / worker / subagentすべてに適用
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持し、Issue -> branch -> PR relationshipをdurableに追跡可能にする
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持する。number-only ticket branchではPR本文の `Closes #<issue-number>` または同等native linkageを必須とし、Issue -> branch -> PR relationshipをdurableに追跡可能にする
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
 - non-release ticket PRはreadiness/quality gateを満たしreal blockerがなければ追加のuser merge authorizationを待たずmerge commitで自律landingする
 - stacked ticketはdependency順に自律landingするが、intermediate predecessor branchへのmergeだけではDoneにしない
