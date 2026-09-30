@@ -20,7 +20,7 @@ Worktrunk自体はConstitutionではない。採用理由はworkspace lifecycle 
 - Worktrunkはworkspace lifecycle toolであり、execution isolation boundaryではない。
 - branch/ref/GitHub Issue/PRがcanonical stateであり、worktree pathやWorktrunk local stateをSoTにしない。
 - ticket branchはIssue番号のみ、release branchは`release-<major>-<minor>-<patch>`を維持する。
-- `wt merge main`等でGitHub PR / release integration / explicit merge authorizationを迂回しない。
+- `wt merge main`等でGitHub PR lifecycle / protected main / explicit release authorization boundaryを迂回しない。ticket PRのautonomous landingもGitHub delivery contract経由で行う。
 - project-shared Worktrunk hookは`.config/wt.toml`へcommitする。
 - worktree path等のmachine preferenceはuser configであり、project truthにしない。
 - WSLでは高頻度build/watch用worktreeをLinux filesystemへ置き、`/mnt/c`を標準にしない。
@@ -270,19 +270,19 @@ Worktrunk commandはGitHub deliveryのergonomic frontendに限定する。
 wt switch release-x-y-z
 -> wt switch --create <issue-number> --base=release-x-y-z
 -> implementation / commit / publish
--> immediate Draft PR
+-> immediate PR creation/state
 -> review / validation
--> authorized GitHub landing
+-> ticket-class: autonomous GitHub landing / release-class: explicitly authorized GitHub landing
 -> wt remove <issue-number>
 ```
 
-`wt merge`のlocal integration convenienceは、project-initのticket PR / release PR / protected main / explicit merge authorizationを置き換えない。
+`wt merge`のlocal integration convenienceは、project-initのticket PR lifecycle / release PR / protected main / explicit release authorization boundaryを置き換えない。
 
 ## Fallback and recovery
 
 ### Authoring
 
-Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、Draft PR lifecycle等のapplicable semanticsは維持する。
+Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、PR state lifecycle等のapplicable semanticsは維持する。
 
 worktree自体を作れないauthoring environmentでは、同じshared checkoutへ複数workerを並行配置しない。isolated clone / sandbox / serialized ownership等、同等以上のmutable ownership guaranteeを選ぶ。
 

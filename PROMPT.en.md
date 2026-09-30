@@ -49,11 +49,15 @@ The following rules are the current Operating Model / Practices. They implement 
 - Ticket branch names contain only the Issue number.
 - One top-level Issue normally maps to one durable ticket branch and one ticket PR.
 - Independent ticket PRs target the release branch. A same-release linear hard dependency may instead use the immediate predecessor ticket branch as the dependent PR base.
-- Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
-- The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
-- At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
+- Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate PR creation as one start procedure. Do not continue active implementation without the published remote head and PR. Use Draft while implementation/integration is active, and Ready for review once readiness conditions are satisfied.
+- Draft is a temporary incomplete-work state. Move a PR to Ready for review as soon as its readiness conditions are satisfied without waiting for an explicit user instruction; if the work is already complete when the PR is created, create it Ready from the start.
+- The publish + PR-state rule applies equally to humans, Coordinators, workers, and subagents.
+- At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state, keeping the Issue -> branch -> PR relationship durably discoverable.
+- A non-release ticket PR whose readiness/quality gates pass lands autonomously with merge-commit semantics without waiting for per-PR user merge authorization.
 - A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. Linear does not mirror ticket status; Linear Project Completed/Doneness is reconciled only at release level.
-- A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
+- Delete a landed ticket branch when no open/dependent PR still needs it; first retarget/rebase and revalidate dependents when necessary.
+- At recovery/completion, reconcile ticket branches without PRs, Ready ticket PRs not landed, landed tickets with open Issues, and merged/landed ticket branches left behind.
+- A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR. Release PRs are excluded from autonomous/bulk ticket landing, and only `release-* -> main` requires explicit current user authorization.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
 - Quality gates are compiled per project rather than using one fixed bundle.
 - Required verification levels are selected from change surface/risk.
@@ -144,7 +148,7 @@ Source/work state:
 
 Each ticket/worker should have a traceable `base_sha` or immutable input snapshot.
 For stack-ready dependent work, also record the predecessor Issue/PR identity and exact predecessor commit SHA / immutable snapshot.
-For durable ticket branches, publish the first meaningful state to the canonical remote and make the remote head SHA and Draft PR identity traceable.
+For durable ticket branches, publish the first meaningful state to the canonical remote and make the remote head SHA and PR identity/state traceable.
 
 Do not make a local directory, conversation history, native session ID, or unrecoverable Supervisor-local database the only source of truth.
 
@@ -236,7 +240,7 @@ Do not concentrate large amounts of mechanical implementation in the Coordinator
 - execution lease / generation / fencing
 - child discovery / orphan reconciliation
 - Git result collection / integration
-- durable branch remote publication / Draft PR lifecycle coordination
+- durable branch remote publication / PR-state lifecycle coordination
 - logs / status / preview routing
 
 Do not give workers host Docker sockets, root-equivalent host capability, or cloud master credentials just so they can create sandboxes.
@@ -272,7 +276,7 @@ Spawn input may include:
 - dependency / predecessor Issue or PR
 - immutable input snapshot / predecessor snapshot
 - immediate PR base
-- durable branch identity / expected Draft PR identity when applicable
+- durable branch identity / expected PR identity/state when applicable
 - assignee / reviewer / label expectations when applicable
 - role
 - allowed tools
@@ -281,9 +285,9 @@ Spawn input may include:
 - expected result format
 - parent fencing identity / execution generation when the current implementation uses generation-based fencing
 
-If a subagent/worker is allowed to create a durable branch, that authority includes remote publication, Draft PR creation, and metadata maintenance. GitHub must be able to resolve the remote head and the head must differ from its base, so after branch creation the worker must immediately create the first meaningful commit, publish it to the canonical remote, verify that the remote branch head SHA matches that commit SHA, and then immediately create the Draft PR.
+If a subagent/worker is allowed to create a durable branch, that authority includes remote publication, PR creation/state maintenance, and metadata maintenance. GitHub must be able to resolve the remote head and the head must differ from its base, so after branch creation the worker must immediately create the first meaningful commit, publish it to the canonical remote, verify that the remote branch head SHA matches that commit SHA, and then immediately create the PR. Use Draft while work is active/incomplete and Ready for review when readiness conditions are satisfied.
 
-If the worker lacks remote-publication or PR-mutation permission, it must hand control back to the Coordinator/Supervisor immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create the Draft PR before further implementation continues.
+If the worker lacks remote-publication or PR-mutation permission, it must hand control back to the Coordinator/Supervisor immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create/set the PR state before further implementation continues.
 
 Prevent fork bombs and unbounded cost.
 
@@ -465,7 +469,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 - project identity / boundaries
 - source/work SoT
 - weekly active release rule
-- dependency / remote-publication / Draft PR lifecycle pointer
+- dependency / remote-publication / PR-state lifecycle pointer
 - public-main-protection pointer when applicable
 - decision-precedence pointer
 - project toolchain declaration / mise bootstrap
@@ -585,7 +589,7 @@ When useful distinguish dependency execution state as:
 
 ---
 
-## 12. Ticket branch / mandatory Draft PR / stacked PR
+## 12. Ticket branch / PR state lifecycle / stacked PR
 
 Create one durable ticket branch for each top-level Issue.
 
@@ -597,7 +601,7 @@ Do not add an `issue/` prefix, slug, title, or work type. Descriptive responsibi
 
 ### Branch start contract
 
-**Every active durable ticket branch must have a published remote head and Draft PR.**
+**Every active durable ticket branch must have a published remote head and PR, and the PR state must match the actual work state.**
 
 GitHub must be able to resolve the remote head and head/base must differ, so the canonical start procedure is:
 
@@ -605,13 +609,15 @@ GitHub must be able to resolve the remote head and head/base must differ, so the
 2. immediately create the first meaningful commit
 3. publish that commit to the canonical remote
 4. verify the remote branch head SHA equals the first meaningful commit SHA
-5. immediately create the Draft PR
+5. immediately create the PR; use Draft if implementation/integration is active, or Ready for review if the readiness conditions are already satisfied
 6. set Issue linkage / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context
-7. continue implementation
+7. continue implementation only if work remains incomplete
 
 Do not defer publication/PR creation until implementation completion, and do not keep the first meaningful commit only locally while continuing implementation. This applies to humans, Coordinators, implementation workers, and subagents.
 
-If a worker lacks remote-publication or PR-mutation permission, it must hand off immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create the Draft PR before further implementation continues.
+**Draft is a temporary incomplete-work state.** Once the applicable readiness conditions are satisfied — acceptance criteria, required validation, blocking-problem resolution, current PR body/metadata, and required staleness/reconciliation checks — the agent must promptly move the PR to Ready for review. Do not leave completed work in Draft while waiting for a human to explicitly request the transition. If the readiness conditions are already satisfied when the PR is first created, create it Ready from the start instead of performing a ceremonial Draft -> Ready round trip.
+
+If a worker lacks remote-publication or PR-mutation permission, it must hand off immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create/set the PR state before further implementation continues.
 
 ### Independent ticket
 
@@ -655,7 +661,7 @@ If predecessor review changes the downstream branch through rebase/update, rerun
 
 At PR creation evaluate and set, where applicable:
 
-- linked Issue
+- linked Issue. Use native linkage when available and at minimum keep an explicit reference that makes the corresponding Issue uniquely discoverable from the PR
 - accountable assignee
 - requested reviewer / CODEOWNERS-derived reviewer
 - repository-established labels
@@ -681,17 +687,19 @@ Draft -> Ready requires:
 - downstream reconciliation/revalidation completed after predecessor changes
 - latest durable checkpoint is consistent with branch state
 
-Ticket Done requires:
+Ticket landing / Done requires:
 
+- once a non-release ticket PR passes readiness/quality gates, do not stop for per-PR user authorization; land it autonomously with merge-commit semantics
 - project-specific applicable validation has run for the current landing candidate with no known failure left unresolved
 - blocking review / unresolved conversations are cleared
-- ticket changes have landed on the target release trunk
-- Issue explicitly closed only after successful target-release-trunk landing
+- ticket changes have landed on the target release trunk and the landed changes are reachable from that trunk
+- explicitly close the linked Issue as completed after target-release-trunk landing
+- delete the landed remote ticket branch when no open/dependent PR still needs it; otherwise retarget/rebase dependents, rerun affected validation, then delete it
 - Linear does not mirror ticket status; reconcile Linear only at release level.
 
-For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`.
+For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`. Stack members are still ticket-class and may land autonomously in dependency order once every included ticket passes its gates.
 
-Do not rely only on closing keywords for non-default-branch integration.
+Do not rely only on closing keywords for non-default-branch integration; explicit Issue closure and safe branch cleanup are part of the delivery operation.
 
 ---
 
@@ -720,7 +728,7 @@ In public repositories, protected `main` must not be changed through any path ot
 
 For every GitHub Pull Request landing in the current release-driven profile, use the merge-commit method. Keep merge commits enabled, disable squash merge and rebase merge, and make Agent/automation merge calls explicitly select `merge`. This restriction applies to PR rebase merge, not to branch-local `git rebase` used for stack maintenance or conflict resolution. If native stack landing cannot preserve merge-commit semantics, use an ordered merge-commit landing path instead.
 
-PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. The default required approving review count is zero; blocking reviews and unresolved conversations must still be cleared. The actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, validation evidence, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it. When it does, it explicitly selects the `merge` method and verifies the resulting merge commit.
+`release-x-y-z -> main` is the **only explicit user-authorization merge boundary** (ADR-0027, preserving ADR-0012 for release landing). Always exclude release PRs from autonomous/bulk ticket landing and from auto-merge. Zero approving reviews remains the default, but blocking reviews and unresolved conversations must be cleared. Drive the release through release-wide verification and Ready state, then stop at ready-to-merge unless the user explicitly authorizes that release PR/action in the current interaction. Generic instructions such as "merge ready PRs", "clean up", or "finish it", and standing ticket-landing permission do not authorize a release. After authorization, re-fetch the actual head/base/current SHA, require `base == main` and `head == intended current release-*`, then merge explicitly with method `merge`. Reject any `base == main` PR whose head is not the current release branch.
 
 After merge, `main` represents the released state for that version.
 
@@ -740,7 +748,7 @@ Each node may include:
 - immediate PR base
 - output contract
 - owner role
-- branch / remote-publication / Draft PR contract
+- branch / remote-publication / PR creation/state contract
 - integration target
 - recovery/checkpoint policy
 
@@ -759,7 +767,7 @@ If stacked delivery cannot be maintained safely, preserve the dependency SoT and
 
 For non-trivial tasks run:
 
-`inspect -> design-refinement (only before planning for non-trivial feature / architecture / product design) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> design-refinement (only before planning for non-trivial feature / architecture / product design) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + PR/state -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target-release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 `design-refinement` is **mandatory before any non-trivial feature / architecture / product design reaches `plan weekly release`**. Trivial tasks (mechanical typos, localized bug fixes) may skip it; tasks whose scope touches an interface, data model, or public contract may not. Follow the `design-refinement` Skill: read the relevant repository / ADR / Skills / existing implementation / official guidance, separate facts from unresolved decisions, and only then enter planning.
 
@@ -807,9 +815,9 @@ Prefer:
 
 Native conversation IDs, agent IDs, Supervisor-local DBs, shell history, and IDE state are transient optimizations.
 
-If an active durable ticket branch has no published remote head + Draft PR, treat that as broken delivery state. Reconcile Issue/branch ownership, remote head, intended PR base, and repair the durable PR surface.
+If an active durable ticket branch has no published remote head + PR, treat that as broken delivery state. Reconstruct Issue/branch ownership and intended base/stack from repository evidence and create the missing PR when it can be determined safely. If the PR exists, reconcile its state: Draft while incomplete, Ready for review once readiness conditions are satisfied. If a Ready ticket PR has no real blocker, land it autonomously; if its changes already reached the target release trunk while the Issue remains open, close the Issue explicitly; if a landed/merged ticket branch remains, delete it once dependencies are reconciled.
 
-A release branch is exempt only while it is zero-diff from `main`. Once the first meaningful integrated difference exists, a missing Draft release PR is broken delivery state and must be repaired.
+A release branch is exempt only while it is zero-diff from `main`. Once the first meaningful integrated difference exists, a missing Draft release PR is broken delivery state and must be repaired. Never include that release PR in autonomous ticket landing, and never merge it without explicit release authorization.
 
 ### Structured recovery checkpoint
 
@@ -847,7 +855,7 @@ Do not depend on secrets, machine-specific absolute paths, or private reasoning.
 ### Soft vs hard checkpoints
 
 - soft checkpoint: same-host/same-sandbox recovery, using local immutable refs, filesystem snapshots, Supervisor journal, native session state, etc.
-- hard checkpoint: provider/sandbox-loss boundary where meaningful code/work state remains reachable from durable remote infrastructure. For durable tickets, the recorded commit must be reachable on the canonical remote and the remote-head identity/Draft PR must be traceable. A release branch needs no Draft release PR only while zero-diff; after its first difference, the Draft release PR must exist.
+- hard checkpoint: provider/sandbox-loss boundary where meaningful code/work state remains reachable from durable remote infrastructure. For durable tickets, the recorded commit must be reachable on the canonical remote and the remote-head identity plus PR identity/state must be traceable. A release branch needs no Draft release PR only while zero-diff; after its first difference, the Draft release PR must exist.
 
 Do not remote-commit every trivial edit merely for checkpointing. Choose frequency from project RPO, task duration, and provider TTL.
 
@@ -872,7 +880,7 @@ A fresh agent must not guess what the previous agent was thinking.
 
 1. identify Issue / PR / target release / dependency
 2. fetch ticket/release branch / remote commit graph / stack relation
-3. for durable tickets, verify/repair published remote head + Draft PR / metadata; for release branches, verify the zero-diff exception or first-difference Draft release PR
+3. for durable tickets, verify/repair published remote head + PR state / metadata; keep incomplete work Draft and move readiness-complete work to Ready for review; for release branches, verify the zero-diff exception or first-difference Draft release PR
 4. read latest valid checkpoint
 5. inspect canonical policy/design/decision refs
 6. rediscover active children through the Supervisor
@@ -900,7 +908,7 @@ A recovered parent/coordinator should:
 - verify input snapshot / predecessor snapshot / applicable current fencing identity
 - classify running/completed/failed/orphaned
 - collect completed immutable results
-- reconcile published remote head / Draft PR identity / metadata for durable-branch children
+- reconcile published remote head / PR identity/state / metadata for durable-branch children
 - avoid auto-integrating stale results
 - retry/resume/re-spawn where needed
 
@@ -993,7 +1001,7 @@ Persist consequential long-lived decisions in ADRs, especially:
 - execution fencing / side-effect reconciliation
 - release/sprint branching model / weekly sprint cadence
 - dependency-aware stacked PR model
-- durable branch / remote-publication / Draft PR / PR metadata lifecycle
+- durable branch / remote-publication / PR state / PR metadata lifecycle
 - public-repository main protection / release-only main integration
 - environment reproducibility
 - architecture migration
@@ -1185,7 +1193,7 @@ Repository-controlled docs should lead to at least:
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - one-week sprint / target release / Issue dependency workflow
-- ticket branch / first meaningful commit / remote publication / remote-head verification / immediate Draft PR workflow
+- ticket branch / first meaningful commit / remote publication / remote-head verification / immediate PR creation/state workflow
 - PR assignee / reviewer / labels / Issue linkage / stack context
 - independent-PR / stacked-PR base rules
 - target-release-trunk landing as the stacked-ticket Done boundary
@@ -1308,7 +1316,7 @@ Verify at least:
 - medium/long-term release forecasting uses the evidence-based `agent-delivery-estimation` policy rather than subjective calendar estimates or linear agent scaling
 - Issue dependency graph is the canonical dependency SoT
 - independent tickets use release base, and same-release linear hard dependencies may use stacked PRs
-- every active durable ticket branch publishes its first meaningful commit to the canonical remote, verifies the remote-head SHA, and immediately gets a Draft PR, including worker/subagent branches
+- every active durable ticket branch publishes its first meaningful commit to the canonical remote, verifies the remote-head SHA, and immediately gets a PR. Keep it Draft only while active/incomplete, move it to Ready for review when readiness conditions are satisfied, and create it Ready from the start when already complete. Worker/subagent branches are not exceptions.
 - PR creation sets Issue linkage / assignee / reviewer/CODEOWNERS / established labels / target release / stack context
 - stacked-ticket Done is defined by target-release-trunk landing, not an intermediate predecessor merge
 - a release branch is exempt from Draft release PR only while zero-diff, and gets a Draft release PR after its first meaningful integrated difference

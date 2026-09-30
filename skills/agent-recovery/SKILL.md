@@ -42,7 +42,7 @@ project/provider要件に応じて、machine/provider lossまでのRPO/RTOも定
 8. immutable worker/subagent result commits/refs/artifacts
 9. durable recovery checkpoint / handoff record
 
-active durable ticket branchにpublished remote head + Draft PRが存在しない場合、それを正常状態とみなさない。Issue/branch ownership、first meaningful commit、remote head、intended PR baseを確認し、delivery surfaceを修復してからactive workを継続する。
+active durable ticket branchにpublished remote head + PRが存在しない場合、それを正常状態とみなさない。Issue/branch ownership、first meaningful commit、remote head、intended PR baseを確認し、repository evidenceからbaseを安全に復元できるならmissing PRを作成してdelivery surfaceを修復する。PRが存在する場合もstateをreconcileし、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。Ready ticket PRにreal blockerがなければpermission待ちで停止せずautonomous landingへ進める。
 
 release branchは例外を持つ。`main`とzero-diffのrelease branchはGitHub上Draft PRを作成できないため、その状態だけはDraft release PR不要である。first meaningful integrated differenceがrelease branchに入った後は、Draft release PRが存在しない状態を正常とみなさない。
 
@@ -124,7 +124,7 @@ sandbox/providerを失っても復旧する境界。
 - meaningful code stateがcanonical remoteで到達可能
 - durable ticket branchではrecorded commit SHAとremote branch headの対応が追跡可能
 - Issue/Project/PRから現在statusを判断可能
-- active durable ticket branchにはDraft PRが存在
+- active durable ticket branchにはPRが存在し、stateが実際のwork stateと一致
 - release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後はDraft release PRが存在
 - stackならpredecessor identity / exact predecessor snapshotが分かる
 - next step / pending verification / blockerがdurableに分かる
@@ -159,20 +159,21 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 
 1. Issue / GitHub Project / PR / target release / dependencyを特定する。
 2. current ticket/release branch、remote commit graph、stack predecessor/successor relationをfetchする。
-3. durable ticket branchではpublished remote headとDraft PR、assignee / reviewer / labels / intended baseが整合していることを確認する。欠落していれば修復する。
-4. release branchでは`main`との差分を確認する。zero-diffならDraft release PR不要、differenceが存在するならDraft release PRとmetadataを確認・修復する。
-5. latest valid recovery checkpointを読む。
-6. canonical design/policy/decision refsを再確認する。
-7. observed fencing identityに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、新しいfencing identityを確定する。current implementationでgeneration方式を使う場合はnew `execution_generation` と一意なlease/fencing tokenを発行する。競合した場合はownershipを共有せず、stateを再読してやり直す。
-8. active child/subagent stateをlogical Supervisorへ問い合わせ、current fencing identityとの関係をreconcileする。
-9. current workspaceをcheckpointからrecreateする。
-10. stack-ready workではrecorded predecessor SHAとcurrent intended predecessor stateを比較し、差があればstale baseとしてreconcileする。
-11. completed/pending validationをcurrent snapshotに対して再評価する。
-12. current fencing tokenが有効であることを確認した上で、external side effectの実行済み/未実行/不明をremote actual stateからreconcileする。
-13. stale base / conflicting integrationを確認する。
-14. remaining planを再構成する。
-15. safeな最小verificationを実行してstateを信頼できることを確認する。
-16. current fencing identityの所有権を維持したまま作業を継続する。
+3. durable ticket branchではpublished remote headとPR identity/state、linked Issue、assignee / reviewer / labels / intended baseが整合していることを確認する。PR欠落ならintended base/stackをrepository evidenceから復元してPRを作成し、state driftも修復する。
+4. Ready ticket PRにreal blockerがなく未landingならticket-classとして自律landingする。target release trunkへland済みなのにIssueがopenなら明示closeし、landed/merged ticket branchが残っていればdependent PRをreconcileしたうえでsafeに削除する。
+5. release branchでは`main`との差分を確認する。zero-diffならDraft release PR不要、differenceが存在するならDraft release PRとmetadataを確認・修復する。release PRはautonomous/bulk ticket landingから除外し、explicit release authorizationなしにmergeしない。
+6. latest valid recovery checkpointを読む。
+7. canonical design/policy/decision refsを再確認する。
+8. observed fencing identityに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、新しいfencing identityを確定する。current implementationでgeneration方式を使う場合はnew `execution_generation` と一意なlease/fencing tokenを発行する。競合した場合はownershipを共有せず、stateを再読してやり直す。
+9. active child/subagent stateをlogical Supervisorへ問い合わせ、current fencing identityとの関係をreconcileする。
+10. current workspaceをcheckpointからrecreateする。
+11. stack-ready workではrecorded predecessor SHAとcurrent intended predecessor stateを比較し、差があればstale baseとしてreconcileする。
+12. completed/pending validationをcurrent snapshotに対して再評価する。
+13. current fencing tokenが有効であることを確認した上で、external side effectの実行済み/未実行/不明をremote actual stateからreconcileする。
+14. stale base / conflicting integrationを確認する。
+15. remaining planを再構成する。
+16. safeな最小verificationを実行してstateを信頼できることを確認する。
+17. current fencing identityの所有権を維持したまま作業を継続する。
 
 native resumeが成功しても、重要なIssue/Project/branch/PR/stack/checkpoint stateとの整合を確認してから続行する。
 
@@ -189,7 +190,7 @@ recovered parent/coordinatorは:
 - running/completed/failed/orphanedを分類
 - completed resultをimmutable resultとして回収
 - stale child resultは自動統合しない
-- durable branchを作ったchildではpublished remote head / Draft PR identity / metadataをreconcile
+- durable branchを作ったchildではpublished remote head / PR identity/state / metadataをreconcile
 - 必要ならretry/resume/re-spawn
 
 を行う。
@@ -285,9 +286,10 @@ project/runtimeが許す範囲で定期的に:
 2. agent/sandboxを意図的に停止する
 3. fresh agent/sandboxからrecoveryする
 4. Issue/Project/branch/PR/stack/children/validation/side-effect journalを再構成する
-5. durable ticketではpublished remote head / Draft PR / metadata / predecessor baseを検証する
-6. release branchではzero-diff例外またはfirst-difference後Draft release PRの存在を検証する
-7. duplicate mutationなしで続行できることを確認する
+5. durable ticketではpublished remote head / PR identity/state / linked Issue / metadata / predecessor baseを検証し、missing PRをrepairできることを確認する
+6. Ready ticket PRのautonomous landing、target release landing後のIssue close、safe branch cleanupがrecovery後も重複mutationなしでreconcileできることを確認する
+7. release branchではzero-diff例外またはfirst-difference後Draft release PRの存在を検証し、release PRがexplicit authorizationなしにlandingされないことを確認する
+8. duplicate mutationなしで続行できることを確認する
 
 chaos/recovery drillをintegration infrastructureの一部として採用できる。
 
@@ -297,8 +299,9 @@ recovered taskを「再開成功」とみなす条件:
 
 - canonical Issue/Project/PR/release/dependencyとの対応が確認済み
 - active durable ticket branchはmeaningful stateがcanonical remoteへpublish済みで、remote head identityが確認済み
-- active durable ticket branchにDraft PRが存在し、base/assignee/reviewer/labels等のmetadataが現状と整合
-- release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後ならDraft release PRが存在しmetadataが整合
+- active durable ticket branchにPRが存在し、active/incompleteならDraft、readiness条件を満たしていればReadyで、linked Issue/base/assignee/reviewer/labels等のmetadataが現状と整合
+- Ready ticket PRはreal blockerがなければlanding待ちで放置されず、target release trunk landing後はIssue closeとsafe branch cleanupまでreconcile済み
+- release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後ならDraft release PRが存在しmetadataが整合し、explicit release authorizationなしのmergeが発生していない
 - stackならpredecessor identity / exact base snapshotが確認済み
 - workspaceが追跡可能なsnapshot/commitから再構成済み
 - current fencing identityを一意に所有している

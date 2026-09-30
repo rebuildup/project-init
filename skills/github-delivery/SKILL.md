@@ -7,7 +7,7 @@ description: current release-driven Operating ModelをGitHub Issues / Pull Reque
 
 Layer: **Operating Model + Practice**
 
-このSkillはcurrent release-driven profileのGitHub materializationを定義する。Issue / PR / branch / Draft PR shapeそのものはConstitutionではない。
+このSkillはcurrent release-driven profileのGitHub materializationを定義する。Issue / PR / branch / PR state lifecycleそのものはConstitutionではない。
 
 重要なのは、durable implementation identity、reviewable evidence、canonical consistency、authority boundary、organizational continuityを維持すること。将来別platform/topologyがこれらを同等以上に満たす場合は置換できる。
 
@@ -24,31 +24,32 @@ Layer: **Operating Model + Practice**
 `main` はリリース済み・統合済みの安定状態を表す。
 通常のticket PRを直接 `main` へ向けない。
 
-## Merge authorization boundary
+## Landing authority boundary
 
-PRのquality/readinessとmerge side effectのauthorizationを分離する。
+PR landing前にcurrent PRを再取得し、actual head/baseから **ticket-class / release-class** を分類する。
 
-Agent / subagent / Coordinator / Supervisorは、userが対象PRまたは明確に限定したPR集合について明示的にmerge/landを依頼した場合だけ、landing authorization handlingまで進める。実行できる **landing role** は状況によって次の通り分岐する:
+### Ticket-class
 
-- **standalone 状況（1つのPRを単独で操作する場合）**: Agent / subagent / Coordinator / Supervisor のいずれも、authorization がある対象PRに対して merge commit method (`merge`) によるPR landing / merge-commit semanticsを満たすstacked PR landing / merge methodが`merge`に固定されたauto-merge / authorization scope内のequivalent landingを実行できる。squash merge / rebase mergeはcurrent profileのPR landing methodとして使用しない。
-- **orchestrated 状況（`parallel-orchestration` の landing handoff boundary 下で shared durable integration state へ ordered landing が必要な場合）**: Coordinator / Supervisor だけが landing 操作を実行する。Agent / subagent / worker は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。
+- `base != main`
+- current ticket/release integration topologyに属する
+- 通常はticket branch -> target `release-*`、またはdependent ticket -> immediate predecessor ticket branch
 
-authorization handling 自体は standalone / orchestrated のどちらの状況でも Agent / subagent が進めてよいが、landing 操作は上表の role gating に従う。
+ticket-class PRはper-PR user merge authorizationを要求しない。acceptance criteria、current-SHA validation、blocking review/conversation、staleness等のapplicable readiness/quality gateを満たしreal blockerがなければ、Agent/Coordinatorはready-to-mergeで停止せずlandingまで進める。
 
-次はauthorizationではない。
+standaloneではAgent / subagent / Coordinator / Supervisorがticket landingを実行できる。parallel-orchestration下でshared durable integration stateへのordered landingが必要な場合はCoordinator / Supervisorがlandingを実行し、worker/subagentはvalidated candidateをhandoffする。
 
-- acceptance criteria satisfied
-- applicable validation completed without known failure
-- blocking review / conversation resolution
-- mergeable / Ready for review
-- `対応して` / `レビューして` / `conflictを解消して` / `リリース準備して` / `最後まで進めて` 等の一般的な完遂依頼
-- repository policyやrelease schedule自体
+### Release-class
 
-authorizationがなければ、implementation / push / Draft PR / metadata / review対応 / conflict解消 / validation / Ready化まで進め、**ready-to-merge** で停止する。対象PR、current head SHA、gate state、残るblockerを報告する。merge permissionを得るためだけに不要な質問を先回りして行わない。
+- `base == main`
+- `head == current release-*`
 
-authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PRへ伝播させない。authorization後にexpected review fixでhead SHAが変わった場合はcurrent SHAでrequired validationを再実行する。base / target release / scope / included changes等がmaterialに変わった、unrelated changesが入った、またはauthorization scope内か曖昧になった場合は古いauthorizationを再利用せずuserへ再確認する。
+release-class PRだけはexplicit user authorizationを必要とする。Ready/mergeable、green validation、approval、ticket PRへのstanding autonomous landing authority、genericな `readyなPRをmerge` / `cleanup` / `最後まで進めて` 等からrelease authorizationを推定しない。
 
-quality gateは「mergeしてよい品質か」を判定する。merge authorizationは「landing 操作を実行してよいか」を判定する。前者の成功から後者を導出しない。
+release PRはbulk/autonomous ticket landingとauto-mergeから常に除外する。userがcurrent interactionで対象release PRまたは明確なrelease actionをexplicitにauthorizeした場合だけmergeできる。authorization後もcurrent head/base/SHAを再取得し、materialにcandidateが変化していればauthorization applicabilityを再確認する。
+
+`base == main` かつheadがcurrent release branchでないPRはinvalid integration pathとしてlandingを拒否する。
+
+quality gateは「candidateがlanding可能な品質か」を判定する。ticket-classではその成功後に自律landingへ進み、release-classでは別途explicit authorization gateを要求する。ticket authorityをrelease authorityへ伝播させない。
 
 ## Pull Request merge method
 
@@ -59,12 +60,11 @@ squash merge / rebase mergeは使用しない。branch-local `git rebase` はsta
 
 `parallel-orchestration` の execution model 下では、Agent / subagent / worker は **target release integration branch (`release-x-y-z`) や `main` への shared durable integration state への ordered landing を直接実行しない**。landing は Coordinator / Supervisor が durable integration の責務として行う。
 
-Agent / subagent が merge / land authorization を受け取る経路は次のいずれかに限定する:
+- ticket-class candidateはreadiness/quality gate通過後、追加authorizationなしでCoordinator / Supervisorへlanding handoffする。
+- release-class candidateはexplicit user authorization scopeもhandoff artifactへ含め、Coordinator / Supervisorはcurrent refs/SHAとauthorization applicabilityを再検証してからlandingする。
+- standaloneでrelease PRを扱うAgentは、explicit release authorizationがある場合に限り直接landingできる。
 
-1. 単独で `release-x-y-z -> main` の release PR を扱う状況では、authorization を **直接 landing 操作として実行できる**。
-2. 並列オーケストレーション下では、Agent / subagent の authorization は **Coordinator / Supervisor への明示的 handoff** を経由する。worker / subagent は landing を実行せず、result + authorization scope を immutable handoff artifact として Supervisor へ返す。Supervisor だけが landing 操作を行う。
-
-この境界を越えて worker / subagent が landing 操作を実行した場合、result は stale candidate として扱う。
+この境界を越えてworker/subagentがshared durable integration stateへlandingした場合、resultはstale candidateとして扱いreconciliationする。
 
 ## Main protection / release-only integration
 
@@ -172,17 +172,19 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 4. Ready ticketを選択する。
 5. dependency / stack候補 / capacityを確認する。中長期capacity判断では `agent-delivery-estimation` のcurrent evidence / bottleneck / forecast statusを参照する。
 6. ticketごとにnumber-only branchを作る。
-7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを必ず作成し、metadataを設定する。
+7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にPRを必ず作成し、metadataとstateを設定する。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとする。
 8. isolated workerをdependency/WIP制約内で並行起動する。
 9. independent ticketまたはstacked ticketをreviewし、current landing candidateを検証する。
-10. ticket/stackをready-to-mergeへ持っていく。
-11. explicit merge authorizationがなければここで停止し、current head SHA / gate state / blockersを報告する。authorizationがある場合だけtarget release trunkへlandし、landing成功を確認する。
-12. target release trunkへlandしたticketのlinked Issueを明示的にcloseする。
-13. release branch全体を検証し、release PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
-14. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
-15. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
-16. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
-17. 未完了ticketは次releaseへ明示的に再計画する。
+10. ticket/stackをReady + landing可能状態へ持っていく。
+11. ticket-class PRをdependency順にmerge commitで自律landingし、target release trunkへの到達を確認する。
+12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、dependent PRをreconcileしたうえでsafeならlanded ticket branchを削除する。
+13. repository stateをsweepし、PRなしticket branch / Ready未landing ticket PR / land済みopen Issue / merged後残存ticket branchを修復する。
+14. release branch全体を検証し、release PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
+15. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
+16. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
+17. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
+18. publication/post-release verification完了後、safeならmerged release branchを削除する。
+19. 未完了ticketは次releaseへ明示的に再計画する。
 
 ## Release publication invariant
 
@@ -227,9 +229,9 @@ branch名に `issue/` prefix、slug、title、type等を追加しない。
 
 nested workerが返すephemeral immutable ref/commitはこの命名規則の対象外でよい。
 
-## Branch creation and Draft PR are one start procedure
+## Branch creation and PR creation are one start procedure
 
-**active durable ticket branchにはpublished remote headとDraft PRを必ず持たせる。**
+**active durable ticket branchにはpublished remote headとPRを必ず持たせ、PR stateを実際の作業状態と一致させる。**
 
 GitHubはremoteで解決できないheadやbaseと差分のないbranchにはPRを作れないため、canonical sequenceは次の通り:
 
@@ -237,13 +239,13 @@ GitHubはremoteで解決できないheadやbaseと差分のないbranchにはPR�
 2. 最初のmeaningful commitを直ちに作る
 3. そのcommitをcanonical remoteへpublishする
 4. remote branch head SHAがpublishしたcommit SHAと一致することを確認する
-5. Draft PRを直ちに作る
-6. published commit + Draft PRがない状態でactive implementationを継続しない
+5. PRを直ちに作る。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとする
+6. published commit + PRがない状態でactive implementationを継続しない
 
 「後でpushする」「後でPRを作る」は禁止する。
 
 このruleはhuman / Coordinator / implementation worker / subagentのすべてに適用する。
-subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がpublish + remote head検証 + Draft PRまで完了する。remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返し、Supervisor/Coordinatorがcommit publication・remote head SHA確認・Draft PR作成を完了するまで追加implementationを進めない。
+subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がpublish + remote head検証 + PR作成/state設定まで完了する。remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返し、Supervisor/Coordinatorがcommit publication・remote head SHA確認・PR作成/state設定を完了するまで追加implementationを進めない。
 
 Ephemeral immutable worker ref/resultはdurable branchではないため対象外。
 
@@ -253,7 +255,7 @@ PRはdiffだけではなくdurable work stateである。ただし、durable sta
 
 作成時にrepository evidenceからnative GitHub metadataを評価し、最低限次を設定する。
 
-- linked Issue
+- linked Issue。number-only ticket branch `<issue-number>` ではPR本文に `Closes #<issue-number>`（cross-repositoryならqualified reference）または同等のnative linked-Issue relationを必須とし、PRから対応Issueを一意に再発見できるようにする。ただしnon-default release trunkへのlandingでは自動closeに依存せず、landing確認後にIssueを明示closeする
 - accountable assignee
 - reviewer request / CODEOWNERS-derived reviewer
 - repositoryで定義済みの適切なlabels
@@ -344,7 +346,8 @@ predecessor reviewで変更が入った場合、downstreamをdependency orderで
 
 ## Ready for review
 
-DraftからReady for reviewへ移す条件:
+Draftは未完了作業の一時状態である。次の条件をすべて満たしたopen PRは、userの明示指示を待たず速やかにReady for reviewへ移す。PR作成時点ですでに条件を満たす場合は最初からReadyとして作成し、形式的なDraft -> Ready往復を行わない:
+
 
 - Issue acceptance criteriaを実装済み
 - current SHAに対するticket-level integration quality gateを実行済み
@@ -365,11 +368,9 @@ IssueのDone条件:
 - ticket changesがtarget release trunkへland済み
 - linked Issue explicitly closed after successful trunk landing
 
-independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。ただしAgentがそのmergeを実行できるのは、このPRまたは明確に限定されたPR集合へのexplicit merge authorizationがある場合だけである。authorizationがなければDoneへ進めずready-to-mergeで停止する。
+independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。readiness/quality gateを満たしreal blockerがなければ、追加のuser merge authorizationを待たずmerge commitでlandingする。
 
-native stacked PRでもstack landing自体がmerge authorization boundaryである。stack内の1 PRへのauthorizationを未指定のsibling / predecessor / successor PRへ拡張しない。
-
-native stacked PRでは、stackはbottom（trunkに最も近いPR）からlandingする。選択したstacked PRをmergeすると、そのPRと未mergeのlower PRがcontiguous groupとしてtarget release trunkへlandする。したがってlanding前に、実際のcontiguous landing setに含まれる各PRへのexplicit authorizationが存在するか、またはその集合全体を明示的に限定したbounded stack authorizationが存在することを確認する。selected PRだけへのauthorizationしかない状態でlower PRを含むnative stack landingを実行してはならない。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
+native stacked PRもticket-classとして自律landingできる。stackはbottom（trunkに最も近いPR）からdependency順に扱い、実際にlandingするcontiguous setの各ticketがacceptance criteria / review / current-SHA validationを満たしていることを確認する。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
 
 native stack landingを使えずordinary nested PRへfallbackする場合、例えば `124 -> 123` の通常mergeはintermediate integrationにすぎない。#124のchangesがtarget `release-x-y-z` へ到達するまでIssue #124をclose/Doneにしない。
 
@@ -379,13 +380,38 @@ contiguous stack groupまたはstack全体を一括landingする場合、含ま�
 
 GitHubのclosing keywordはdefault branch向けPRでのみ自動closeに使えるため、release trunkへのlanding成功確認後にCoordinatorまたはdelivery automationがIssueを明示的にcloseする。
 
+### Post-landing reconciliation / branch cleanup
+
+target release trunk landing後は次を同じticket operationとして実行する。
+
+1. ticket changesがtarget release branchからreachableであることを確認する
+2. linked GitHub Issueをcompletedとして明示closeする
+3. downstream/open PRがlanded ticket branchをbase/headとして使用していないか確認する
+4. dependencyがあればsurviving baseへretarget/rebaseし、affected validationを再実行する
+5. dependencyがなくなったlanded ticket branchをremoteから削除する
+
+Issue closeやbranch cleanupを「後で行う任意housekeeping」にしない。削除権限/APIが利用できない場合はcleanup debtをdurableに残してblocker/limitationとして報告するが、黙ってstale branchを正常状態にしない。
+
+### Repository lifecycle reconciliation
+
+recovery、onboarding、task completion時にremote branch / open+merged PR / Issue stateを突き合わせ、最低限次を修復する。
+
+- meaningful unlanded changesを持つnon-release durable branchにPRがない -> intended Issue/base/stackをrepository evidenceから復元してPRを作成
+- Draftだがreadiness gate済み -> Readyへ遷移
+- Ready ticket PRにreal blockerがない -> autonomous landing
+- target release trunkへland済みだがIssue open -> explicit close
+- landed/merged ticket branchが残存 -> dependency確認後delete
+- release PRがbulk/autonomous landing候補へ混入 -> 除外
+
+intended baseを安全に復元できない等、本当に解けない場合だけblockerとして残す。
+
 ## Release integration
 
 release branchは複数ticketの統合結果を保持するsprint integration lineである。
 
 release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
+Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
 
 release完了前にrelease branch上でfull applicable quality gateを実行する。
 
@@ -405,7 +431,7 @@ release PR:
 
 public repositoryでは`main` protectionにより、このrelease PR以外の経路で`main`を更新できない状態を維持する。
 
-release gate成功はrelease PRをready-to-mergeにするquality evidenceであり、Agentへのmerge authorizationではない。explicit release-merge authorizationがなければ、release PRをReadyにできる状態まで整えて停止し、current head SHA / release gate / blockersを報告する。authorizationがある場合だけmergeを実行する。
+release gate成功はrelease PRをready-to-mergeにするquality evidenceであり、release merge authorizationではない。release PRはbulk/autonomous ticket landingとauto-mergeから除外する。genericなmerge/cleanup/finish指示ではreleaseをmergeしない。current interactionで対象release PR/actionへのexplicit authorizationがなければReadyまで整えて停止し、current head SHA / release gate / blockersを報告する。authorizationがある場合だけ、直前にactual head/base/current SHAを再取得して `base == main` かつ `head == intended current release-*` を確認し、`merge` methodでmergeする。
 
 release PRがmergeされた時点で `main` がそのversionのreleased source stateになる。
 
@@ -445,10 +471,12 @@ weekly release branch modelとtag releaseは競合しない。release branch/PR�
 - all stack members share one target release trunk。
 - implementation workerはticket branchを複数agentで直接共有しない。
 - nested workerはresolved immutable identityへpinされたcommit/ref resultを返す。
-- durable branchを作るworker/subagentにはremote publication + Draft PR creation / metadata contractも適用する。
-- Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
-- merge/landing前にtarget release / predecessor / current validation SHAを確認する。
-- Doneへ移す前にactual target release trunk上のlandingを確認する。
+- durable branchを作るworker/subagentにはremote publication + PR creation/state / metadata contractも適用する。
+- Coordinator/Supervisorだけがorchestrated shared durable integration stateへ順序立てて統合する。
+- ticket-class landingはreadiness/quality gate通過後に追加authorizationなしで進める。
+- release-class landingだけexplicit user authorizationを要求する。
+- merge/landing前にtarget release / predecessor / current validation SHA / actual head+base classificationを確認する。
+- Doneへ移す前にactual target release trunk上のlandingを確認し、Issue close + safe branch cleanupまでreconcileする。
 - `main` protection/rulesetを上記baselineで初期化・検証し、merge executorはrelease-only main source invariantを確認する。
 
 ## Language policy
@@ -475,4 +503,4 @@ GitHub delivery topologyを変更する場合、最低限次を維持する。
 - interrupted workをconversation historyなしでreconcileできる
 - valid workがdelivery ceremonyだけで不必要に停止しない
 
-branch名、Draft PR timing、release branch cadence等はcurrent profileのdefaultであり、上位guaranteeを満たすalternativeを一律に禁止しない。
+branch名、PR creation/state timing、release branch cadence等はcurrent profileのdefaultであり、上位guaranteeを満たすalternativeを一律に禁止しない。

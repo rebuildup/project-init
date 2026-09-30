@@ -113,7 +113,7 @@ predecessorが後から変更された場合はaffected downstream task/branch�
 5. 各nodeのinput snapshot / predecessor snapshot / output contract / recovery boundaryを決める。
 6. Supervisorがdurable taskへcurrent fencing identity（current defaultでは `execution_generation`）と実行policyを割り当ててspawnする。
 7. Readyまたはstack-readyなnodeをWIP/resource制約内でspawnする。
-8. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成する。published commit + Draft PRなしでactive implementationを継続しない。
+8. durable ticket branchをworker/subagentが作る場合、first meaningful commitをcanonical remoteへpublishし、remote head SHA一致を確認した直後にPRを作成する。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとし、published commit + PRなしでactive implementationを継続しない。
 9. meaningful boundaryでcheckpointする。
 10. worker resultをinspectし、applicableなcurrent fencing identityとbase snapshotがcurrent expected stateに一致することを確認する。
 11. Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
@@ -138,7 +138,7 @@ predecessor_issue_or_pr
 predecessor_snapshot
 immediate_pr_base
 branch_identity
-expected_draft_pr
+expected_pr_identity_and_state
 assignee_expectation
 reviewer_expectation
 label_expectation
@@ -160,7 +160,7 @@ dependency / durable GitHub deliveryを使わない短命taskでは該当しな�
 
 ## Durable branch contract
 
-worker/subagentへdurable branch作成権限を与える場合、その権限はremote publication + Draft PR lifecycleとセットで扱う。
+worker/subagentへdurable branch作成権限を与える場合、その権限はremote publication + PR state lifecycleとセットで扱う。
 
 canonical sequence:
 
@@ -168,13 +168,13 @@ canonical sequence:
 2. first meaningful commit
 3. canonical remoteへcommitをpublish
 4. remote branch head SHAがfirst meaningful commit SHAと一致することを確認
-5. immediate Draft PR creation
+5. immediate PR creation with state matching actual work
 6. Issue linkage / assignee / reviewer / labels / target release / stack contextを設定
 7. implementation継続
 
-GitHub上のPRはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成・first commit・remote publication・remote head検証・Draft PR creationを1つのoperational start procedureとして扱う。
+GitHub上のPRはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成・first commit・remote publication・remote head検証・PR creation/state設定を1つのoperational start procedureとして扱う。
 
-workerがremote publishまたはPR mutation権限を持たない場合、first meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返す。Supervisor/Coordinatorがcommitをpublishし、remote head SHA一致を確認し、Draft PR作成を完了するまでそのdurable branchでの追加implementationを進めない。
+workerがremote publishまたはPR mutation権限を持たない場合、first meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返す。Supervisor/Coordinatorがcommitをpublishし、remote head SHA一致を確認し、PR作成/state設定を完了するまでそのdurable branchでの追加implementationを進めない。
 
 Ephemeral immutable ref/resultはこのcontractの対象外。
 
@@ -207,20 +207,19 @@ recorded predecessor/base snapshotとcurrent expected baseが異なるresultはs
 
 ## Landing handoff boundary
 
-worker / subagent の **shared durable integration state への ordered landing**（`release-x-y-z` への merge / landing、`release-x-y-z -> main` release PR の merge、`main` への直接反映等）は **Coordinator / Supervisor だけが実行する**。
+worker / subagent の **shared durable integration state への ordered landing**（`release-x-y-z` への ticket landing、`release-x-y-z -> main` release PR merge、`main` への直接反映等）は **Coordinator / Supervisor だけが実行する**。
 
-- worker / subagent は target release trunk / `main` への merge / landing 操作を実行しない。
-- worker / subagent は Draft PR 作成・remote publication・branch head verify までを完了して、result identity + Draft PR identity + validation evidence + known issues を immutable handoff artifact として Supervisor へ返す。
-- Coordinator / Supervisor は landing 順序、再validation、target release trunk への merge / contiguous stack landing のみを実行できる。
-
-user explicit merge / land authorization を Agent / subagent が受け取った場合でも、orchestrated workflow 下では landing 操作は **Coordinator / Supervisor 経由でのみ** 実行する。worker / subagent は landing を実行せず、authorization scope を伴った immutable handoff を Supervisor へ渡す。
+- worker / subagent は target release trunk / `main` への merge / landing 操作を実行せず、PR creation/state・remote publication・branch head verify・validationまで完了したcandidateをimmutable handoffする。
+- **ticket-class** candidateはreadiness/quality gateを満たせば追加のuser merge authorizationなしでCoordinator / Supervisorがdependency順にlandingする。
+- **release-class** `release-* -> main` candidateはexplicit user authorizationが必要で、authorization scopeをhandoff artifactへ含める。
+- Coordinator / Supervisorはlanding直前にactual head/base/current SHAを再取得し、ticket/release classificationとrequired gateを再検証する。
 
 この境界を越えて worker / subagent が landing 操作を実行した場合:
 
 - 直近 landing は stale candidate として扱う。
 - 自動rollback は前提としない。integration state への影響と reconciliation 必要性を Supervisor が reassess し、必要なら new landing 候補で再実行する。
 
-単独で `release-x-y-z -> main` release PR を扱う状況ではこの限りではない。worker が release PR の merge authorization を直接 landing 操作として実行できる。
+standaloneでticket PRを扱うAgentはreadiness/quality gate通過後に自律landingできる。standaloneでrelease PRを扱うAgentはexplicit release authorizationがある場合に限り直接landingできる。
 
 ## Review handoff
 
@@ -244,7 +243,7 @@ parent agentが停止してもsafeなchildを自動破棄しない。
 
 recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、applicableなcurrent fencing identityを確認してから統合する。
 
-GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + Draft PRがない状態を正常状態として扱わない。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とする。
+GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。Ready ticket PRの未landing、land済みopen Issue、merged/landed後のstale ticket branchもdriftとしてrepairする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とし、release PRをautonomous ticket landingへ含めない。
 
 ## Fallback
 

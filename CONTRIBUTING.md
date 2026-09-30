@@ -87,9 +87,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - 通常sprint cadenceが1週間で維持されているか
 - `release-x-y-z`をsprint integration branchとして維持しているか
 - ticket branchがIssue番号だけになっているか
-- active durable ticket branchにpublished remote head + Draft PRが存在するか
-- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate Draft PRが一つの開始手順になっているか
-- subagent/workerがdurable branchを作る場合にもpublish + Draft PR ruleが適用されるか
+- active durable ticket branchにpublished remote head + PRが存在し、incompleteならDraft、readiness条件を満たしていればReadyになっているか
+- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate PR作成が一つの開始手順になっているか
+- 完成済みPRをuserの明示指示待ちでDraftのまま残していないか。PR作成時点で完成済みなら最初からReadyになっているか
+- subagent/workerがdurable branchを作る場合にもpublish + PR state lifecycle ruleが適用されるか
 - PR作成時にIssue linkage / assignee / reviewer / labels / target release / stack contextが適切に設定されるか
 - Issue dependency graphがcanonical dependency SoTとして維持されているか
 - stacked PRが同一repository・同一target releaseのlinear hard dependencyに限定されているか
@@ -104,7 +105,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
-- ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
+- ticket PR（active/incompleteならDraft、readiness完了ならReady）-> release branch/stack -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 - agent数そのものをoptimization targetにせず、smallest useful fan-outからadaptiveに増減できるか
 - competitive explorationを多数決でfan-inせず、evidence / measurement / validationで比較しているか
@@ -119,11 +120,11 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0005: adaptive stack-aware quality gate compilation
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
-- ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
+- ADR-0008: weekly sprint cadence / dependency-aware stacked PR / durable PR state lifecycle
 - ADR-0009: cost-aware GitHub Actions without weakening quality gates
 - ADR-0010: evidence-based agent delivery forecasting / capacity estimation
 - ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
-- ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
+- ADR-0012: release merge authorization boundary（ADR-0027によりticket PRへの一律適用はsuperseded）
 - ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
 - ADR-0014: historical optional Linear control-plane decision (ADR-0016でsuperseded)
 - ADR-0015: active source security audit / advisory maintenance separation
@@ -138,9 +139,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0024: Rust/Cargo worktree build-output isolation and bounded cache reuse
 - ADR-0025: adaptive agent-driven orchestration with Herdr
 - ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
+- ADR-0027: autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
-ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
+ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡張・revisionします。
 
 ## Multi-agent / delivery invariants
 
@@ -163,13 +165,17 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - stack membersは同一target release branchをtrunkとして共有
 - stack-ready workはreviewable immutable predecessor snapshotへexact SHAでpin
 - predecessor変更時はdownstreamをreconcileし、affected validationをcurrent SHAで再実行
-- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱う
-- active durable ticket branchをpublished remote head + Draft PRなしで継続しない
-- 上記publish + Draft PR ruleはCoordinator / human / worker / subagentすべてに適用
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
+- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate PR作成を一つの開始手順として扱う
+- active durable ticket branchをpublished remote head + PRなしで継続しない。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移する
+- PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとして作成し、完成済みPRをDraftのまま残さない
+- 上記publish + PR state lifecycle ruleはCoordinator / human / worker / subagentすべてに適用
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持する。number-only ticket branchではPR本文の `Closes #<issue-number>` または同等native linkageを必須とし、Issue -> branch -> PR relationshipをdurableに追跡可能にする
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
+- non-release ticket PRはreadiness/quality gateを満たしreal blockerがなければ追加のuser merge authorizationを待たずmerge commitで自律landingする
+- stacked ticketはdependency順に自律landingするが、intermediate predecessor branchへのmergeだけではDoneにしない
 - ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked GitHub Issueを明示的にcloseする。Linearはticketを全面mirrorせず、release-level reconciliationだけを更新する
+- target release trunkへland済みのticket branchは、open dependent PRがbase/headとして利用していなければ削除する。dependencyが残る場合はretarget/rebase + revalidation後に削除する
+- recovery/completion時にPRなしticket branch、Readyなのに未landingのticket PR、land済みなのにopenなIssue、merged/landed後の残存ticket branchをreconcileする
 - release branchは`main`とzero-diffの間だけDraft release PR不要
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
@@ -201,17 +207,18 @@ project evidenceで実質一意に決まる、可逆・局所的なimplementatio
 
 userへ確認するのは、canonical source conflict、product semantics、public API、security/privacy risk acceptance、meaningful cost、release scope/date、irreversible operation、explicit design approval等、本物の意思決定が残る場合に限定します。
 
-## Merge authorization invariant
+## Landing authority invariant
 
-PRのquality/readinessとmerge authorizationは別stateです。
+PR landing前にcurrent head/baseを再取得してticket-class / release-classを分類します。
 
-Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけlandingを実行します。current release-driven profileのGitHub PR landingはmerge commit method (`merge`) に固定し、squash merge / rebase mergeは使用しません。stacked landing / auto-mergeもmerge commit semanticsを満たす場合だけ使用します。
+- **ticket-class**: `base != main` でcurrent ticket/release integration topologyに属するPR。readiness/quality gateを満たしreal blockerがなければ、per-PR user authorizationを待たずmerge commitで自律landingします。generic implementation/review/cleanup taskでもticket lifecycleはlanding -> Issue close -> safe branch cleanupまで継続します。
+- **release-class**: `base == main` かつ `head == current release-*`。このmergeだけはcurrent interactionでそのrelease PR/actionへのexplicit user authorizationが必要です。Ready/green/approval、ticketへのstanding permission、genericな「readyなPRをmerge」「cleanup」「最後まで進める」はrelease authorizationではありません。
+- `base == main` かつheadがcurrent release branch以外ならlandingを拒否します。
+- release PRはbulk/autonomous ticket landingやauto-mergeから必ず除外します。
 
-authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
+current release-driven profileのGitHub PR landingはmerge commit method (`merge`) に固定し、squash merge / rebase mergeは使用しません。
 
-review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
-
-authorizationを別PRへ伝播させません。authorization後にexpected fixでheadが変わればcurrent SHAを再検証し、base / target release / scope / included changes等がmaterialに変わった場合やscope内か曖昧な場合は古いauthorizationを再利用しません。
+release authorizationはidentified release PR/actionへ限定し、別releaseやmaterially changed candidateへ盲目的に再利用しません。ticketのautonomous landing authorityをreleaseへ伝播させません。
 
 ## Verification / quality invariants
 
@@ -272,7 +279,7 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 - durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。Linearはrelease planning / health / portfolio control planeでありimplementation/dependency SoTではない
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
-- active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとDraft PRを追跡できる
+- active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとPR identity/stateを追跡できる
 - release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後はDraft release PR必須
 - checkpointはtask identity / snapshot / completed / next / validation / children / side effects / blockersを表現できる
 - parent model processではなくSupervisorがchild lifecycleを所有する
@@ -294,7 +301,7 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - weekly sprint / Issue selection / dependency / stack判断
-- ticket branch / remote publish / immediate Draft PR / PR metadata
+- ticket branch / remote publish / immediate PR creation/state / PR metadata
 - public repoのmain protection / release-only main integration
 - ADR/design/Skills discovery
 - troubleshooting
@@ -366,7 +373,7 @@ substantial policy changeはIssueを作成し、目的 / acceptance criteria / s
 
 ### Ticket Pull Request
 
-branch作成後、最初のmeaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にDraft PRを開きます。published commit + Draft PRなしでそのbranchのactive implementationを継続しません。
+branch作成後、最初のmeaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にPRを開きます。active/incomplete implementationならDraft、readiness条件を満たしていればReady for reviewとします。published commit + PRなしでそのbranchのactive implementationを継続せず、完成済みPRを明示指示待ちでDraftのまま残しません。PR作成時点でreadiness条件を満たす場合は最初からReadyとして作成します。
 
 independent ticketはtarget release branchをbaseにします。
 同一releaseのlinear hard dependencyでは、dependent ticketをimmediate predecessor ticket branchへstackしてよいです。
@@ -390,15 +397,15 @@ meaningful reviewerがいない場合、自己reviewerを形式的に指定し�
 
 Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
 
-Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
+Ready/mergeableな**ticket-class** PRはreal blockerがなければ追加authorizationを待たずlandingへ進みます。**release-class `release-* -> main`** だけはReady/mergeableでもauthorizationを意味せず、explicit release authorizationがない場合ready-to-mergeで停止します。
 
 stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked GitHub Issueを明示的にcloseします。Linearはticketを全面mirrorせず、release-level Completed/Donenessをrelease完了時にreconcileします。
 
 ### Subagent / worker branches
 
-subagent/workerがdurable branchを作る場合も同じremote publish + Draft PR lifecycleを適用します。
+subagent/workerがdurable branchを作る場合も同じremote publish + PR state lifecycleを適用します。
 
-remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがcommit publish、remote head SHA確認、Draft PR作成を完了するまで追加implementationを進めません。
+remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがcommit publish、remote head SHA確認、PR作成/state設定を完了するまで追加implementationを進めません。
 
 ephemeral immutable result refはこのruleの対象外です。
 
@@ -445,7 +452,7 @@ current official sourceを確認すべき対象:
 - weekly sprint cadence変更
 - ticket branch naming変更
 - stacked PR / dependency integration model変更
-- Draft PR lifecycle / PR metadata contract変更
+- PR state lifecycle / PR metadata contract変更
 - public repository main protection / release-only main integration変更
 - PR merge method / repository merge settings変更
 - decision precedence / user escalation model変更
@@ -474,8 +481,8 @@ current official sourceを確認すべき対象:
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
 - 1週間sprint / release lifecycleが一貫
 - independent / stacked ticket PR base semanticsが一貫
-- active durable ticket branchにpublished remote head + Draft PRが必ず存在する運用になっている
-- worker/subagentにもremote publish + Draft PR ruleが適用される
+- active durable ticket branchにpublished remote head + PRが必ず存在し、active/incompleteならDraft、readiness条件を満たしていればReadyになっている
+- worker/subagentにもremote publish + PR state lifecycle ruleが適用される
 - PR metadata requirementがIssue/Skill/promptで一貫
 - stacked ticketのDone boundaryがtarget release trunk landingで一貫
 - zero-diff release branchのDraft release PR例外とfirst-difference後必須が一貫
