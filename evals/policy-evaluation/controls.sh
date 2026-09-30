@@ -48,6 +48,14 @@ else
   RC=1
 fi
 
+if cloudflare_cli_out=$(bash "$R/evals/policy-evaluation/cloudflare-cli-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "Cloudflare CLI contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "Cloudflare CLI contract"
+  printf '%s\n' "$cloudflare_cli_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
 else
