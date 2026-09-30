@@ -61,6 +61,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0023.md` — application secret valueをInfisicalへ集約するcurrent secret-management Practice。
 - `ADR-0024.md` — Rust/Cargo worktreeのmutable build output隔離、reflink seed、sccache、cleanup/profile tuningの標準Practice。
 - `ADR-0025.md` — adaptive fan-out / fan-inとHerdrによるagent-driven Supervisor loopの標準方針。
+- `ADR-0026.md` — Cloudflare利用projectで `cf` primary / Wrangler explicit compatibility fallbackを定義するcurrent Practice。
 - `CONTRIBUTING.md` — policy更新ルール。
 
 ## Purpose
