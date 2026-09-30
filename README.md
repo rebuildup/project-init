@@ -91,7 +91,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
 - same-releaseのlinear hard dependencyはstacked PRとしてpredecessor branchへ向けられる
-- durable branchはfirst meaningful commit直後にDraft PRを必ず作成し、worker/subagentも例外にしない
+- durable branchはfirst meaningful commit直後にPRを必ず作成し、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。作成時点で完成済みなら最初からReadyとし、worker/subagentも例外にしない
 - PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
 - stack predecessor変更後はcurrent SHAでaffected validationを再実行する
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
@@ -177,7 +177,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
+- `github-delivery` — Issues / weekly release sprint / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
