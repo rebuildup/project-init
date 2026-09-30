@@ -397,7 +397,7 @@ meaningful reviewerがいない場合、自己reviewerを形式的に指定し�
 
 Ready前にacceptance criteria、required verification level、current SHA validation、JP/EN semantics、ADR/README/Skill consistency、target release / predecessor staleness、PR metadataを確認します。
 
-Ready/mergeableになってもmerge authorizationは成立しません。explicit authorizationがない場合、このrepositoryのAgent作業はready-to-mergeで停止します。
+Ready/mergeableな**ticket-class** PRはreal blockerがなければ追加authorizationを待たずlandingへ進みます。**release-class `release-* -> main`** だけはReady/mergeableでもauthorizationを意味せず、explicit release authorizationがない場合ready-to-mergeで停止します。
 
 stacked ticketはimmediate predecessor branchへの通常mergeだけではDoneにしません。ticket changesがtarget release trunkへactual landingしたことを確認後、non-default integrationでは`Closes #<issue-number>`の自動closeに依存せず、linked GitHub Issueを明示的にcloseします。Linearはticketを全面mirrorせず、release-level Completed/Donenessをrelease完了時にreconcileします。
 
