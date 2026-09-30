@@ -270,7 +270,7 @@ Worktrunk commandはGitHub deliveryのergonomic frontendに限定する。
 wt switch release-x-y-z
 -> wt switch --create <issue-number> --base=release-x-y-z
 -> implementation / commit / publish
--> immediate Draft PR
+-> immediate PR creation/state
 -> review / validation
 -> authorized GitHub landing
 -> wt remove <issue-number>
@@ -282,7 +282,7 @@ wt switch release-x-y-z
 
 ### Authoring
 
-Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、Draft PR lifecycle等のapplicable semanticsは維持する。
+Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、PR state lifecycle等のapplicable semanticsは維持する。
 
 worktree自体を作れないauthoring environmentでは、同じshared checkoutへ複数workerを並行配置しない。isolated clone / sandbox / serialized ownership等、同等以上のmutable ownership guaranteeを選ぶ。
 
