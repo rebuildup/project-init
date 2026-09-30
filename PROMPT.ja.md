@@ -49,8 +49,9 @@ current default operating profileは `organization/profiles/release-driven-solo.
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable ticket branch = 1 ticket PRを基本とする。
 - independent ticket PRはtarget release branch、same-release linear hard dependencyではdependent ticket PRをimmediate predecessor ticket branchへstackしてよい。
-- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱い、published remote head + Draft PRなしでactive implementationを継続しない。
-- 上記publish + Draft PR ruleはhuman / Coordinator / worker / subagentすべてに適用する。
+- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate PR作成を一つの開始手順として扱い、published remote head + PRなしでactive implementationを継続しない。implementation/integrationがactiveならDraft、readiness条件を満たしていればReady for reviewとする。
+- Draftは未完了作業の一時状態に限定する。readiness条件を満たしたPRはuserの明示指示を待たず速やかにReady for reviewへ遷移し、PR作成時点ですでに完了している場合は最初からReadyで作成する。
+- 上記publish + PR state ruleはhuman / Coordinator / worker / subagentすべてに適用する。
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからGitHub Issueを明示closeする。Linearはrelease-level stateのみreconcileし、ticketを全面mirrorしない。
 - release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
@@ -624,7 +625,7 @@ Dependency execution上は必要に応じて:
 
 ---
 
-## 12. Ticket branch / mandatory Draft PR / stacked PR
+## 12. Ticket branch / PR state lifecycle / stacked PR
 
 1 top-level Issueにつき1 durable ticket branchを作ります。
 
@@ -636,7 +637,7 @@ branch名:
 
 ### Branch start contract
 
-**active durable ticket branchにはpublished remote head + Draft PRを必ず持たせてください。**
+**active durable ticket branchにはpublished remote head + PRを必ず持たせ、PR stateを実際の作業状態と一致させてください。**
 
 GitHubはremoteでheadを解決でき、head/baseに差分がある必要があるため、canonical start procedureは:
 
@@ -644,15 +645,17 @@ GitHubはremoteでheadを解決でき、head/baseに差分がある必要があ�
 2. first meaningful commitを直ちに作成
 3. canonical remoteへそのcommitをpublish
 4. remote branch head SHAがfirst meaningful commit SHAと一致することを確認
-5. Draft PRを直ちに作成
+5. PRを直ちに作成する。implementation/integrationがactiveならDraft、下記readiness条件をすでに満たすならReady for reviewとして作成する
 6. Issue linkage / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack contextを設定
-7. implementationを継続
+7. incompleteならimplementationを継続する
 
 です。
 
-Draft PRを「実装完了時に作る」運用や、first commitをlocalだけに残したまま追加実装する運用は禁止です。human / Coordinator / implementation worker / subagentのすべてに適用してください。
+PR自体の作成を「実装完了時」まで遅らせる運用や、first commitをlocalだけに残したまま追加実装する運用は禁止です。human / Coordinator / implementation worker / subagentのすべてに適用してください。
 
-remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがpublish + remote head SHA確認 + Draft PR作成を完了するまで追加implementationを進めてはいけません。
+**Draftは未完了作業の一時状態です。** acceptance criteria、required validation、blocking問題、PR本文/metadata、staleness/reconciliation等のapplicable readiness条件を満たしたら、agent自身が速やかにReady for reviewへ遷移してください。userから「Readyにして」と明示されるまで完成済みPRをDraftのまま残してはいけません。PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとして作成し、形式的なDraft -> Ready往復を行いません。
+
+remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがpublish + remote head SHA確認 + PR作成/state設定を完了するまで追加implementationを進めてはいけません。
 
 ### Independent ticket
 
