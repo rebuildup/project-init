@@ -152,7 +152,7 @@ Linearへwriteする前にcanonical GitHub evidenceを確認する。
 
 ## Built-in Linear agents
 
-Linear coding sessionsはbaseline execution pathにしない。Supervisor isolation、number-only ticket branch、Draft PR lifecycle、release/stack topology、current-SHA validation contractを満たせるadapterとして明示導入した場合のみ使用する。
+Linear coding sessionsはbaseline execution pathにしない。Supervisor isolation、number-only ticket branch、PR state lifecycle、release/stack topology、current-SHA validation contractを満たせるadapterとして明示導入した場合のみ使用する。
 
 Loopsもbaselineにしない。利用する場合はstatus summarization / notification等のderived automationに限定し、canonical execution stateを変更するautomationは個別reviewする。
 
