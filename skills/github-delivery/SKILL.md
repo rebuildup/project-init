@@ -7,7 +7,7 @@ description: current release-driven Operating ModelをGitHub Issues / Pull Reque
 
 Layer: **Operating Model + Practice**
 
-このSkillはcurrent release-driven profileのGitHub materializationを定義する。Issue / PR / branch / Draft PR shapeそのものはConstitutionではない。
+このSkillはcurrent release-driven profileのGitHub materializationを定義する。Issue / PR / branch / PR state lifecycleそのものはConstitutionではない。
 
 重要なのは、durable implementation identity、reviewable evidence、canonical consistency、authority boundary、organizational continuityを維持すること。将来別platform/topologyがこれらを同等以上に満たす場合は置換できる。
 
@@ -44,7 +44,7 @@ authorization handling 自体は standalone / orchestrated のどちらの状況
 - `対応して` / `レビューして` / `conflictを解消して` / `リリース準備して` / `最後まで進めて` 等の一般的な完遂依頼
 - repository policyやrelease schedule自体
 
-authorizationがなければ、implementation / push / Draft PR / metadata / review対応 / conflict解消 / validation / Ready化まで進め、**ready-to-merge** で停止する。対象PR、current head SHA、gate state、残るblockerを報告する。merge permissionを得るためだけに不要な質問を先回りして行わない。
+authorizationがなければ、implementation / push / PR作成・state設定 / metadata / review対応 / conflict解消 / validation / Ready化まで進め、**ready-to-merge** で停止する。対象PR、current head SHA、gate state、残るblockerを報告する。merge permissionを得るためだけに不要な質問を先回りして行わない。
 
 authorizationはidentified PR / bounded PR setとtask scopeへ限定し、別PRへ伝播させない。authorization後にexpected review fixでhead SHAが変わった場合はcurrent SHAでrequired validationを再実行する。base / target release / scope / included changes等がmaterialに変わった、unrelated changesが入った、またはauthorization scope内か曖昧になった場合は古いauthorizationを再利用せずuserへ再確認する。
 
@@ -172,7 +172,7 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 4. Ready ticketを選択する。
 5. dependency / stack候補 / capacityを確認する。中長期capacity判断では `agent-delivery-estimation` のcurrent evidence / bottleneck / forecast statusを参照する。
 6. ticketごとにnumber-only branchを作る。
-7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを必ず作成し、metadataを設定する。
+7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にPRを必ず作成し、metadataとstateを設定する。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとする。
 8. isolated workerをdependency/WIP制約内で並行起動する。
 9. independent ticketまたはstacked ticketをreviewし、current landing candidateを検証する。
 10. ticket/stackをready-to-mergeへ持っていく。
@@ -227,9 +227,9 @@ branch名に `issue/` prefix、slug、title、type等を追加しない。
 
 nested workerが返すephemeral immutable ref/commitはこの命名規則の対象外でよい。
 
-## Branch creation and Draft PR are one start procedure
+## Branch creation and PR creation are one start procedure
 
-**active durable ticket branchにはpublished remote headとDraft PRを必ず持たせる。**
+**active durable ticket branchにはpublished remote headとPRを必ず持たせ、PR stateを実際の作業状態と一致させる。**
 
 GitHubはremoteで解決できないheadやbaseと差分のないbranchにはPRを作れないため、canonical sequenceは次の通り:
 
@@ -237,13 +237,13 @@ GitHubはremoteで解決できないheadやbaseと差分のないbranchにはPR�
 2. 最初のmeaningful commitを直ちに作る
 3. そのcommitをcanonical remoteへpublishする
 4. remote branch head SHAがpublishしたcommit SHAと一致することを確認する
-5. Draft PRを直ちに作る
-6. published commit + Draft PRがない状態でactive implementationを継続しない
+5. PRを直ちに作る。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとする
+6. published commit + PRがない状態でactive implementationを継続しない
 
 「後でpushする」「後でPRを作る」は禁止する。
 
 このruleはhuman / Coordinator / implementation worker / subagentのすべてに適用する。
-subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がpublish + remote head検証 + Draft PRまで完了する。remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返し、Supervisor/Coordinatorがcommit publication・remote head SHA確認・Draft PR作成を完了するまで追加implementationを進めない。
+subagentがdurable branchを作る権限を持つ場合、そのsubagent自身がpublish + remote head検証 + PR作成/state設定まで完了する。remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにSupervisor/Coordinatorへcontrolを返し、Supervisor/Coordinatorがcommit publication・remote head SHA確認・PR作成/state設定を完了するまで追加implementationを進めない。
 
 Ephemeral immutable worker ref/resultはdurable branchではないため対象外。
 
@@ -344,7 +344,8 @@ predecessor reviewで変更が入った場合、downstreamをdependency orderで
 
 ## Ready for review
 
-DraftからReady for reviewへ移す条件:
+Draftは未完了作業の一時状態である。次の条件をすべて満たしたopen PRは、userの明示指示を待たず速やかにReady for reviewへ移す。PR作成時点ですでに条件を満たす場合は最初からReadyとして作成し、形式的なDraft -> Ready往復を行わない:
+
 
 - Issue acceptance criteriaを実装済み
 - current SHAに対するticket-level integration quality gateを実行済み
@@ -385,7 +386,7 @@ release branchは複数ticketの統合結果を保持するsprint integration li
 
 release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
+Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
 
 release完了前にrelease branch上でfull applicable quality gateを実行する。
 
@@ -445,7 +446,7 @@ weekly release branch modelとtag releaseは競合しない。release branch/PR�
 - all stack members share one target release trunk。
 - implementation workerはticket branchを複数agentで直接共有しない。
 - nested workerはresolved immutable identityへpinされたcommit/ref resultを返す。
-- durable branchを作るworker/subagentにはremote publication + Draft PR creation / metadata contractも適用する。
+- durable branchを作るworker/subagentにはremote publication + PR creation/state / metadata contractも適用する。
 - Coordinator/Supervisorだけがshared durable integration stateへ順序立てて統合する。
 - merge/landing前にtarget release / predecessor / current validation SHAを確認する。
 - Doneへ移す前にactual target release trunk上のlandingを確認する。
@@ -475,4 +476,4 @@ GitHub delivery topologyを変更する場合、最低限次を維持する。
 - interrupted workをconversation historyなしでreconcileできる
 - valid workがdelivery ceremonyだけで不必要に停止しない
 
-branch名、Draft PR timing、release branch cadence等はcurrent profileのdefaultであり、上位guaranteeを満たすalternativeを一律に禁止しない。
+branch名、PR creation/state timing、release branch cadence等はcurrent profileのdefaultであり、上位guaranteeを満たすalternativeを一律に禁止しない。
