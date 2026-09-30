@@ -370,6 +370,22 @@ Do not share writable application DBs, concurrently-mutated dependency/build dir
 
 Principle: **share only immutable/cacheable state; isolate mutable state**.
 
+
+### Rust / Cargo worktree build cache
+
+When a Rust/Cargo project is detected, explicitly evaluate per-worktree `target/` growth.
+
+- do not share or symlink the same `target-dir` / `CARGO_TARGET_DIR` / `build.build-dir` across concurrent mutable worktrees
+- Cargo registry/git dependency caches and read-only toolchain caches may be shared
+- `sccache` is a compiler-cache candidate, but as of 2026-09-27 sccache v0.17.0 still has open issue #2652 for applying `SCCACHE_BASEDIRS` / `basedirs` to the Rust hash key. Do not assume Rust cross-worktree hits without verification; when adopting them, record the sccache version, rustc/Cargo configuration, path flags, and measured hit/miss evidence. `--remap-path-prefix` stabilizes paths embedded in compiler output and is not a substitute for cache-key normalization. Incremental Rust crates cannot be cached by sccache, so `CARGO_INCREMENTAL=0` is the standard candidate only when measured cross-worktree sccache reuse is being pursued. Do not race multiple sccache servers against the same local storage
+- seed `target/` with `wt step copy-ignored` only with `--require-include` and a repository-controlled `.worktreeinclude` allowlist containing approved non-secret cache paths such as `target/`; never include `.env`, credentials, tokens, sockets, databases, or other mutable/sensitive runtime state. Also require verified reflink use on filesystems such as APFS / btrfs / XFS / ReFS, and exclude `target/` on hosts such as ext4 / NTFS where the operation becomes a full copy
+- short-lived/disposable agent worktrees may have little reuse for incremental state; compare disk footprint and build timings and consider `CARGO_INCREMENTAL=0` there without mechanically imposing it on long-lived interactive checkouts
+- do not make `cargo clean` a routine build step; inspect with `--dry-run` and prefer selective `--doc` / `--release` / `--profile` / `--target` / `-p` cleanup before a full clean. Reserve full clean for recovery or material disk pressure
+- a worktree-local `target/` is normally reclaimed with `wt remove`, so do not duplicate that reclamation with a full clean immediately before removal
+- inspect artifact production with `cargo tree -e features`, `cargo tree -d`, `cargo build --timings`, and relevant resolver/profile settings. Tune unused default features from project evidence. When MSRV and debugger requirements allow it, prioritize evaluation of Cargo's recommended dev `debug = "line-tables-only"` + dependency `debug = false` + opt-in full-debug profile. Do not change library/public feature contracts merely as a disk optimization
+
+Route detailed procedure to the `worktree-workflow` Skill and ADR-0024.
+
 ---
 
 ## 9. Runtime / host / provider portability
@@ -384,6 +400,14 @@ First-class local targets:
 - remote Linux sandbox
 
 For portable web/backend work, reuse the same Linux sandbox definition where practical and hide host differences behind Supervisor/runtime adapters.
+
+### Adaptive agent orchestration
+
+For cross-boundary or judgment-heavy work with multiple independently useful top-level work units, use `parallel-orchestration` for adaptive fan-out and fan-in. Do not optimize for agent count. Start with the smallest useful fan-out and adapt from Ready work, uncertainty, WIP, provider/host resources, human-review capacity, and CI/external waits.
+
+Prefer native subagents for short-lived helpers that remain internal to one parent Worker. Promote work to a top-level Worker when it needs independent lifecycle, mutable ownership, background continuity, provider separation, or human attach/observability. Where Herdr is available, `herdr-runtime` may serve as an optional Supervisor/session Practice so a Coordinator or Supervisor agent can start, prompt, wait on, read from, and collect results from sibling Workers. Herdr lifecycle state is telemetry, not the source of truth for result admission or task completion.
+
+Fan in competitive exploration by evidence, measurement, and validation rather than majority vote. Concurrent mutable candidates require separate ownership isolation and immutable result identity for every attempt.
 
 ### Project toolchain / bootstrap default
 
@@ -402,6 +426,18 @@ In the current release-driven profile, use mise as the default Practice for proj
 - mise is a Practice, not a Constitutional invariant, and may be replaced under ADR-0017 refinement when another mechanism preserves or strengthens the guarantees
 
 Do not add empty mise configuration merely for policy compliance when the project has no meaningful runtime or CLI prerequisite for it to manage.
+
+### Cloudflare CLI default
+
+For projects that use Cloudflare, use `cf` as the primary CLI for the Cloudflare control plane, resource APIs, and supported Worker lifecycle operations.
+
+- when Cloudflare documentation or examples are written in Wrangler, do not choose Wrangler solely because of that spelling; first use `cf cli search` or equivalent current discovery to check whether `cf` exposes the operation
+- when `cf` can execute an equivalent workflow, use `cf` and do not grow new scripts, CI, or agent instructions around Wrangler
+- retain Wrangler only as an explicit compatibility fallback when `cf` lacks the workflow, is incompatible with the project, or delegates that workflow to Wrangler
+- bound each Wrangler fallback to the workflows that require it and never make the fallback silent; re-check `cf` capability during tool upgrades and initialization reconciliation, then shrink or remove obsolete fallbacks
+- when `cf` internally delegates to Wrangler, do not remove the Wrangler dependency merely because the surface command has moved to `cf`
+- do not add `cf` or Wrangler to projects that do not use Cloudflare merely for policy compliance
+- `cf` and Wrangler are Practices, not Constitutional invariants; ADR-0026 defines the detailed decision boundary
 
 Treat Apple Silicon `arm64` as first class and validate differences from x86_64 CI/remote where relevant.
 
@@ -443,6 +479,7 @@ Keep the root agent file as a dispatcher containing only broad invariants and po
 Default Skills:
 
 - `parallel-orchestration`
+- `herdr-runtime`
 - `sandbox-runtime`
 - `github-delivery`
 - `agent-delivery-estimation`
@@ -459,7 +496,7 @@ Default Skills:
 - `writing-discipline` — reader-oriented writing / reconstruction into standalone artifacts decoupled from working context / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear as optional release planning / health / portfolio control plane contract (only when adopted)
-- `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation contract
+- `worktree-workflow` — Worktrunk as WSL/Linux worktree operations layer / branch base / port allocation / Rust-Cargo build-cache lifecycle contract
 
 Agent Skills may be discovered and installed with the Skills CLI. Prefer `bunx skills` when Bun is available; Node.js/npm environments can use the same arguments with `npx skills`. Use `bunx skills add <source> --list` to inspect available Skills and `bunx skills add <source>` or `--skill <name>` for project-local installation. Inspect existing project-local `skills/` and repository policy first, evaluate source trust, maintenance, reproducibility, and versioning, and install only the Skills actually needed. When an existing Skill is found, do not skip it merely because it is present; unless it is explicitly pinned or frozen, verify source freshness and reconcile any differences. Do not make `--global` the default.
 

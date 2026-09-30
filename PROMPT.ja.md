@@ -385,6 +385,22 @@ implementation workerでは最低限次を隔離してください。
 
 原則は **immutable/cacheable stateのみ共有し、mutable stateは隔離** です。
 
+
+### Rust / Cargo worktree build cache
+
+Rust/Cargo projectを検出した場合、worktreeごとの`target/`肥大化を明示的に評価してください。
+
+- concurrent mutable worktree間で同じ`target-dir` / `CARGO_TARGET_DIR` / `build.build-dir`を共有・symlinkしない
+- Cargo registry/git dependency cacheとread-only toolchain cacheは共有してよい
+- `sccache`はcompiler cache候補だが、2026-09-27時点のv0.17.0ではRust hash keyへの`SCCACHE_BASEDIRS` / `basedirs`適用issue #2652が未解決である。Rust cross-worktree hitを未検証のまま前提にせず、採用時はsccache version / rustc-Cargo configuration / path flagsと実測hit/missを記録する。`--remap-path-prefix`はcompiler outputのpath安定化でありcache-key normalizationの代替ではない。incremental crateはsccacheでcacheできないため、short-lived agent worktreeで実測済みsccache reuseを狙う場合は`CARGO_INCREMENTAL=0`を標準候補にする。同じlocal storageへ複数sccache serverを競合させない
+- `wt step copy-ignored`による`target/` seedは、`--require-include`とrepository-controlled `.worktreeinclude` allowlistを必須とし、`target/`等の承認済みnon-secret cache pathだけを対象にする。`.env`、credential、token、socket、DB等のmutable/sensitive stateを含めない。さらにAPFS / btrfs / XFS / ReFS等でreflink利用を実際に確認できる場合だけ許容し、ext4 / NTFS等でfull copyになるhostでは`target/`をexcludeする
+- short-lived/disposable agent worktreeではincremental cacheのreuse期間が短い場合があるため、disk footprintとbuild timingを比較し`CARGO_INCREMENTAL=0`を候補にする。long-lived interactive checkoutへ機械的に適用しない
+- `cargo clean`をroutine build stepにせず、`--dry-run`確認後に`--doc` / `--release` / `--profile` / `--target` / `-p`等のselective cleanupを優先する。full cleanはrecoveryまたは強いdisk pressure時に限定する
+- worktree-local `target/`は通常`wt remove`と一緒に回収されるため、remove直前のfull cleanを重複させない
+- `cargo tree -e features`、`cargo tree -d`、`cargo build --timings`等でartifact productionを調べ、unused default features、resolverをevidence-drivenに調整する。MSRV/debugger要件が許せばCargo公式推奨のdev `debug = "line-tables-only"` + dependency `debug = false` + opt-in full-debug profileを優先候補として評価する。library/public feature contractはdisk optimizationだけで変更しない
+
+詳細は`worktree-workflow` SkillとADR-0024へrouteしてください。
+
 ---
 
 ## 9. Runtime / host / provider portability
@@ -399,6 +415,14 @@ implementation workerでは最低限次を隔離してください。
 - remote Linux sandbox
 
 portable Web/backend taskは可能な限り同じLinux sandbox definitionを使い、host差をSupervisor/runtime adapterへ閉じ込めてください。
+
+### Adaptive agent orchestration
+
+cross-boundary / judgment-heavy workで独立して価値を出せるtop-level workが複数ある場合、`parallel-orchestration` でadaptive fan-out / fan-inを行ってください。agent数を目的化せずsmallest useful fan-outから開始し、Ready work、uncertainty、WIP、provider/host resource、human review、CI/external waitを見て増減します。
+
+short-livedでparent内部に閉じるhelperはnative subagentを優先します。independent lifecycle / mutable ownership / background continuity / provider separation / human attachが必要ならtop-level Workerへ昇格できます。Herdrが利用可能な環境では `herdr-runtime` をoptional Supervisor/session Practiceとして使い、Coordinator / Supervisor agent自身がsibling Workerをstart / prompt / wait / readしてresultを回収できます。Herdr lifecycle stateはtelemetryであり、result admissionやtask completionのSoTにはしません。
+
+competitive explorationは多数決ではなくevidence / measurement / validationでfan-inしてください。mutable candidateを並行実装する場合はattemptごとのownership isolationとimmutable result identityを必須とします。
 
 ### Project toolchain / bootstrap default
 
@@ -417,6 +441,18 @@ current release-driven profileでは、project-local runtime / development CLI �
 - miseはPracticeでありConstitutionではない。同等以上のguaranteeを持つmechanismへADR-0017のrefinement contractで置換可能
 
 projectにmeaningfulなruntime / CLI prerequisiteがなくmiseを追加しても実質的な保証が増えない場合は、空の設定を形式的に追加する必要はありません。
+
+### Cloudflare CLI default
+
+Cloudflareを利用するprojectでは、Cloudflare control plane / resource API / supported Worker lifecycleのprimary CLIを `cf` としてください。
+
+- Cloudflare documentationやexampleがWranglerで記述されていても、その表記だけでWranglerを選ばず、まず `cf cli search` 等でcurrent `cf` surfaceに同等操作があるか確認する
+- 同等workflowを `cf` で実行できる場合は `cf` を使用し、新規script / CI / agent instructionをWrangler前提で増やさない
+- `cf` が未対応、互換性不足、または対象workflowでWranglerへ委譲する場合だけ、Wranglerをexplicit compatibility fallbackとして残す
+- Wrangler fallbackは必要なworkflowへboundedにし、silent fallbackにしない。tool update / initialization reconciliation時に `cf` capabilityを再確認し、不要になったfallbackを縮小・削除する
+- `cf` が内部的にWranglerへ委譲するprojectでは、表面commandを `cf` に統一してもWrangler dependencyを誤って削除しない
+- Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
+- `cf` / WranglerはPracticeでありConstitutionではない。詳細なdecision boundaryはADR-0026を参照する
 
 Apple Siliconでは`arm64`を第一級architectureとして扱い、x86_64 CI/remoteとの差を必要に応じて検証してください。
 
@@ -460,6 +496,7 @@ rootに置くもの:
 標準Skill候補:
 
 - `parallel-orchestration`
+- `herdr-runtime`
 - `sandbox-runtime`
 - `github-delivery`
 - `agent-delivery-estimation`
@@ -476,7 +513,7 @@ rootに置くもの:
 - `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を optional release planning / health / portfolio control plane として使う契約（採用時のみ）
-- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation
+- `worktree-workflow` — Worktrunk を WSL/Linux の worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
 
 Agent Skillsの発見・導入にはSkills CLIを利用できます。Bunが利用可能なら `bunx skills` を標準とし、Node.js / npm環境では同じ引数を `npx skills` で実行できます。候補確認には `bunx skills add <source> --list`、project-local導入には `bunx skills add <source>` または `--skill <name>` を利用できます。既存のproject-local `skills/` とrepository policyを優先して確認し、source/trust/maintenance/reproducibilityを評価したうえで必要なSkillだけを導入してください。既存Skillを発見した場合もpresenceだけでskipせず、明示的なpin/freezeがなければsource freshnessを確認して差分をreconcileしてください。`--global` を既定にしてはいけません。
 

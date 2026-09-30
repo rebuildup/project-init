@@ -106,6 +106,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
 - ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
+- agent数そのものをoptimization targetにせず、smallest useful fan-outからadaptiveに増減できるか
+- competitive explorationを多数決でfan-inせず、evidence / measurement / validationで比較しているか
+- concurrent mutable candidateごとに独立ownership boundaryとimmutable result identityがあるか
+- Herdr lifecycle stateをtask completion / result admissionのSoTにしていないか
 - 中長期の工期・release date・agent scaling見積もりが `agent-delivery-estimation` のevidence / unknown handlingに従い、AIの主観値で埋められていないか
 
 ## Canonical ADRs
@@ -131,6 +135,9 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0021: Herdr as an optional agent runtime Practice
 - ADR-0022: mise as default project-local toolchain/bootstrap Practice
 - ADR-0023: Infisical-first application secret management
+- ADR-0024: Rust/Cargo worktree build-output isolation and bounded cache reuse
+- ADR-0025: adaptive agent-driven orchestration with Herdr
+- ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
@@ -302,6 +309,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 標準Skill:
 
 - `skills/parallel-orchestration/SKILL.md`
+- `skills/herdr-runtime/SKILL.md`
 - `skills/policy-evaluation/SKILL.md`
 - `skills/sandbox-runtime/SKILL.md`
 - `skills/github-delivery/SKILL.md`
