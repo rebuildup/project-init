@@ -131,6 +131,8 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0021: Herdr as an optional agent runtime Practice
 - ADR-0022: mise as default project-local toolchain/bootstrap Practice
 - ADR-0023: Infisical-first application secret management
+- ADR-0024: Rust/Cargo worktree build-output isolation and bounded cache reuse
+- ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。

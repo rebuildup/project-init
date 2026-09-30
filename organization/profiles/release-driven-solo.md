@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0026
 
 ## Purpose
 
@@ -57,9 +57,24 @@
 - mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する
 - WSL/Linux worktree frontend: Worktrunk
 - Worktrunk unavailable/incompatible時: native Git worktree fallback
+- Rust/Cargo projectではconcurrent worktree間で`target-dir` / `build.build-dir`を共有せず、Cargo registry/git cacheと必要に応じたbounded `sccache`を共有候補とする
+- short-lived agent worktreeのincremental compilationはreuse期間とdisk footprintを見て`CARGO_INCREMENTAL=0`を選べる。long-lived interactive checkoutへ機械的に伝播させない
+- Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyは`--require-include` + repository-controlled `.worktreeinclude` allowlistを必須とし、承認済みnon-secret cache pathだけを対象にする。reflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する
 - worktree自体をruntime isolation proofとして扱わない
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
+
+### Cloudflare CLI defaults
+
+Cloudflareを利用するprojectでは、Cloudflare control plane / resource API / supported Worker lifecycleのprimary CLIを `cf` とする。
+
+- Cloudflare documentationやexampleがWranglerで記述されていても、それだけをWrangler採用の根拠にしない。まず `cf cli search` 等でcurrent `cf` surfaceに同等操作があるか確認する
+- `cf` で同等のworkflowを実行できる場合は `cf` を使用し、新規automationやagent instructionをWrangler前提で増やさない
+- `cf` が未対応、互換性不足、または対象workflowでWranglerへ委譲する場合は、Wranglerをexplicit compatibility fallbackとして残してよい
+- Wrangler fallbackは必要なworkflowへboundedにし、silent fallbackにしない。tool upgrade / project reconciliation時に `cf` capabilityを再確認し、不要になったfallbackを縮小・削除する
+- `cf` がWranglerへ内部委譲するprojectでは、表面commandを `cf` に統一できてもWrangler dependencyを誤って削除しない
+- Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
+- `cf` / WranglerはPracticeでありConstitutionではない。provider/tool capabilityの変化に応じて同等以上のguaranteeを持つmechanismへ置換できる
 
 ### Secret / environment defaults
 
