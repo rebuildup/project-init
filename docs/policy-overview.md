@@ -50,7 +50,8 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0009.md` — quality gateを弱めないcost-aware GitHub Actions resource efficiency。
 - `ADR-0010.md` — evidence-based agent delivery forecasting / capacity estimation。
 - `ADR-0011.md` — agent policyをeval可能なexecutable contractとして扱うpolicy evaluation model。
-- `ADR-0012.md` — PR mergeをexplicitなhuman-authorized side effectとして扱う境界。
+- `ADR-0012.md` — release mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
+- `ADR-0027.md` — autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
@@ -203,13 +204,17 @@ Verification + CI + Review
         ↓
 Ready for review
         ↓
-Ticket / contiguous stack landing
+autonomous Ticket / contiguous stack landing
         ↓
 target release trunk reached
         ↓
-Issue close + Project: Done
+Issue close + safe ticket branch cleanup
         ↓
 Release-wide verification
+        ↓
+release PR Ready
+        ↓
+explicit user release authorization
         ↓
 release-x-y-z -> protected main
         ↓
@@ -240,13 +245,17 @@ Release complete
 - active durable ticket branchをpublished remote head + PRなしで継続しない。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとし、subagent/workerも例外ではない
 - PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとし、完成済みPRをDraftのまま残さない
 - remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後にhandoffし、Coordinator/Supervisorがpublish + PR作成/state設定を完了するまで追加implementationを進めない
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定する
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack context / validation stateを設定し、Issue -> branch -> PR mappingをdurableにする
 - predecessor変更でdownstream SHAが変わったらaffected validationを再実行する
 - acceptance criteriaとticket quality gateを満たしたらuserの明示指示を待たずReady for reviewへ移す。作成時点ですでに満たす場合は最初からReadyにする
-- stacked ticketはintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue close + board updateを行う
+- non-release ticket PRはreadiness/quality gate通過後にper-PR user authorizationを待たずmerge commitで自律landingする
+- stacked ticketはdependency順に自律landingするがintermediate predecessor branchへの通常mergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからexplicit Issue closeを行う
+- target release trunkへland済みのticket branchはdependent/open PRをreconcileしたうえでsafeなら削除する
+- recovery/completion時にPRなしbranch / Ready未landing PR / land済みopen Issue / merged後残存branchをrepairする
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
-- sprint完了時にrelease branch全体を検証し、`release-x-y-z -> main` PRをmergeする
+- release PRはbulk/autonomous ticket landingとauto-mergeから除外する
+- sprint完了時にrelease branch全体を検証し、current interactionで対象release PR/actionへのexplicit user authorizationがある場合だけ`release-x-y-z -> main` PRをmergeする
 - PR landing methodはmerge commitに固定し、squash merge / rebase mergeは使用しない。branch-local `git rebase` は別のbranch mechanicsとして許可する
 - release PR mergeとpublication completeを分離し、project-local contractで定義したtag / GitHub Release / package / deploy等をpublish後にprovider/APIから再取得してexpected release SHAとの一致を確認する
 - CI/release healthはcombined statusの色ではなく、quality profileが要求するsemantic check identityがcurrent candidate SHAに存在してsuccessしているかで判定する
@@ -268,7 +277,7 @@ Agent / automation / release toolingがmerge APIを使用する場合はmethod�
 
 このruleが禁止するのはPRのrebase mergeであり、stacked PR追従やconflict解消に必要なbranch-local `git rebase` ではありません。設定変更権限がない場合は期待設定との差分をblockerまたは明示的configuration limitationとして報告します。
 
-merge method固定はADR-0012のauthorization boundaryを変更しません。readinessや正しいrepository settingsからmerge authorizationを導出しません。
+merge method固定はlanding authority classificationを置換しません。ADR-0027に従いticket-classはreadiness/quality gate通過後に自律landingし、release-class `release-* -> main`だけADR-0012/ADR-0027のexplicit authorizationを要求します。
 
 ### Public repository main protection
 
@@ -478,7 +487,9 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - independent PRはrelease branch、same-release linear hard dependencyはpredecessor branchへstack可能。
 - active durable ticket branchはfirst meaningful commitをremoteへpublishしてhead SHAを確認した直後にPRを持つ。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移し、作成時点で完成済みなら最初からReadyとする。worker/subagentも例外なし。
 - PR作成時にIssue linkage / assignee / reviewer/CODEOWNERS / established labels / release / stack contextを設定する。
-- stacked ticket Doneはintermediate mergeではなくtarget release trunk landingで判定する。
+- non-release ticket PRはReady/quality gate通過後に自律landingする。
+- stacked ticket Doneはintermediate mergeではなくtarget release trunk landingで判定し、landing後にIssue close + safe branch cleanupまで行う。
+- release PRだけexplicit user authorizationを要求し、bulk/autonomous landingから除外する。
 - implementation workerごとにisolated mutable runtimeを使用。
 - worktree-only isolationは禁止。sandbox内部実装としてのworktreeは許可。
 - nested delegationはimmutable snapshot/resultを使用。
