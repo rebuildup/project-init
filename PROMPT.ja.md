@@ -52,9 +52,12 @@ current default operating profileは `organization/profiles/release-driven-solo.
 - durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate PR作成を一つの開始手順として扱い、published remote head + PRなしでactive implementationを継続しない。implementation/integrationがactiveならDraft、readiness条件を満たしていればReady for reviewとする。
 - Draftは未完了作業の一時状態に限定する。readiness条件を満たしたPRはuserの明示指示を待たず速やかにReady for reviewへ遷移し、PR作成時点ですでに完了している場合は最初からReadyで作成する。
 - 上記publish + PR state ruleはhuman / Coordinator / worker / subagentすべてに適用する。
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持する。
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context / validation stateを適切に設定・維持し、Issue -> branch -> PR relationshipをdurableにする。
+- readiness/quality gateを満たしたnon-release ticket PRは追加のuser merge authorizationを待たずdependency順にmerge commitで自律landingする。
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにせず、ticket changesがtarget release trunkへlandしてからGitHub Issueを明示closeする。Linearはrelease-level stateのみreconcileし、ticketを全面mirrorしない。
-- release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。
+- target release trunkへland済みのticket branchはdependent/open PRをreconcileしたうえでsafeなら削除する。
+- recovery/completion時にPRなしticket branch、Ready未landing ticket PR、land済みopen Issue、merged後残存ticket branchを自動reconcileする。
+- release branchは`main`とzero-diffの間だけDraft release PR不要とし、first meaningful integrated difference後はDraft release PRを必須とする。release PRはautonomous/bulk ticket landingから除外し、`release-* -> main` mergeだけcurrent interactionのexplicit user authorizationを必須とする。
 - validation resultはvalidated SHA/snapshotへpinし、stack rebase/update後の別SHAへ古いgreen resultを流用しない。
 - quality gateは固定bundleではなくproject固有にcompileする。
 - verification levelは変更surface/riskから決める。
@@ -595,7 +598,7 @@ Agent / automation / release toolingがmerge APIを呼ぶ場合はmethodをrepos
 
 ここで禁止するのはPRのrebase mergeです。stacked PR追従やconflict解消等のbranch-local `git rebase` は既存のbranch mechanics / validation policyに従って使用できます。stack toolがmerge commit semanticsを保証できない場合、そのlanding pathは使用しないでください。
 
-この設定はmerge authorizationを生成しません。ADR-0012のexplicit user authorization boundaryを維持してください。
+merge method設定それ自体はrelease authorizationを生成しません。ADR-0027に従い、ticket-class PRはreadiness/quality gate通過後に自律landingし、`release-* -> main` のrelease-class PRだけADR-0012/ADR-0027のexplicit user authorization boundaryを維持してください。
 
 ### GitHub Issue / dependency SoT
 
@@ -699,7 +702,7 @@ predecessor reviewで変更が入りdownstream branchをrebase/updateした場�
 
 PR作成時に少なくとも該当するものを評価・設定してください。
 
-- linked Issue
+- linked Issue。native linkageが利用できる場合は使用し、少なくともPRから対応Issueを一意に再発見できる明示参照を保持する
 - accountable assignee
 - requested reviewer / CODEOWNERS-derived reviewer
 - repository-established labels
@@ -725,17 +728,20 @@ Draft -> Ready条件:
 - predecessor変更に伴うdownstream reconciliation/revalidation済み
 - latest durable checkpointとbranch stateが矛盾しない
 
-Ticket Done:
+Ticket landing / Done:
 
+- readiness/quality gateを満たしたnon-release ticket PRはper-PR user authorization待ちで停止せず、merge commitで自律landingする
 - current landing candidateでproject-specific applicable validationを実行済みで、既知の失敗を残していない
 - blocking review / unresolved conversationがない
 - ticket changesがtarget release trunkへland済み
-- Issue explicitly closed after successful target release-trunk landing
+- target release trunkからlanded changesがreachableであることを確認
+- linked Issueをcompletedとして明示close
+- dependent/open PRがticket branchを使用していなければremote ticket branchを削除。使用中ならretarget/rebase + affected revalidation後に削除
 - Linearはticket statusを全面mirrorせず、release-level reconciliationだけを更新
 
-native stacked PRではcontiguous stack landingでtarget release trunkへ到達したticketだけをDoneにしてください。ordinary nested PR fallbackでは `124 -> 123` のようなintermediate predecessor branch mergeだけでIssue #124をclose/Doneにしてはいけません。
+native stacked PRではcontiguous stack landingでtarget release trunkへ到達したticketだけをDoneにしてください。ordinary nested PR fallbackでは `124 -> 123` のようなintermediate predecessor branch mergeだけでIssue #124をclose/Doneにしてはいけません。stackもticket-classとしてdependency順に自律landingできますが、各included ticketのreadiness/quality gateを確認してください。
 
-non-default branchへのmergeではclosing keywordだけに依存しないでください。
+non-default branchへのmergeではclosing keywordだけに依存せず、landing成功後のIssue closeとbranch cleanupをdelivery operationの一部として明示実行してください。
 
 ---
 
@@ -773,7 +779,7 @@ release PR title/bodyは日本語です。
 
 public repositoryではprotected `main`に対し、このrelease PR以外の経路で変更を入れないでください。
 
-`release-x-y-z -> main` を含むPR mergeは **explicit user authorization 境界**（ADR-0012）に従います。required approving review countは0を標準としますが、blocking review / unresolved conversationは解消してください。mergeを実行する権限そのものは **user** が保持します。Agent は release-wide verification 完了 + ready-to-merge 状態まで進めた時点で **ready-to-merge で停止** し、現在状態（head SHA / validation evidence / outstanding review conversations）を report します。authorization 取得のためだけに追加の質問を行ってはいけません（permission 確認は user 側の発火に委ねる）。merge そのものは user が明示的に authorization した時にのみ実行します。authorization後にPRをlandする場合は `merge` methodを明示し、merge commitを生成してください。
+`release-x-y-z -> main` は **唯一のexplicit user authorization merge boundary**（ADR-0027、release部分はADR-0012を継承）です。release PRはbulk/autonomous ticket landingおよびauto-mergeから必ず除外してください。required approving review countは0を標準としますが、blocking review / unresolved conversationは解消してください。Agentはrelease-wide verification完了 + Ready状態まで進め、current interactionでそのrelease PR/actionへのexplicit user authorizationがない限りready-to-mergeで停止します。genericな「readyなPRをmerge」「cleanup」「最後まで進める」やticket PRへのstanding permissionをrelease authorizationとして扱ってはいけません。authorization後も直前にactual head/base/current SHAを再取得し、`base == main` かつ `head == intended current release-*` を確認してから`merge` methodでmergeしてください。`base == main`でheadがcurrent release branch以外ならmergeを拒否してください。
 
 merge後 `main` がそのversionのreleased stateです。
 
@@ -864,9 +870,9 @@ project/provider要件に応じてmachine/provider lossまでのRPO/RTOも定義
 
 native conversation ID、agent ID、Supervisor local DB、shell history、IDE stateはtransient optimizationです。
 
-active durable ticket branchにpublished remote head + PRがない場合は正常状態として扱わず、Issue/branch ownership・remote head・intended PR baseを確認してdelivery surfaceを修復してください。PRが存在する場合も、incompleteならDraft、readiness条件を満たしていればReadyになっているかstateをreconcileしてください。
+active durable ticket branchにpublished remote head + PRがない場合は正常状態として扱わず、Issue/branch ownership・remote head・intended PR base/stackをrepository evidenceから復元し、安全に決められるならmissing PRを作成してください。PRが存在する場合も、incompleteならDraft、readiness条件を満たしていればReadyへreconcileしてください。Ready ticket PRにreal blockerがなければ自律landingし、target release trunkへland済みなのにIssueがopenなら明示close、landed/merged branchが残っていればdependency確認後に削除してください。
 
-release branchは`main`とzero-diffの間だけDraft release PR不要です。first meaningful integrated differenceが存在するrelease branchにDraft release PRがない場合は修復してください。
+release branchは`main`とzero-diffの間だけDraft release PR不要です。first meaningful integrated differenceが存在するrelease branchにDraft release PRがない場合は修復してください。ただしrelease PRはこの自動landing/reconciliationのmerge対象から除外し、explicit release authorizationなしにmergeしてはいけません。
 
 ### Structured recovery checkpoint
 
