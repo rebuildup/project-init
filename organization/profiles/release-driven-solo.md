@@ -36,8 +36,9 @@
 - ticket branch: Issue number only
 - independent ticket PR: target release branch
 - hard dependency stack: immediate predecessor branchをbaseにできる
-- first meaningful durable commit後はcanonical remote publication + Draft PRを行う
-- release branchにmeaningful differenceが入ったらDraft release PRを維持する
+- first meaningful durable commit後はcanonical remote publication + PR作成を行う。active/incomplete implementationではDraft、readiness条件を満たしていればReady for reviewとする
+- Draftは未完了作業の一時状態に限定し、ticket/release PRがreadiness条件を満たしたら速やかにReady for reviewへ遷移する。PR作成時点ですでに条件を満たす場合は最初からReadyで作成する
+- release branchにmeaningful differenceが入ったらDraft release PRを維持し、release readiness条件を満たした時点でReady for reviewへ遷移する
 - `main`へのnormal integrationはcurrent release branchからのrelease PRだけ
 - PR landing method: merge commit only
 - repository merge settings: `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false`
