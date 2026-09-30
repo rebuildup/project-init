@@ -87,9 +87,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - 通常sprint cadenceが1週間で維持されているか
 - `release-x-y-z`をsprint integration branchとして維持しているか
 - ticket branchがIssue番号だけになっているか
-- active durable ticket branchにpublished remote head + Draft PRが存在するか
-- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate Draft PRが一つの開始手順になっているか
-- subagent/workerがdurable branchを作る場合にもpublish + Draft PR ruleが適用されるか
+- active durable ticket branchにpublished remote head + PRが存在し、incompleteならDraft、readiness条件を満たしていればReadyになっているか
+- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate PR作成が一つの開始手順になっているか
+- 完成済みPRをuserの明示指示待ちでDraftのまま残していないか。PR作成時点で完成済みなら最初からReadyになっているか
+- subagent/workerがdurable branchを作る場合にもpublish + PR state lifecycle ruleが適用されるか
 - PR作成時にIssue linkage / assignee / reviewer / labels / target release / stack contextが適切に設定されるか
 - Issue dependency graphがcanonical dependency SoTとして維持されているか
 - stacked PRが同一repository・同一target releaseのlinear hard dependencyに限定されているか
@@ -163,9 +164,10 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張�
 - stack membersは同一target release branchをtrunkとして共有
 - stack-ready workはreviewable immutable predecessor snapshotへexact SHAでpin
 - predecessor変更時はdownstreamをreconcileし、affected validationをcurrent SHAで再実行
-- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱う
-- active durable ticket branchをpublished remote head + Draft PRなしで継続しない
-- 上記publish + Draft PR ruleはCoordinator / human / worker / subagentすべてに適用
+- durable ticket branch作成 -> first meaningful commit -> canonical remote publish -> remote head SHA確認 -> immediate PR作成を一つの開始手順として扱う
+- active durable ticket branchをpublished remote head + PRなしで継続しない。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移する
+- PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとして作成し、完成済みPRをDraftのまま残さない
+- 上記publish + PR state lifecycle ruleはCoordinator / human / worker / subagentすべてに適用
 - PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
 - stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
@@ -366,7 +368,7 @@ substantial policy changeはIssueを作成し、目的 / acceptance criteria / s
 
 ### Ticket Pull Request
 
-branch作成後、最初のmeaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にDraft PRを開きます。published commit + Draft PRなしでそのbranchのactive implementationを継続しません。
+branch作成後、最初のmeaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にPRを開きます。active/incomplete implementationならDraft、readiness条件を満たしていればReady for reviewとします。published commit + PRなしでそのbranchのactive implementationを継続せず、完成済みPRを明示指示待ちでDraftのまま残しません。PR作成時点でreadiness条件を満たす場合は最初からReadyとして作成します。
 
 independent ticketはtarget release branchをbaseにします。
 同一releaseのlinear hard dependencyでは、dependent ticketをimmediate predecessor ticket branchへstackしてよいです。
