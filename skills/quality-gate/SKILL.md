@@ -534,6 +534,8 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - stack update後のaffected revalidation完了
 - PR metadata / linked Issueがcurrent delivery stateと一致
 
+このDone gateを満たしたopen PRはDraftのまま残さず、速やかにReady for reviewへ遷移する。userからの明示的なReady化指示を待たない。PR作成時点ですでにこのgateを満たしている場合は最初からReadyとして作成し、形式的なDraft -> Ready往復を行わない。Draftはこのgate未達でimplementation/integrationがactiveな場合だけ使用する。
+
 ## 14. False green禁止
 
 禁止:
