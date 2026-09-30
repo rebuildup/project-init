@@ -105,7 +105,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - parent/child delegationがimmutable snapshot/resultで表現できるか
 - snapshot/resultがresolved commit SHA/content digestへpinされ、mutable refの再解決に依存していないか
 - Supervisor外のworkerへhost-level sandbox管理権限を渡していないか
-- ticket Draft PR -> release branch/stack -> release PR -> main lifecycleを壊していないか
+- ticket PR（active/incompleteならDraft、readiness完了ならReady）-> release branch/stack -> release PR -> main lifecycleを壊していないか
 - multi-agent parallelismがdependency graph、WIP、resource limitsに基づいているか
 - agent数そのものをoptimization targetにせず、smallest useful fan-outからadaptiveに増減できるか
 - competitive explorationを多数決でfan-inせず、evidence / measurement / validationで比較しているか
@@ -120,7 +120,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0005: adaptive stack-aware quality gate compilation
 - ADR-0006: engineering decision hierarchy / verification taxonomy / security maintenance / onboarding
 - ADR-0007: durable interruption recovery / execution fencing / side-effect reconciliation
-- ADR-0008: weekly sprint cadence / dependency-aware stacked PR / mandatory durable Draft PR lifecycle
+- ADR-0008: weekly sprint cadence / dependency-aware stacked PR / durable PR state lifecycle
 - ADR-0009: cost-aware GitHub Actions without weakening quality gates
 - ADR-0010: evidence-based agent delivery forecasting / capacity estimation
 - ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
@@ -141,7 +141,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
-ADR-0008はADR-0004のticket PR base / sprint cadence / Draft PR運用を拡張・revisionします。
+ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡張・revisionします。
 
 ## Multi-agent / delivery invariants
 
@@ -274,7 +274,7 @@ meaningful advisoryはGitHub Issueへ変換しtarget releaseを割り当てま�
 - durable recovery sourcesはIssue (canonical dependency SoT) / PR / Git refs / committed docs / immutable results / structured checkpoint。Linearはrelease planning / health / portfolio control planeでありimplementation/dependency SoTではない
 - checkpointへprivate chain-of-thoughtやsecretを保存しない
 - soft checkpointとprovider-lossに耐えるhard checkpointを区別する
-- active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとDraft PRを追跡できる
+- active durable ticket branchではmeaningful stateがremoteで到達可能で、remote head identityとPR identity/stateを追跡できる
 - release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後はDraft release PR必須
 - checkpointはtask identity / snapshot / completed / next / validation / children / side effects / blockersを表現できる
 - parent model processではなくSupervisorがchild lifecycleを所有する
@@ -296,7 +296,7 @@ fresh contributor / new agentがchat historyやprivate memoryなしで次を実�
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - weekly sprint / Issue selection / dependency / stack判断
-- ticket branch / remote publish / immediate Draft PR / PR metadata
+- ticket branch / remote publish / immediate PR creation/state / PR metadata
 - public repoのmain protection / release-only main integration
 - ADR/design/Skills discovery
 - troubleshooting
@@ -398,9 +398,9 @@ stacked ticketはimmediate predecessor branchへの通常mergeだけではDone�
 
 ### Subagent / worker branches
 
-subagent/workerがdurable branchを作る場合も同じremote publish + Draft PR lifecycleを適用します。
+subagent/workerがdurable branchを作る場合も同じremote publish + PR state lifecycleを適用します。
 
-remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがcommit publish、remote head SHA確認、Draft PR作成を完了するまで追加implementationを進めません。
+remote publishまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがcommit publish、remote head SHA確認、PR作成/state設定を完了するまで追加implementationを進めません。
 
 ephemeral immutable result refはこのruleの対象外です。
 
@@ -447,7 +447,7 @@ current official sourceを確認すべき対象:
 - weekly sprint cadence変更
 - ticket branch naming変更
 - stacked PR / dependency integration model変更
-- Draft PR lifecycle / PR metadata contract変更
+- PR state lifecycle / PR metadata contract変更
 - public repository main protection / release-only main integration変更
 - PR merge method / repository merge settings変更
 - decision precedence / user escalation model変更
@@ -476,8 +476,8 @@ current official sourceを確認すべき対象:
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない
 - 1週間sprint / release lifecycleが一貫
 - independent / stacked ticket PR base semanticsが一貫
-- active durable ticket branchにpublished remote head + Draft PRが必ず存在する運用になっている
-- worker/subagentにもremote publish + Draft PR ruleが適用される
+- active durable ticket branchにpublished remote head + PRが必ず存在し、active/incompleteならDraft、readiness条件を満たしていればReadyになっている
+- worker/subagentにもremote publish + PR state lifecycle ruleが適用される
 - PR metadata requirementがIssue/Skill/promptで一貫
 - stacked ticketのDone boundaryがtarget release trunk landingで一貫
 - zero-diff release branchのDraft release PR例外とfirst-difference後必須が一貫
