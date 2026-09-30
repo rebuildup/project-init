@@ -144,7 +144,7 @@ source/work state:
 各ticket / workerは `base_sha` またはimmutable input snapshotを追跡可能にしてください。
 stack-ready dependent workではpredecessor Issue/PR identityとexact predecessor commit SHA / immutable snapshotも追跡可能にしてください。
 
-durable ticket branchではfirst meaningful stateをcanonical remoteへpublishし、remote branch head SHAとDraft PR identityを追跡可能にしてください。
+durable ticket branchではfirst meaningful stateをcanonical remoteへpublishし、remote branch head SHAとPR identity/stateを追跡可能にしてください。
 
 local directory、会話履歴、native session ID、Supervisorの復旧不能なhidden DBだけを唯一のSoTにしてはいけません。
 
@@ -238,7 +238,7 @@ Agent Supervisor / Control Plane
 - execution lease / generation / fencing
 - child discovery / orphan reconciliation
 - Git result collection / integration
-- durable branch remote publication / Draft PR lifecycle coordination
+- durable branch remote publication / PR state lifecycle coordination
 - logs / status / preview routing
 
 workerへhost Docker socket、root-equivalent権限、cloud master credential等を直接渡してsandbox生成させないでください。
@@ -274,7 +274,7 @@ spawn request候補:
 - dependency / predecessor Issue or PR
 - immutable input snapshot / predecessor snapshot
 - immediate PR base
-- durable branch identity / expected Draft PR identity when applicable
+- durable branch identity / expected PR identity/state when applicable
 - assignee / reviewer / label expectations when applicable
 - role
 - allowed tools
@@ -283,9 +283,9 @@ spawn request候補:
 - expected result format
 - parent fencing identity / current implementationがgeneration方式の場合のexecution generation
 
-subagent/workerへdurable branch作成権限を与える場合、その権限はremote publication + Draft PR作成・metadata設定とセットです。GitHubはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成後にfirst meaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にDraft PRを作成してください。
+subagent/workerへdurable branch作成権限を与える場合、その権限はremote publication + PR作成/state設定・metadata設定とセットです。GitHubはremoteでheadを解決でき、head/baseに差分がある必要があるため、branch作成後にfirst meaningful commitを直ちに作り、canonical remoteへpublishし、remote branch head SHAがそのcommit SHAと一致することを確認した直後にPRを作成してください。active/incompleteならDraft、readiness条件を満たしていればReady for reviewにします。
 
-remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがpublish + remote head SHA確認 + Draft PR作成を完了するまで追加implementationを進めてはいけません。
+remote publicationまたはPR mutation権限がないworkerはfirst meaningful commit後ただちにCoordinator/Supervisorへhandoffし、Coordinator/Supervisorがpublish + remote head SHA確認 + PR作成/state設定を完了するまで追加implementationを進めてはいけません。
 
 fork bombやunbounded costを防止してください。
 
@@ -483,7 +483,7 @@ rootに置くもの:
 - project identity / boundaries
 - source/work SoT
 - weekly active release rule
-- dependency / remote publication / Draft PR lifecycle pointer
+- dependency / remote publication / PR state lifecycle pointer
 - public main protection pointer when applicable
 - decision precedence pointer
 - project toolchain declaration / mise bootstrap
@@ -793,7 +793,7 @@ merge後 `main` がそのversionのreleased stateです。
 - immediate PR base
 - output contract
 - owner role
-- branch / remote publish / Draft PR contract
+- branch / remote publish / PR creation/state contract
 - integration target
 - recovery/checkpoint policy
 
@@ -814,7 +814,7 @@ stacked deliveryを安全に維持できない場合はdependency SoTを壊さ�
 
 非自明taskでは:
 
-`inspect -> design-refinement (non-trivial feature / architecture / product design のplanning前のみ) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + Draft PR -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
+`inspect -> design-refinement (non-trivial feature / architecture / product design のplanning前のみ) -> plan weekly release -> ticketize/dependency -> decompose -> snapshot -> create branch + first commit + remote publish + head verify + PR/state -> delegate/implement -> checkpoint -> verify worker -> reconcile stack -> verify target release landing -> review -> update PR/board metadata -> verify release -> replan -> continue`
 
 を自律的に回してください。
 
@@ -864,7 +864,7 @@ project/provider要件に応じてmachine/provider lossまでのRPO/RTOも定義
 
 native conversation ID、agent ID、Supervisor local DB、shell history、IDE stateはtransient optimizationです。
 
-active durable ticket branchにpublished remote head + Draft PRがない場合は正常状態として扱わず、Issue/branch ownership・remote head・intended PR baseを確認してdelivery surfaceを修復してください。
+active durable ticket branchにpublished remote head + PRがない場合は正常状態として扱わず、Issue/branch ownership・remote head・intended PR baseを確認してdelivery surfaceを修復してください。PRが存在する場合も、incompleteならDraft、readiness条件を満たしていればReadyになっているかstateをreconcileしてください。
 
 release branchは`main`とzero-diffの間だけDraft release PR不要です。first meaningful integrated differenceが存在するrelease branchにDraft release PRがない場合は修復してください。
 
@@ -904,7 +904,7 @@ secret、machine-specific absolute path、private reasoningへ依存させない
 ### Soft checkpoint / Hard checkpoint
 
 - soft checkpoint: same host/sandbox recovery向け。local immutable ref、filesystem snapshot、Supervisor journal、native session state等。
-- hard checkpoint: sandbox/providerを失っても復旧する境界。meaningful code/work stateがdurable remote infrastructureから到達可能であること。durable ticketではrecorded commitがcanonical remoteで到達可能でremote head identityとDraft PRが追跡できること。release branchはzero-diffならDraft release PR不要、first-difference後はDraft release PRが存在すること。
+- hard checkpoint: sandbox/providerを失っても復旧する境界。meaningful code/work stateがdurable remote infrastructureから到達可能であること。durable ticketではrecorded commitがcanonical remoteで到達可能でremote head identityとPR identity/stateが追跡できること。release branchはzero-diffならDraft release PR不要、first-difference後はDraft release PRが存在すること。
 
 すべての小editをremote commitしてhistoryを汚す必要はありません。projectのRPO、task length、provider TTLからcheckpoint頻度を設計してください。
 
@@ -929,7 +929,7 @@ fresh agentはprevious conversationを推測しないでください。
 
 1. Issue / PR / target release / dependencyを特定。
 2. ticket/release branch / remote commit graph / stack relationをfetch。
-3. durable ticketではpublished remote head + Draft PR / metadataを確認・修復。release branchではzero-diff例外またはfirst-difference後Draft release PRを確認。
+3. durable ticketではpublished remote head + PR state / metadataを確認・修復。incompleteならDraft、readiness条件を満たしていればReadyにする。release branchではzero-diff例外またはfirst-difference後Draft release PRを確認。
 4. latest valid checkpointを読む。
 5. canonical policy/design/decision refsを確認。
 6. active childrenをSupervisorから再発見。
@@ -957,7 +957,7 @@ recovered parent/coordinatorは:
 - input snapshot / predecessor snapshot / applicableなcurrent fencing identityを確認
 - running / completed / failed / orphanedを分類
 - completed resultをimmutable resultとして回収
-- durable branch childではpublished remote head / Draft PR identity / metadataをreconcile
+- durable branch childではpublished remote head / PR identity/state / metadataをreconcile
 - stale child resultは自動統合しない
 - 必要ならretry/resume/re-spawn
 
@@ -1054,7 +1054,7 @@ Design-first gateが存在する変更はdesign合意後にimplementationへ進�
 - execution fencing / side-effect reconciliation
 - release/sprint branching model / weekly sprint cadence
 - dependency-aware stacked PR model
-- durable branch / remote publication / Draft PR / PR metadata lifecycle
+- durable branch / remote publication / PR state / PR metadata lifecycle
 - public repository main protection / release-only main integration
 - environment reproducibility
 - architecture migration
@@ -1246,7 +1246,7 @@ repository-controlled docsから最低限次へ到達できるようにします
 - bootstrap / run / migrate / seed
 - worker/integration/release validation
 - 1週間sprint / target release / Issue dependency workflow
-- ticket branch / first meaningful commit / remote publish / remote head SHA確認 / immediate Draft PR workflow
+- ticket branch / first meaningful commit / remote publish / remote head SHA確認 / immediate PR creation/state workflow
 - PR assignee / reviewer / labels / Issue linkage / stack context
 - independent PR / stacked PRのbase rules
 - stacked ticketのtarget release-trunk landing Done boundary
@@ -1372,7 +1372,7 @@ project/runtimeが許す範囲で定期的に:
 - medium/long-term release forecastは `agent-delivery-estimation` のevidence-based policyを使用し、主観的calendar estimateやlinear agent scalingを採用しない
 - Issue dependency graphがcanonical dependency SoT
 - independent ticketはrelease base、same-release linear hard dependencyはstacked PRを使用可能
-- active durable ticket branchはfirst meaningful commitをcanonical remoteへpublishしてhead SHAを確認した直後にDraft PRを持ち、worker/subagentも例外でない
+- active durable ticket branchはfirst meaningful commitをcanonical remoteへpublishしてhead SHAを確認した直後にPRを持つ。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移し、PR作成時点で完成済みなら最初からReadyとする。worker/subagentも例外でない
 - PR作成時にIssue linkage / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextが設定される
 - stacked ticketのDone boundaryがtarget release trunk landingである
 - release branchはzero-diffの間だけDraft release PR不要で、最初のmeaningful integrated difference後にDraft release PRを持つ
