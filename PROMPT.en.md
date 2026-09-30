@@ -427,6 +427,18 @@ In the current release-driven profile, use mise as the default Practice for proj
 
 Do not add empty mise configuration merely for policy compliance when the project has no meaningful runtime or CLI prerequisite for it to manage.
 
+### Cloudflare CLI default
+
+For projects that use Cloudflare, use `cf` as the primary CLI for the Cloudflare control plane, resource APIs, and supported Worker lifecycle operations.
+
+- when Cloudflare documentation or examples are written in Wrangler, do not choose Wrangler solely because of that spelling; first use `cf cli search` or equivalent current discovery to check whether `cf` exposes the operation
+- when `cf` can execute an equivalent workflow, use `cf` and do not grow new scripts, CI, or agent instructions around Wrangler
+- retain Wrangler only as an explicit compatibility fallback when `cf` lacks the workflow, is incompatible with the project, or delegates that workflow to Wrangler
+- bound each Wrangler fallback to the workflows that require it and never make the fallback silent; re-check `cf` capability during tool upgrades and initialization reconciliation, then shrink or remove obsolete fallbacks
+- when `cf` internally delegates to Wrangler, do not remove the Wrangler dependency merely because the surface command has moved to `cf`
+- do not add `cf` or Wrangler to projects that do not use Cloudflare merely for policy compliance
+- `cf` and Wrangler are Practices, not Constitutional invariants; ADR-0026 defines the detailed decision boundary
+
 Treat Apple Silicon `arm64` as first class and validate differences from x86_64 CI/remote where relevant.
 
 Do not treat WSL itself as worker isolation. Prefer the WSL Linux filesystem for high-frequency Linux-oriented build/watch workloads.
