@@ -207,20 +207,19 @@ recorded predecessor/base snapshotとcurrent expected baseが異なるresultはs
 
 ## Landing handoff boundary
 
-worker / subagent の **shared durable integration state への ordered landing**（`release-x-y-z` への merge / landing、`release-x-y-z -> main` release PR の merge、`main` への直接反映等）は **Coordinator / Supervisor だけが実行する**。
+worker / subagent の **shared durable integration state への ordered landing**（`release-x-y-z` への ticket landing、`release-x-y-z -> main` release PR merge、`main` への直接反映等）は **Coordinator / Supervisor だけが実行する**。
 
-- worker / subagent は target release trunk / `main` への merge / landing 操作を実行しない。
-- worker / subagent は Draft PR 作成・remote publication・branch head verify までを完了して、result identity + Draft PR identity + validation evidence + known issues を immutable handoff artifact として Supervisor へ返す。
-- Coordinator / Supervisor は landing 順序、再validation、target release trunk への merge / contiguous stack landing のみを実行できる。
-
-user explicit merge / land authorization を Agent / subagent が受け取った場合でも、orchestrated workflow 下では landing 操作は **Coordinator / Supervisor 経由でのみ** 実行する。worker / subagent は landing を実行せず、authorization scope を伴った immutable handoff を Supervisor へ渡す。
+- worker / subagent は target release trunk / `main` への merge / landing 操作を実行せず、PR creation/state・remote publication・branch head verify・validationまで完了したcandidateをimmutable handoffする。
+- **ticket-class** candidateはreadiness/quality gateを満たせば追加のuser merge authorizationなしでCoordinator / Supervisorがdependency順にlandingする。
+- **release-class** `release-* -> main` candidateはexplicit user authorizationが必要で、authorization scopeをhandoff artifactへ含める。
+- Coordinator / Supervisorはlanding直前にactual head/base/current SHAを再取得し、ticket/release classificationとrequired gateを再検証する。
 
 この境界を越えて worker / subagent が landing 操作を実行した場合:
 
 - 直近 landing は stale candidate として扱う。
 - 自動rollback は前提としない。integration state への影響と reconciliation 必要性を Supervisor が reassess し、必要なら new landing 候補で再実行する。
 
-単独で `release-x-y-z -> main` release PR を扱う状況ではこの限りではない。worker が release PR の merge authorization を直接 landing 操作として実行できる。
+standaloneでticket PRを扱うAgentはreadiness/quality gate通過後に自律landingできる。standaloneでrelease PRを扱うAgentはexplicit release authorizationがある場合に限り直接landingできる。
 
 ## Review handoff
 
@@ -244,7 +243,7 @@ parent agentが停止してもsafeなchildを自動破棄しない。
 
 recovered CoordinatorはSupervisorからchildを再発見し、running/completed/failed/orphanedをreconcileする。completed resultはimmutable snapshot/result relationship、predecessor/base identity、applicableなcurrent fencing identityを確認してから統合する。
 
-GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とする。
+GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。Ready ticket PRの未landing、land済みopen Issue、merged/landed後のstale ticket branchもdriftとしてrepairする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とし、release PRをautonomous ticket landingへ含めない。
 
 ## Fallback
 
