@@ -50,6 +50,8 @@ must_contain "$ADR" 'Use four fan-out modes'
 must_contain "$ADR" 'Herdr state remains telemetry'
 must_contain "$ADR" 'Fan-in is evidence-based'
 
+[[ -r "$R/$CONSTITUTION" ]] || fail "Constitution missing or unreadable"
+
 if grep -Eqi '(^|[^[:alnum:]_])Herdr([^[:alnum:]_]|$)' "$R/$CONSTITUTION"; then
   fail "Herdr leaked into Constitution"
 fi
