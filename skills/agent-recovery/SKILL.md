@@ -42,7 +42,7 @@ project/provider要件に応じて、machine/provider lossまでのRPO/RTOも定
 8. immutable worker/subagent result commits/refs/artifacts
 9. durable recovery checkpoint / handoff record
 
-active durable ticket branchにpublished remote head + Draft PRが存在しない場合、それを正常状態とみなさない。Issue/branch ownership、first meaningful commit、remote head、intended PR baseを確認し、delivery surfaceを修復してからactive workを継続する。
+active durable ticket branchにpublished remote head + PRが存在しない場合、それを正常状態とみなさない。Issue/branch ownership、first meaningful commit、remote head、intended PR baseを確認し、delivery surfaceを修復してからactive workを継続する。PRが存在する場合もstateをreconcileし、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。
 
 release branchは例外を持つ。`main`とzero-diffのrelease branchはGitHub上Draft PRを作成できないため、その状態だけはDraft release PR不要である。first meaningful integrated differenceがrelease branchに入った後は、Draft release PRが存在しない状態を正常とみなさない。
 
@@ -124,7 +124,7 @@ sandbox/providerを失っても復旧する境界。
 - meaningful code stateがcanonical remoteで到達可能
 - durable ticket branchではrecorded commit SHAとremote branch headの対応が追跡可能
 - Issue/Project/PRから現在statusを判断可能
-- active durable ticket branchにはDraft PRが存在
+- active durable ticket branchにはPRが存在し、stateが実際のwork stateと一致
 - release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後はDraft release PRが存在
 - stackならpredecessor identity / exact predecessor snapshotが分かる
 - next step / pending verification / blockerがdurableに分かる
@@ -159,7 +159,7 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 
 1. Issue / GitHub Project / PR / target release / dependencyを特定する。
 2. current ticket/release branch、remote commit graph、stack predecessor/successor relationをfetchする。
-3. durable ticket branchではpublished remote headとDraft PR、assignee / reviewer / labels / intended baseが整合していることを確認する。欠落していれば修復する。
+3. durable ticket branchではpublished remote headとPR identity/state、assignee / reviewer / labels / intended baseが整合していることを確認する。欠落・state driftがあれば修復する。
 4. release branchでは`main`との差分を確認する。zero-diffならDraft release PR不要、differenceが存在するならDraft release PRとmetadataを確認・修復する。
 5. latest valid recovery checkpointを読む。
 6. canonical design/policy/decision refsを再確認する。
@@ -189,7 +189,7 @@ recovered parent/coordinatorは:
 - running/completed/failed/orphanedを分類
 - completed resultをimmutable resultとして回収
 - stale child resultは自動統合しない
-- durable branchを作ったchildではpublished remote head / Draft PR identity / metadataをreconcile
+- durable branchを作ったchildではpublished remote head / PR identity/state / metadataをreconcile
 - 必要ならretry/resume/re-spawn
 
 を行う。
@@ -285,7 +285,7 @@ project/runtimeが許す範囲で定期的に:
 2. agent/sandboxを意図的に停止する
 3. fresh agent/sandboxからrecoveryする
 4. Issue/Project/branch/PR/stack/children/validation/side-effect journalを再構成する
-5. durable ticketではpublished remote head / Draft PR / metadata / predecessor baseを検証する
+5. durable ticketではpublished remote head / PR identity/state / metadata / predecessor baseを検証する
 6. release branchではzero-diff例外またはfirst-difference後Draft release PRの存在を検証する
 7. duplicate mutationなしで続行できることを確認する
 
@@ -297,7 +297,7 @@ recovered taskを「再開成功」とみなす条件:
 
 - canonical Issue/Project/PR/release/dependencyとの対応が確認済み
 - active durable ticket branchはmeaningful stateがcanonical remoteへpublish済みで、remote head identityが確認済み
-- active durable ticket branchにDraft PRが存在し、base/assignee/reviewer/labels等のmetadataが現状と整合
+- active durable ticket branchにPRが存在し、active/incompleteならDraft、readiness条件を満たしていればReadyで、base/assignee/reviewer/labels等のmetadataが現状と整合
 - release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後ならDraft release PRが存在しmetadataが整合
 - stackならpredecessor identity / exact base snapshotが確認済み
 - workspaceが追跡可能なsnapshot/commitから再構成済み
