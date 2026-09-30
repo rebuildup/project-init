@@ -1,6 +1,6 @@
 ---
 name: interaction-discipline
-description: Use during active user/operator-facing work to keep agent interaction actionable: retain agent-owned work, expose verified state and blockers, ask only necessary questions, bound required user actions, suppress tangents, and report errors with evidence and a concrete recovery path.
+description: "Use during active user/operator-facing work to keep agent interaction actionable: retain agent-owned work, expose verified state and blockers, ask only necessary questions, bound required user actions, suppress tangents, and report errors with evidence and a concrete recovery path."
 ---
 
 # Interaction Discipline
