@@ -124,7 +124,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0009: cost-aware GitHub Actions without weakening quality gates
 - ADR-0010: evidence-based agent delivery forecasting / capacity estimation
 - ADR-0011: agent policy as evaluated executable contract (execution profile / cold review / context budget)
-- ADR-0012: PR merge as explicit human-authorized side effect (no Agent autonomous merge)
+- ADR-0012: release merge authorization boundary（ADR-0027によりticket PRへの一律適用はsuperseded）
 - ADR-0013: Worktrunk as default WSL/Linux worktree operations layer (branch base / port allocation contract)
 - ADR-0014: historical optional Linear control-plane decision (ADR-0016でsuperseded)
 - ADR-0015: active source security audit / advisory maintenance separation
@@ -139,6 +139,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0024: Rust/Cargo worktree build-output isolation and bounded cache reuse
 - ADR-0025: adaptive agent-driven orchestration with Herdr
 - ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
+- ADR-0027: autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡張・revisionします。
@@ -168,10 +169,13 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡
 - active durable ticket branchをpublished remote head + PRなしで継続しない。active/incompleteならDraft、readiness条件を満たしたらReady for reviewへ遷移する
 - PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとして作成し、完成済みPRをDraftのまま残さない
 - 上記publish + PR state lifecycle ruleはCoordinator / human / worker / subagentすべてに適用
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定・維持し、Issue -> branch -> PR relationshipをdurableに追跡可能にする
 - 意味のない自己reviewerや架空labelでmetadataを埋めない
-- stacked ticketはintermediate predecessor branchへのmergeだけではDoneにしない
+- non-release ticket PRはreadiness/quality gateを満たしreal blockerがなければ追加のuser merge authorizationを待たずmerge commitで自律landingする
+- stacked ticketはdependency順に自律landingするが、intermediate predecessor branchへのmergeだけではDoneにしない
 - ticket changesがtarget release trunkへactual landingしたことを確認後、closing keywordに依存せずlinked GitHub Issueを明示的にcloseする。Linearはticketを全面mirrorせず、release-level reconciliationだけを更新する
+- target release trunkへland済みのticket branchは、open dependent PRがbase/headとして利用していなければ削除する。dependencyが残る場合はretarget/rebase + revalidation後に削除する
+- recovery/completion時にPRなしticket branch、Readyなのに未landingのticket PR、land済みなのにopenなIssue、merged/landed後の残存ticket branchをreconcileする
 - release branchは`main`とzero-diffの間だけDraft release PR不要
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
 - release-wide verification後 `release-x-y-z -> main` merge = release completion
@@ -203,17 +207,18 @@ project evidenceで実質一意に決まる、可逆・局所的なimplementatio
 
 userへ確認するのは、canonical source conflict、product semantics、public API、security/privacy risk acceptance、meaningful cost、release scope/date、irreversible operation、explicit design approval等、本物の意思決定が残る場合に限定します。
 
-## Merge authorization invariant
+## Landing authority invariant
 
-PRのquality/readinessとmerge authorizationは別stateです。
+PR landing前にcurrent head/baseを再取得してticket-class / release-classを分類します。
 
-Agent / subagent / Coordinator / Supervisorは、userがidentified PRまたは明確に限定したPR集合へ明示的にmerge/landを依頼した場合だけlandingを実行します。current release-driven profileのGitHub PR landingはmerge commit method (`merge`) に固定し、squash merge / rebase mergeは使用しません。stacked landing / auto-mergeもmerge commit semanticsを満たす場合だけ使用します。
+- **ticket-class**: `base != main` でcurrent ticket/release integration topologyに属するPR。readiness/quality gateを満たしreal blockerがなければ、per-PR user authorizationを待たずmerge commitで自律landingします。generic implementation/review/cleanup taskでもticket lifecycleはlanding -> Issue close -> safe branch cleanupまで継続します。
+- **release-class**: `base == main` かつ `head == current release-*`。このmergeだけはcurrent interactionでそのrelease PR/actionへのexplicit user authorizationが必要です。Ready/green/approval、ticketへのstanding permission、genericな「readyなPRをmerge」「cleanup」「最後まで進める」はrelease authorizationではありません。
+- `base == main` かつheadがcurrent release branch以外ならlandingを拒否します。
+- release PRはbulk/autonomous ticket landingやauto-mergeから必ず除外します。
 
-authorization scope内stacked PRに対するpredecessor snapshot再pin / 自身のbranch内rebase / 自身のPR内force-pushはbranch mechanicsであり、上記merge authorizationのscopeに含めません。trunk / release branchへのactual landing、release外PRへのrebase、またはauthorized scopeを超える変更には改めてauthorizationが必要です。
+current release-driven profileのGitHub PR landingはmerge commit method (`merge`) に固定し、squash merge / rebase mergeは使用しません。
 
-review対応、conflict解消、validation、green CI、approval、resolved conversation、mergeable/Ready state、一般的な完遂依頼はauthorizationではありません。authorizationがない場合はready-to-mergeで停止し、PR identity、current head SHA、gate state、blockerを報告します。
-
-authorizationを別PRへ伝播させません。authorization後にexpected fixでheadが変わればcurrent SHAを再検証し、base / target release / scope / included changes等がmaterialに変わった場合やscope内か曖昧な場合は古いauthorizationを再利用しません。
+release authorizationはidentified release PR/actionへ限定し、別releaseやmaterially changed candidateへ盲目的に再利用しません。ticketのautonomous landing authorityをreleaseへ伝播させません。
 
 ## Verification / quality invariants
 
