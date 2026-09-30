@@ -49,8 +49,9 @@ The following rules are the current Operating Model / Practices. They implement 
 - Ticket branch names contain only the Issue number.
 - One top-level Issue normally maps to one durable ticket branch and one ticket PR.
 - Independent ticket PRs target the release branch. A same-release linear hard dependency may instead use the immediate predecessor ticket branch as the dependent PR base.
-- Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate Draft PR as one start procedure. Do not continue active implementation without the published remote head and Draft PR.
-- The publish + Draft PR rule applies equally to humans, Coordinators, workers, and subagents.
+- Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate PR creation as one start procedure. Do not continue active implementation without the published remote head and PR. Use Draft while implementation/integration is active, and Ready for review once readiness conditions are satisfied.
+- Draft is a temporary incomplete-work state. Move a PR to Ready for review as soon as its readiness conditions are satisfied without waiting for an explicit user instruction; if the work is already complete when the PR is created, create it Ready from the start.
+- The publish + PR-state rule applies equally to humans, Coordinators, workers, and subagents.
 - At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
 - A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. Linear does not mirror ticket status; Linear Project Completed/Doneness is reconciled only at release level.
 - A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
@@ -585,7 +586,7 @@ When useful distinguish dependency execution state as:
 
 ---
 
-## 12. Ticket branch / mandatory Draft PR / stacked PR
+## 12. Ticket branch / PR state lifecycle / stacked PR
 
 Create one durable ticket branch for each top-level Issue.
 
@@ -597,7 +598,7 @@ Do not add an `issue/` prefix, slug, title, or work type. Descriptive responsibi
 
 ### Branch start contract
 
-**Every active durable ticket branch must have a published remote head and Draft PR.**
+**Every active durable ticket branch must have a published remote head and PR, and the PR state must match the actual work state.**
 
 GitHub must be able to resolve the remote head and head/base must differ, so the canonical start procedure is:
 
@@ -605,13 +606,15 @@ GitHub must be able to resolve the remote head and head/base must differ, so the
 2. immediately create the first meaningful commit
 3. publish that commit to the canonical remote
 4. verify the remote branch head SHA equals the first meaningful commit SHA
-5. immediately create the Draft PR
+5. immediately create the PR; use Draft if implementation/integration is active, or Ready for review if the readiness conditions are already satisfied
 6. set Issue linkage / assignee / reviewer/CODEOWNERS / repository-established labels / target release / stack context
-7. continue implementation
+7. continue implementation only if work remains incomplete
 
 Do not defer publication/PR creation until implementation completion, and do not keep the first meaningful commit only locally while continuing implementation. This applies to humans, Coordinators, implementation workers, and subagents.
 
-If a worker lacks remote-publication or PR-mutation permission, it must hand off immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create the Draft PR before further implementation continues.
+**Draft is a temporary incomplete-work state.** Once the applicable readiness conditions are satisfied — acceptance criteria, required validation, blocking-problem resolution, current PR body/metadata, and required staleness/reconciliation checks — the agent must promptly move the PR to Ready for review. Do not leave completed work in Draft while waiting for a human to explicitly request the transition. If the readiness conditions are already satisfied when the PR is first created, create it Ready from the start instead of performing a ceremonial Draft -> Ready round trip.
+
+If a worker lacks remote-publication or PR-mutation permission, it must hand off immediately after the first meaningful commit. The Coordinator/Supervisor must publish the commit, verify the remote head SHA, and create/set the PR state before further implementation continues.
 
 ### Independent ticket
 
