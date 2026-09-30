@@ -52,9 +52,12 @@ The following rules are the current Operating Model / Practices. They implement 
 - Treat durable ticket branch creation -> first meaningful commit -> canonical remote publication -> remote head SHA verification -> immediate PR creation as one start procedure. Do not continue active implementation without the published remote head and PR. Use Draft while implementation/integration is active, and Ready for review once readiness conditions are satisfied.
 - Draft is a temporary incomplete-work state. Move a PR to Ready for review as soon as its readiness conditions are satisfied without waiting for an explicit user instruction; if the work is already complete when the PR is created, create it Ready from the start.
 - The publish + PR-state rule applies equally to humans, Coordinators, workers, and subagents.
-- At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state where applicable.
+- At PR creation, correctly set and maintain linked Issue, assignee, reviewer/CODEOWNERS, repository-established labels, target release, stack context, and validation state, keeping the Issue -> branch -> PR relationship durably discoverable.
+- A non-release ticket PR whose readiness/quality gates pass lands autonomously with merge-commit semantics without waiting for per-PR user merge authorization.
 - A stacked ticket is not Done after an intermediate predecessor-branch merge; its changes must land on the target release trunk, and the GitHub Issue must be explicitly closed. Linear does not mirror ticket status; Linear Project Completed/Doneness is reconciled only at release level.
-- A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR.
+- Delete a landed ticket branch when no open/dependent PR still needs it; first retarget/rebase and revalidate dependents when necessary.
+- At recovery/completion, reconcile ticket branches without PRs, Ready ticket PRs not landed, landed tickets with open Issues, and merged/landed ticket branches left behind.
+- A zero-diff release branch is the only Draft-release-PR exception. After its first meaningful integrated difference, the release branch must have a Draft release PR. Release PRs are excluded from autonomous/bulk ticket landing, and only `release-* -> main` requires explicit current user authorization.
 - Bind validation results to the validated SHA/snapshot. Never reuse old green results for a different SHA after stack rebase/update.
 - Quality gates are compiled per project rather than using one fixed bundle.
 - Required verification levels are selected from change surface/risk.
@@ -658,7 +661,7 @@ If predecessor review changes the downstream branch through rebase/update, rerun
 
 At PR creation evaluate and set, where applicable:
 
-- linked Issue
+- linked Issue. Use native linkage when available and at minimum keep an explicit reference that makes the corresponding Issue uniquely discoverable from the PR
 - accountable assignee
 - requested reviewer / CODEOWNERS-derived reviewer
 - repository-established labels
@@ -684,17 +687,19 @@ Draft -> Ready requires:
 - downstream reconciliation/revalidation completed after predecessor changes
 - latest durable checkpoint is consistent with branch state
 
-Ticket Done requires:
+Ticket landing / Done requires:
 
+- once a non-release ticket PR passes readiness/quality gates, do not stop for per-PR user authorization; land it autonomously with merge-commit semantics
 - project-specific applicable validation has run for the current landing candidate with no known failure left unresolved
 - blocking review / unresolved conversations are cleared
-- ticket changes have landed on the target release trunk
-- Issue explicitly closed only after successful target-release-trunk landing
+- ticket changes have landed on the target release trunk and the landed changes are reachable from that trunk
+- explicitly close the linked Issue as completed after target-release-trunk landing
+- delete the landed remote ticket branch when no open/dependent PR still needs it; otherwise retarget/rebase dependents, rerun affected validation, then delete it
 - Linear does not mirror ticket status; reconcile Linear only at release level.
 
-For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`.
+For native stacked PRs, only tickets included in a contiguous landing to the target release trunk become Done. In an ordinary nested-PR fallback, an intermediate merge such as `124 -> 123` must not close Issue #124 or mark it Done until #124's changes actually reach `release-x-y-z`. Stack members are still ticket-class and may land autonomously in dependency order once every included ticket passes its gates.
 
-Do not rely only on closing keywords for non-default-branch integration.
+Do not rely only on closing keywords for non-default-branch integration; explicit Issue closure and safe branch cleanup are part of the delivery operation.
 
 ---
 
@@ -723,7 +728,7 @@ In public repositories, protected `main` must not be changed through any path ot
 
 For every GitHub Pull Request landing in the current release-driven profile, use the merge-commit method. Keep merge commits enabled, disable squash merge and rebase merge, and make Agent/automation merge calls explicitly select `merge`. This restriction applies to PR rebase merge, not to branch-local `git rebase` used for stack maintenance or conflict resolution. If native stack landing cannot preserve merge-commit semantics, use an ordered merge-commit landing path instead.
 
-PR merges that include `release-x-y-z -> main` sit behind the **explicit user authorization boundary** defined by ADR-0012. The default required approving review count is zero; blocking reviews and unresolved conversations must still be cleared. The actual merge authority is held by the **user**. The Agent drives the release forward through release-wide verification and the ready-to-merge state, then **stops at ready-to-merge and reports current state** (head SHA, validation evidence, outstanding review conversations). Do not ask additional questions solely to acquire merge authorization — the user fires the merge authorization explicitly. The Agent only executes the merge when the user has explicitly authorized it. When it does, it explicitly selects the `merge` method and verifies the resulting merge commit.
+`release-x-y-z -> main` is the **only explicit user-authorization merge boundary** (ADR-0027, preserving ADR-0012 for release landing). Always exclude release PRs from autonomous/bulk ticket landing and from auto-merge. Zero approving reviews remains the default, but blocking reviews and unresolved conversations must be cleared. Drive the release through release-wide verification and Ready state, then stop at ready-to-merge unless the user explicitly authorizes that release PR/action in the current interaction. Generic instructions such as "merge ready PRs", "clean up", or "finish it", and standing ticket-landing permission do not authorize a release. After authorization, re-fetch the actual head/base/current SHA, require `base == main` and `head == intended current release-*`, then merge explicitly with method `merge`. Reject any `base == main` PR whose head is not the current release branch.
 
 After merge, `main` represents the released state for that version.
 
@@ -810,9 +815,9 @@ Prefer:
 
 Native conversation IDs, agent IDs, Supervisor-local DBs, shell history, and IDE state are transient optimizations.
 
-If an active durable ticket branch has no published remote head + PR, treat that as broken delivery state. Reconcile Issue/branch ownership, remote head, intended PR base, and repair the durable PR surface. If the PR exists, also reconcile its state: Draft while incomplete, Ready for review once readiness conditions are satisfied.
+If an active durable ticket branch has no published remote head + PR, treat that as broken delivery state. Reconstruct Issue/branch ownership and intended base/stack from repository evidence and create the missing PR when it can be determined safely. If the PR exists, reconcile its state: Draft while incomplete, Ready for review once readiness conditions are satisfied. If a Ready ticket PR has no real blocker, land it autonomously; if its changes already reached the target release trunk while the Issue remains open, close the Issue explicitly; if a landed/merged ticket branch remains, delete it once dependencies are reconciled.
 
-A release branch is exempt only while it is zero-diff from `main`. Once the first meaningful integrated difference exists, a missing Draft release PR is broken delivery state and must be repaired.
+A release branch is exempt only while it is zero-diff from `main`. Once the first meaningful integrated difference exists, a missing Draft release PR is broken delivery state and must be repaired. Never include that release PR in autonomous ticket landing, and never merge it without explicit release authorization.
 
 ### Structured recovery checkpoint
 
