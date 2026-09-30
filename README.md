@@ -122,7 +122,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0025.md
+│  │  └─ ADR-0001.md ... ADR-0026.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -166,6 +166,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0023`](./docs/adr/ADR-0023.md) — application secret valueをInfisicalへ集約し、current default control planeをself-hosted `https://secrets.rebuildup.dev` としたうえで、repository-controlled schema / CLI-first / OIDC / least-privilegeを標準化するPractice。
 - [`ADR-0024`](./docs/adr/ADR-0024.md) — Rust/Cargo worktreeのmutable build outputを隔離しつつ、reflink seed・sccache・selective cleanup・profile tuningで容量とcold-startを最適化するPractice。
 - [`ADR-0025`](./docs/adr/ADR-0025.md) — adaptive fan-out / fan-in、native subagentとtop-level Workerのrouting、Herdrによるagent-driven Supervisor loopを定義する方針。
+- [`ADR-0026`](./docs/adr/ADR-0026.md) — Cloudflare利用projectで `cf` をprimary CLI、Wranglerを明示的compatibility fallbackとするPractice。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
