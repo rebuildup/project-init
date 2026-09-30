@@ -255,7 +255,7 @@ PRはdiffだけではなくdurable work stateである。ただし、durable sta
 
 作成時にrepository evidenceからnative GitHub metadataを評価し、最低限次を設定する。
 
-- linked Issue。native linkageが利用できる場合は使用し、少なくともPRから対応Issueを一意に再発見できる明示参照を保持する
+- linked Issue。number-only ticket branch `<issue-number>` ではPR本文に `Closes #<issue-number>`（cross-repositoryならqualified reference）または同等のnative linked-Issue relationを必須とし、PRから対応Issueを一意に再発見できるようにする。ただしnon-default release trunkへのlandingでは自動closeに依存せず、landing確認後にIssueを明示closeする
 - accountable assignee
 - reviewer request / CODEOWNERS-derived reviewer
 - repositoryで定義済みの適切なlabels
