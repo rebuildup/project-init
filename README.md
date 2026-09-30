@@ -94,7 +94,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - durable branchはfirst meaningful commit直後にPRを必ず作成し、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。作成時点で完成済みなら最初からReadyとし、worker/subagentも例外にしない
 - PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
 - stack predecessor変更後はcurrent SHAでaffected validationを再実行する
-- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
+- non-release ticket PRはreadiness/quality gate通過後に追加のmerge許可を待たず自律landingする
+- target release trunk landing後はIssueを明示closeし、dependent PRをreconcileしたうえでsafeならticket branchを削除する
+- PRなしticket branch / Ready未landing PR / land済みopen Issue / merged後残存branchをrecovery/completion時にrepairする
+- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開き、release PRだけはexplicit user authorizationなしにmergeしない
 
 詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
@@ -155,7 +158,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — AI agent delivery の evidence-based forecasting / capacity estimation policy。
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policy を eval 可能な executable contract として扱う policy evaluation model。
-- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
+- [`ADR-0012`](./docs/adr/ADR-0012.md) — release PR mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
+- [`ADR-0027`](./docs/adr/ADR-0027.md) — autonomous ticket landing、Issue close、branch cleanup、guarded release merge boundary。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
