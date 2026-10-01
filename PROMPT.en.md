@@ -1237,6 +1237,8 @@ Use `rg` / `rg --files` for text search.
 
 Do not add new `.py` scripts for automation, generation, migration, validation, build/test support, or temporary analysis. Use the project's appropriate language, TypeScript/JavaScript, shell, PowerShell, etc.
 
+In projects that use TypeScript, write new scripts in TypeScript by default, including scripts under `scripts/`, build/release/CI/CD helpers, migrations, code generation, validation, and temporary work scripts. Use `.ts` / `.mts` / `.cts`; being "short", "temporary", or "simple" is not a reason to choose `.js` / `.mjs` / `.cjs`. Use JavaScript only when there is a concrete technical constraint, such as a target tool or runtime that does not accept TypeScript. When modifying related areas, consider migrating existing JavaScript scripts to TypeScript.
+
 Actual dotenv files allowed:
 
 - `.env`
