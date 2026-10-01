@@ -1295,6 +1295,8 @@ text searchは `rg` / `rg --files` を標準とします。
 
 新規 `.py` scriptをautomation、generation、migration、validation、build/test support、temporary analysis目的で追加してはいけません。project本来の適切な言語、TypeScript/JavaScript、shell、PowerShell等を使用してください。
 
+TypeScriptを採用しているprojectでは、`scripts/`、build/release/CI/CD補助、migration、code generation、validation、一時的な作業用scriptを含む新規scriptも原則TypeScriptで記述し、`.ts` / `.mts` / `.cts`を使用してください。「短い」「一時的」「単純」であることは `.js` / `.mjs` / `.cjs` を選ぶ理由にしません。JavaScriptは、対象tool/runtimeがTypeScriptを受け付けない等の具体的な技術的制約がある場合だけ使用してください。既存JavaScript scriptは、関連箇所を変更する機会にTypeScriptへの移行を検討してください。
+
 actual dotenv:
 
 - `.env`
