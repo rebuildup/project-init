@@ -49,6 +49,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 - `writing-discipline/scenario.md` — persistent proseのpre-write routing / reader content selection / conversation・execution・recovery context serialization防止
 - `policy-evaluation/comparative-scenario.md` — condition parity / runner isolation / identity pinning / blind paired judging / release gate / budgeted resumability
 - `linear-release-control/scenario.md` — GitHub / Linear間のsource-of-truth / mirror / worker access / coding session baseline / project mappingのcanonical rule
+- `skills-cli-materialization/scenario.md` — Skills CLIによるproject-local Agent Skillのmaterialization contract（discovery / install / frontmatter parseability / global install禁止 / provenance / generated linkの二重追跡防止 / reference完全性）。deterministic check + live end-to-end
 - `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
 controls:
@@ -65,6 +66,7 @@ bash evals/interaction-discipline/controls.sh
 bash evals/writing-discipline/controls.sh
 bash evals/policy-evaluation/comparative-controls.sh
 bash evals/linear-release-control/controls.sh
+bash evals/skills-cli-materialization/controls.sh
 bash evals/policy-evaluation/context-budget.sh
 ```
 
