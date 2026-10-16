@@ -11,7 +11,6 @@ DUPLICATE=0
 LINE_COUNT=$(tr -d '\r' < "$F" | awk 'END { print NR }')
 
 must_exact() {
-  # printf is used so a leading -n/-e/-- in $T cannot be misread as a flag.
   if printf '%s\n' "$T" | grep -qxF "$2"; then
     HIT=$((HIT + 1))
     printf '  hit   %s\n' "$1"
@@ -30,57 +29,62 @@ never() {
   fi
 }
 
-echo "authorization:"
-must_exact "review/fix request stops before merge" "review_request=prepare-only"
-must_exact "review-only work cannot merge" "review_merge=forbidden"
-must_exact "ready report includes current head SHA" "ready_head_sha=7d4c9f8e2b6a1c305e7f94a8d2c61b0f3e5a7c9d"
-must_exact "ready report includes current gate state" "ready_gate_state=checks-green,review-resolved,conflict-free,mergeable"
-must_exact "explicit named merge request authorizes merge" "explicit_merge_request=authorized"
-must_exact "authorization remains PR-scoped" "authorization_scope=identified-pr-only"
-must_exact "stack landing covers every included PR" "stack_landing=all-included-prs-authorized"
-must_exact "auto-merge uses same authorization gate" "auto_merge=authorization-required"
-must_exact "material integration-state changes revalidate authorization" "changed_integration_state=revalidate-authorization"
+echo "ticket/release landing:"
+must_exact "ticket work lands autonomously" "ticket_review_request=autonomous-land"
+must_exact "landed ticket closes Issue" "ticket_issue_reconcile=close-after-trunk-landing"
+must_exact "stale ticket branch is cleaned" "ticket_branch_cleanup=delete-when-unreferenced"
+must_exact "orphan ticket branch gets PR" "orphan_ticket_branch=create-missing-pr"
+must_exact "generic request does not release" "release_generic_request=prepare-only"
+must_exact "release requires explicit authorization" "release_merge=explicit-authorization-required"
+must_exact "explicit release request authorizes release" "explicit_release_request=authorized"
+must_exact "release auto-merge is forbidden" "release_auto_merge=forbidden"
+must_exact "main accepts current release source only" "main_source_guard=current-release-only"
+must_exact "ready ticket stack lands autonomously" "stack_landing=autonomous-when-all-included-ready"
+must_exact "changed release candidate revalidates auth" "changed_release_candidate=revalidate-authorization"
 
 echo "must-nots:"
-never "do not infer merge from review completion" '^review_(request|merge)=.*merge'
-never "do not broaden authorization to all PRs" '^authorization_scope=(all-prs|repository|release)$'
-never "do not land lower stack PRs from selected-PR-only authorization" '^stack_landing=(selected-pr-only|partial-authorization)$'
-never "do not enable auto-merge without authorization" '^auto_merge=(allowed|enabled)-without-authorization$'
-never "do not blindly reuse stale authorization" '^changed_integration_state=(reuse|reuse-blindly|authorized)$'
+never "ticket must not wait for per-PR permission" '^ticket_review_request=(prepare-only|permission-required|ready-to-merge)$'
+never "landed Issue must not remain open" '^ticket_issue_reconcile=(leave-open|defer|closing-keyword-only)$'
+never "stale ticket branch must not be retained without dependency" '^ticket_branch_cleanup=(keep|defer|manual-only)$'
+never "orphan branch must not be report-only" '^orphan_ticket_branch=(report-only|leave-without-pr)$'
+never "generic cleanup must not merge release" '^release_generic_request=(merge|autonomous-land|authorized)$'
+never "release auto-merge must not be enabled" '^release_auto_merge=(allowed|enabled|authorization-required)$'
+never "main must not accept arbitrary ticket head" '^main_source_guard=(any-pr|ticket-allowed)$'
+never "ticket stack must not require individual user authorization" '^stack_landing=(authorization-required|all-included-prs-authorized|prepare-only)$'
+never "stale release authorization must not be reused" '^changed_release_candidate=(reuse|reuse-blindly|authorized)$'
+
+EXPECTED='ticket_review_request=autonomous-land
+ticket_issue_reconcile=close-after-trunk-landing
+ticket_branch_cleanup=delete-when-unreferenced
+orphan_ticket_branch=create-missing-pr
+release_generic_request=prepare-only
+release_merge=explicit-authorization-required
+explicit_release_request=authorized
+release_auto_merge=forbidden
+main_source_guard=current-release-only
+stack_landing=autonomous-when-all-included-ready
+changed_release_candidate=revalidate-authorization'
 
 echo "schema:"
 while IFS= read -r line; do
-  case "$line" in
-    "review_request=prepare-only"|"review_merge=forbidden"|"ready_head_sha=7d4c9f8e2b6a1c305e7f94a8d2c61b0f3e5a7c9d"|"ready_gate_state=checks-green,review-resolved,conflict-free,mergeable"|"explicit_merge_request=authorized"|"authorization_scope=identified-pr-only"|"stack_landing=all-included-prs-authorized"|"auto_merge=authorization-required"|"changed_integration_state=revalidate-authorization") ;;
-    *)
-      SCHEMA=$((SCHEMA + 1))
-      printf '  INVALID record: %s\n' "$line"
-      ;;
-  esac
+  if ! printf '%s\n' "$EXPECTED" | grep -qxF "$line"; then
+    SCHEMA=$((SCHEMA + 1))
+    printf '  INVALID record: %s\n' "$line"
+  fi
 done <<< "$T"
 
-for expected in \
-  "review_request=prepare-only" \
-  "review_merge=forbidden" \
-  "ready_head_sha=7d4c9f8e2b6a1c305e7f94a8d2c61b0f3e5a7c9d" \
-  "ready_gate_state=checks-green,review-resolved,conflict-free,mergeable" \
-  "explicit_merge_request=authorized" \
-  "authorization_scope=identified-pr-only" \
-  "stack_landing=all-included-prs-authorized" \
-  "auto_merge=authorization-required" \
-  "changed_integration_state=revalidate-authorization"
-do
+while IFS= read -r expected; do
   count=$(printf '%s\n' "$T" | grep -xcF "$expected" || true)
   if [ "$count" -gt 1 ]; then
     DUPLICATE=$((DUPLICATE + 1))
     printf '  DUPLICATE record: %s\n' "$expected"
   fi
-done
+done <<< "$EXPECTED"
 
 echo
 echo "hits: $HIT   misses: $MISS   violations: $VIOL   lines: $LINE_COUNT   invalid: $SCHEMA   duplicates: $DUPLICATE"
 
-if [ "$HIT" -eq 9 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 9 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
+if [ "$HIT" -eq 11 ] && [ "$MISS" -eq 0 ] && [ "$VIOL" -eq 0 ] && [ "$LINE_COUNT" -eq 11 ] && [ "$SCHEMA" -eq 0 ] && [ "$DUPLICATE" -eq 0 ]; then
   echo "EVAL PASS"
   exit 0
 fi

@@ -18,7 +18,7 @@ onboarding documentationは「READMEがある」ことではなく、fresh contr
 5. test / validationを実行
 6. weekly sprint / target release / Issue dependencyを確認
 7. Issueを選びticket branchを作成
-8. first meaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にDraft PRを作成し、assignee / reviewer / labels / Issue linkage / target release / stack contextを設定
+8. first meaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にPRを作成し、作業状態に応じてDraft/Readyを設定したうえでassignee / reviewer / labels / Issue linkage / target release / stack contextを設定
 9. independent ticketかstacked dependent ticketかを判断
 10. decision / design / ADR / Skillの参照先を発見
 11. common failureを切り分け
@@ -164,14 +164,18 @@ main
 - independent ticket PR baseはtarget release branch
 - stacked dependent ticket PR baseはimmediate predecessor ticket branch
 - stack membersは同じtarget release trunkを共有
-- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate Draft PRを一つの開始手順として扱う
-- active durable branchをpublished commitとDraft PRなしで継続しない
-- subagent/workerがdurable branchを作る場合にも同じpublish + Draft PR ruleを適用
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定
+- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate PR作成/state設定を一つの開始手順として扱う
+- active durable branchをpublished commitとPRなしで継続しない。active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする
+- PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとし、完成済みPRをDraftのまま残さない
+- subagent/workerがdurable branchを作る場合にも同じpublish + PR state lifecycle ruleを適用
+- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定し、Issue -> branch -> PR mappingをdurableにする
 - predecessor変更後はdownstream branchをreconcileし、affected validationをcurrent SHAで再実行
+- non-release ticket PRはreadiness/quality gateを満たしたら追加のuser merge authorizationを待たずdependency順に自律landingする
+- stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssueを明示closeする
+- target release trunkへland済みのticket branchはdependent PRをreconcileしたうえでsafeなら削除する
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成
-- stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssue close / Project Doneへ進む
-- release PRは `release-x-y-z -> main`
+- release PRは `release-x-y-z -> main` で、bulk/autonomous ticket landingから除外する
+- release PR mergeだけはcurrent interactionのexplicit user authorizationを必須とする
 - public repositoryでは`main`をprotected branch/rulesetで保護し、直接push/直接編集を禁止してrelease PRからのみ変更する
 - repository merge settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、PR landing executorは`merge` methodを明示する
 - Draft -> Ready -> target release-trunk landing -> Issue close / Project Doneの条件
@@ -191,7 +195,7 @@ fresh agentが以前のchatを読めなくても、次を発見できるよう�
 - external side-effect journalの場所
 - recovery時にuserへ確認すべき条件
 
-active durable ticket branchにDraft PRがない場合、それを正常状態として扱わず、branch/Issue ownershipを確認してdelivery surfaceを修復する。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後は同様にDraft release PRを必須とする。
+active durable ticket branchにPRがない場合、それを正常状態として扱わず、branch/Issue ownershipとintended base/stackをrepository evidenceから復元してmissing PRを作成する。PRがある場合もstateをreconcileし、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。Ready ticket PRにreal blockerがなければ自律landingし、target release trunkへland済みならopen Issueをcloseしsafe branch cleanupまで行う。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後はDraft release PRを作成し、release readiness条件を満たしたらReadyへ遷移するがexplicit release authorizationなしにはmergeしない。
 
 native session resumeの手順だけを書いてrecovery guideとしない。sessionが失われても復旧できるdurable pathを記載する。
 
@@ -225,7 +229,7 @@ docsもquality gateの対象にする。
 - environment/host support変更
 - sprint cadence / release workflow変更
 - stacked PR / dependency workflow変更
-- branch / Draft PR / PR metadata lifecycle変更
+- branch / PR state / PR metadata lifecycle変更
 - public repositoryのmain protection/ruleset変更
 - PR merge method / repository merge settings変更
 - Supervisor/sandbox/recovery model変更
