@@ -26,6 +26,11 @@
 - GitHub IssueをLinear Issueへ全面mirrorしない
 - implementation/dependency factsはGitHub側のownershipを維持する
 
+### Release scope admission
+
+- calendar targetとcritical-path admissionを区別する。決定可能な要件、bug evidence、実行可能なacceptance、dependency owner、validation path、安定したWork Graphを確認してからadmitする。
+- unknownはdiscovery/backlogとして明示管理し、terminal release gateの成功では遡及的にadmitできない。詳細は`github-delivery/references/release-scope-admission.md`。
+
 ### Delivery defaults
 
 - normal sprint cadence: 1 week
