@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'evals/**'
+      - 'skills/**'
+      - 'organization/**'
       - '.gitattributes'
       - '.github/workflows/eval-controls.yml'
   push:
