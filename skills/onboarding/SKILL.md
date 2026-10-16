@@ -164,20 +164,20 @@ main
 - independent ticket PR baseはtarget release branch
 - stacked dependent ticket PR baseはimmediate predecessor ticket branch
 - stack membersは同じtarget release trunkを共有
-- branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate PR作成/state設定を一つの開始手順として扱う
-- active durable branchをpublished commitとPRなしで継続しない。active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする
-- PR作成時点ですでにreadiness条件を満たす場合は最初からReadyとし、完成済みPRをDraftのまま残さない
-- subagent/workerがdurable branchを作る場合にも同じpublish + PR state lifecycle ruleを適用
-- PR作成時にlinked Issue / assignee / reviewer/CODEOWNERS / established labels / target release / stack contextを設定し、Issue -> branch -> PR mappingをdurableにする
-- predecessor変更後はdownstream branchをreconcileし、affected validationをcurrent SHAで再実行
-- non-release ticket PRはreadiness/quality gateを満たしたら追加のuser merge authorizationを待たずdependency順に自律landingする
-- stacked ticketはintermediate predecessor branchへのmergeではDoneにせず、ticket changesがtarget release trunkへlandしてからIssueを明示closeする
-- target release trunkへland済みのticket branchはdependent PRをreconcileしたうえでsafeなら削除する
-- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成
-- release PRは `release-x-y-z -> main` で、bulk/autonomous ticket landingから除外する
-- release PR mergeだけはcurrent interactionのexplicit user authorizationを必須とする
-- public repositoryでは`main`をprotected branch/rulesetで保護し、直接push/直接編集を禁止してrelease PRからのみ変更する
-- repository merge settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、PR landing executorは`merge` methodを明示する
+- branch作成→commit→remote publish/head確認→PR作成・state設定までを一手順にする
+- active branchにremote headとPRを必須とし、作業中はDraft、readyならReadyにする
+- readyなPRは最初からReadyにする
+- subagent/workerにも同じ公開・PR lifecycleを適用
+- PRにIssue・assignee・reviewer・labels・release/stackを紐づけ、mappingを永続化
+- predecessor変更後はdownstreamのbaseとcurrent-SHA validationを再確認
+- ticket PRはquality gate後にdependency順で自律landing（追加のmerge許可は不要）
+- stacked ticketはrelease trunk到達後にIssue closeする（predecessor landingだけではDoneにしない）
+- landing後はdependent PRを調整し、安全なticket branchを削除する
+- release差分が生じたらDraft release PRを作成し、readinessでReadyへ進める
+- release PRは`release-* -> main`のみ。bulk ticket landingから除外する
+- release mergeはcurrent interactionでのexplicit authorizationを必須とする
+- public repositoryの`main`はrulesetで保護し、release PR経由でのみ変更する
+- merge commitのみ許容（squash/rebaseは禁止）。repo設定とPR landing methodは`merge`で統一する
 - Draft -> Ready -> target release-trunk landing -> Issue close / Project Doneの条件
 
 意味のあるreviewerがいないrepositoryでは、形式的な自己reviewerを設定するのではなく、その事実と代替review pathを文書化する。
@@ -195,7 +195,7 @@ fresh agentが以前のchatを読めなくても、次を発見できるよう�
 - external side-effect journalの場所
 - recovery時にuserへ確認すべき条件
 
-active durable ticket branchにPRがない場合、それを正常状態として扱わず、branch/Issue ownershipとintended base/stackをrepository evidenceから復元してmissing PRを作成する。PRがある場合もstateをreconcileし、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。Ready ticket PRにreal blockerがなければ自律landingし、target release trunkへland済みならopen Issueをcloseしsafe branch cleanupまで行う。release branchは`main`とzero-diffの間だけDraft release PR不要で、first meaningful integrated difference後はDraft release PRを作成し、release readiness条件を満たしたらReadyへ遷移するがexplicit release authorizationなしにはmergeしない。
+PR欠落・state driftはdurable Issue/branch/baseから修復。Ready ticketはlanding・Issue close・safe cleanupまで行う。release PRはzero-diff例外以外で保持し、explicit authorizationなしにmergeしない。詳細は`github-delivery`・`agent-recovery`。
 
 native session resumeの手順だけを書いてrecovery guideとしない。sessionが失われても復旧できるdurable pathを記載する。
 

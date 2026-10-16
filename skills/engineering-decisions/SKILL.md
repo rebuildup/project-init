@@ -75,7 +75,7 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 - canonical sources同士が矛盾し、どちらを選ぶかでproduct semanticsが変わる
 - acceptance criteriaが複数解釈でき、user-visible behaviorが変わる
 - irreversible/destructive operation
-- `release-* -> main` release PR merge / release auto-merge等、ADR-0027で明示的user authorizationが必要と定義されたrelease-class integration side effect
+- `release-* -> main` のrelease-class merge（ADR-0027のexplicit authorization対象）
 - external/public API contractを確定する
 - security/privacy/compliance riskの受容判断
 - meaningful cost increase
@@ -88,9 +88,9 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 
 PRのquality/readiness判定とlanding authority classificationを別々に行う。
 
-- ticket-class（`base != main` かつcurrent ticket/release topology内）はreadiness/quality gate通過後に追加のuser merge authorizationを必要とせず、自律landingする。ここでuserへpermissionを返してprogressを止めない。
-- release-class（`base == main` かつ`head == current release-*`）だけexplicit user authorizationを必要とする。Ready/green/approvalはrelease authorizationではない。
-- genericな `対応して` / `レビューして` / `conflictを解消して` / `readyなPRをmerge` / `最後まで進めて` はticket lifecycle完遂には十分だが、release merge authorizationへ読み替えない。
+- ticket-class（release topology内の`base != main`）はquality/readiness gate後に自律landing。追加のmerge許可待ちは不要。
+- release-class（current `release-* -> main`）のみexplicit authorization必須。Ready/green/approvalは代替不可。
+- genericな作業完遂指示はticket landingまで有効。release mergeへの許可とは扱わない。
 
 ## 5. Unknownは調査してから判断する
 

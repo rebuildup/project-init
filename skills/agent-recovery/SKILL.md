@@ -42,7 +42,7 @@ project/provider要件に応じて、machine/provider lossまでのRPO/RTOも定
 8. immutable worker/subagent result commits/refs/artifacts
 9. durable recovery checkpoint / handoff record
 
-active durable ticket branchにpublished remote head + PRが存在しない場合、それを正常状態とみなさない。Issue/branch ownership、first meaningful commit、remote head、intended PR baseを確認し、repository evidenceからbaseを安全に復元できるならmissing PRを作成してdelivery surfaceを修復する。PRが存在する場合もstateをreconcileし、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。Ready ticket PRにreal blockerがなければpermission待ちで停止せずautonomous landingへ進める。
+active ticketにはpublished headとPRを必須とし、Issue/branch/baseを確認して欠落PRを修復する。PR stateは作業中Draft／readiness後Readyへ整合し、Ready ticketはblockerがなければ自律landingする。
 
 release branchは例外を持つ。`main`とzero-diffのrelease branchはGitHub上Draft PRを作成できないため、その状態だけはDraft release PR不要である。first meaningful integrated differenceがrelease branchに入った後は、Draft release PRが存在しない状態を正常とみなさない。
 
@@ -159,9 +159,9 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 
 1. Issue / GitHub Project / PR / target release / dependencyを特定する。
 2. current ticket/release branch、remote commit graph、stack predecessor/successor relationをfetchする。
-3. durable ticket branchではpublished remote headとPR identity/state、linked Issue、assignee / reviewer / labels / intended baseをread-onlyで確認する。PR欠落やstate driftは修復対象として記録し、この段階ではmutationしない。
-4. Ready ticket PRの未landing、land済みIssueの未close、残存ticket branch、dependent PRをread-onlyで検出し、必要なmutationを記録する。ownership取得前にはlanding / close / branch cleanupを実行しない。
-5. release branchでは`main`との差分、Draft release PR、metadataをread-onlyで確認する。zero-diffならDraft release PR不要、differenceが存在するなら修復対象を記録する。release PRはautonomous/bulk ticket landingから除外し、explicit release authorizationなしにmergeしない。
+3. ticket PRのhead/state、linked Issue、metadata/baseをread-only確認し、欠落やdriftを修復候補として記録する。
+4. 未landingのReady PR、未close Issue、残存branch、dependent PRをread-only検出する。ownership取得前はmutationしない。
+5. release branchのmain差分とDraft PRを確認（zero-diff例外あり）。release PRはbulk landing対象外で、explicit authorizationなしにmergeしない。
 6. latest valid recovery checkpointを読む。
 7. canonical design/policy/decision refsを再確認する。
 8. observed fencing identityに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、新しいfencing identityを確定する。current implementationでgeneration方式を使う場合はnew `execution_generation` と一意なlease/fencing tokenを発行する。競合した場合はownershipを共有せず、stateを再読してやり直す。
@@ -169,7 +169,7 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 10. current workspaceをcheckpointからrecreateする。
 11. stack-ready workではrecorded predecessor SHAとcurrent intended predecessor stateを比較し、差があればstale baseとしてreconcileする。
 12. completed/pending validationをcurrent snapshotに対して再評価する。
-13. current fencing tokenが有効であることを確認した上で、external side effectの実行済み/未実行/不明をremote actual stateからreconcileする。所有権、current refs、validation、既実行side effectを再確認してから、手順3〜5で記録したPR修復、ticket-class landing、Issue close、dependent PRのreconcile、safe branch cleanupを順に実行する。mutationごとにfencingを再検証し、release PRをbulk landingへ混入させない。
+13. current fencing・refs・validation・side effectsを再確認後、3〜5のPR修復、ticket landing、Issue close、dependent PR調整、safe cleanupを順次実行。mutationごとにfencing再検証し、release mergeを含めない。
 14. stale base / conflicting integrationを確認する。
 15. remaining planを再構成する。
 16. safeな最小verificationを実行してstateを信頼できることを確認する。
@@ -299,9 +299,9 @@ recovered taskを「再開成功」とみなす条件:
 
 - canonical Issue/Project/PR/release/dependencyとの対応が確認済み
 - active durable ticket branchはmeaningful stateがcanonical remoteへpublish済みで、remote head identityが確認済み
-- active durable ticket branchにPRが存在し、active/incompleteならDraft、readiness条件を満たしていればReadyで、linked Issue/base/assignee/reviewer/labels等のmetadataが現状と整合
-- Ready ticket PRはreal blockerがなければlanding待ちで放置されず、target release trunk landing後はIssue closeとsafe branch cleanupまでreconcile済み
-- release branchはzero-diffならDraft release PR不要、first meaningful integrated difference後ならDraft release PRが存在しmetadataが整合し、explicit release authorizationなしのmergeが発生していない
+- active ticketにPRと現状に合うDraft/Ready state、Issue/base/metadataが存在
+- Ready ticketはblockerがなければlanding済みで、Issue close・safe cleanupまで整合
+- release PRはzero-diff例外・Draft/Ready・明示authorization boundaryを遵守
 - stackならpredecessor identity / exact base snapshotが確認済み
 - workspaceが追跡可能なsnapshot/commitから再構成済み
 - current fencing identityを一意に所有している
