@@ -17,8 +17,21 @@ jobs:
       - name: Run deterministic controls
         shell: bash
         run: |
-          bash evals/policy-evaluation/controls.sh
-          bash evals/interaction-discipline/controls.sh
-          bash evals/writing-discipline/controls.sh
-          bash evals/linear-release-control/controls.sh
-          bash evals/skills-cli-materialization/controls.sh
+          set +e
+          failed=0
+          for suite in \
+            policy-evaluation \
+            interaction-discipline \
+            writing-discipline \
+            linear-release-control \
+            skills-cli-materialization; do
+            echo "::group::evals/$suite"
+            bash "evals/$suite/controls.sh"
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=Eval failure::$suite returned exit $rc"
+              failed=1
+            fi
+          done
+          exit "$failed"
