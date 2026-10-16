@@ -523,7 +523,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - upgrade/backward-compatibility
 - release-like environment smoke
 
-## 13. PR Done gate
+## 13. PR readiness gate
 
 - Issue acceptance criteriaを満たす
 - required verification levelを満たす
@@ -533,6 +533,10 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - target release trunk / immediate predecessorとのstaleness確認
 - stack update後のaffected revalidation完了
 - PR metadata / linked Issueがcurrent delivery stateと一致
+
+このreadiness gateを満たしたopen PRはDraftのまま残さず、速やかにReady for reviewへ遷移する。userからの明示的なReady化指示を待たない。PR作成時点ですでにこのgateを満たしている場合は最初からReadyとして作成し、形式的なDraft -> Ready往復を行わない。Draftはこのgate未達でimplementation/integrationがactiveな場合だけ使用する。
+
+**Readyはticket Doneではない。** ticket-class PRは`github-delivery` / ADR-0027に従ってそのままautonomous landingへ進み、target release trunk到達後のlinked Issue closeとsafe branch cleanupまで完了して初めてticket lifecycleが完遂する。release-classだけはReady後にexplicit release authorization gateで停止する。
 
 ## 14. False green禁止
 
