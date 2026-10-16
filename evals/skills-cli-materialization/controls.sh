@@ -51,7 +51,47 @@ expect() {
 }
 
 # positive: a well-formed materialization.
-expect "positive: valid project-local materialization" "$D/fixtures/positive" PASS
+tmp=$(mktemp -d) || exit 1
+trap 'rm -rf "$tmp"' EXIT
+mkdir -p "$tmp/positive"
+cp -R "$D/fixtures/positive/." "$tmp/positive/"
+mkdir -p "$tmp/positive/.claude/skills" "$tmp/positive/.codex/skills"
+expect "positive: valid project-local materialization" "$tmp/positive" PASS
+
+# Whitespace and home-local paths are both valid consumer locations.
+cp -R "$tmp/positive" "$tmp/My Projects"
+expect "positive: project path contains spaces" "$tmp/My Projects" PASS
+mkdir -p "$tmp/home"
+cp -R "$tmp/positive" "$tmp/home/project"
+HOME="$tmp/home" bash "$D/grade.sh" --check "$tmp/home/project" > "$tmp/home-check.txt" 2>&1
+if [ $? -eq 0 ] && [ "$(tail -n 1 "$tmp/home-check.txt")" = "PASS" ]; then
+  echo "  ok   positive: project under home directory"
+else
+  echo "  FAIL positive: project under home directory"
+  cat "$tmp/home-check.txt"
+  RC=1
+fi
+
+# Regression controls for reviewer-reported false passes.
+cp -R "$tmp/positive" "$tmp/unclosed-frontmatter"
+printf '%s\n' '---' 'name: engineering-decisions' 'description: Valid text' > "$tmp/unclosed-frontmatter/.agents/skills/engineering-decisions/SKILL.md"
+expect "negative: unterminated frontmatter" "$tmp/unclosed-frontmatter" FAIL
+
+cp -R "$tmp/positive" "$tmp/empty-provenance"
+sed -i 's/"computedHash": "abc123"/"computedHash": ""/' "$tmp/empty-provenance/skills-lock.json"
+expect "negative: empty computedHash value" "$tmp/empty-provenance" FAIL
+
+cp -R "$tmp/positive" "$tmp/missing-list"
+rm "$tmp/missing-list/list-output.txt"
+expect "negative: no list transcript" "$tmp/missing-list" FAIL
+
+cp -R "$tmp/positive" "$tmp/unrelated-list"
+printf '%s\n' 'Project Skills' 'other-skill    .agents/skills/other-skill' > "$tmp/unrelated-list/list-output.txt"
+expect "negative: installed skill absent from listing" "$tmp/unrelated-list" FAIL
+
+cp -R "$tmp/positive" "$tmp/wrong-ignore"
+printf '.codex/skills/\n' > "$tmp/wrong-ignore/.gitignore"
+expect "negative: .claude link ignored only by codex rule" "$tmp/wrong-ignore" FAIL
 
 # negative controls, one broken property each.
 

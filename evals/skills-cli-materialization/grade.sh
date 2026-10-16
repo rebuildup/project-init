@@ -69,21 +69,25 @@ resolve_cli() {
 frontmatter_field() {
   awk -v want="$2" '
     { sub(/\r$/, "") }
-    NR == 1 && $0 != "---" { exit }
-    NR > 1 && $0 == "---" { exit }
-    NR > 1 {
+    NR == 1 {
+      if ($0 != "---") exit 3
+      next
+    }
+    $0 == "---" { closed = 1; exit }
+    {
       idx = index($0, ":")
       if (idx == 0) next
       if (substr($0, 1, idx - 1) == want) {
         val = substr($0, idx + 1)
         sub(/^[ \t]+/, "", val)
         sub(/[ \t]+$/, "", val)
-        print val
         found = 1
-        exit
       }
     }
-    END { if (!found) exit 3 }
+    END {
+      if (!closed || !found) exit 3
+      print val
+    }
   ' "$1"
 }
 
@@ -116,14 +120,16 @@ check_tree() {
   fi
   list_output=$(printf '%s' "$arg_list" | strip_ansi)
 
-  # 2 install: at least one SKILL.md materialized project-locally.
-  skill_dirs=$(find "$root/.agents/skills" -mindepth 1 -maxdepth 1 -type d 2> /dev/null | sort)
-  [ -n "$skill_dirs" ] || fail "no skill materialized under .agents/skills/"
-  note "skills materialized: $(printf '%s\n' "$skill_dirs" | grep -c '')"
+  # 2 install: collect paths as NUL-delimited records to preserve whitespace.
+  local -a skill_dirs=() skill_names=()
+  mapfile -d '' -t skill_dirs < <(find "$root/.agents/skills" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null | sort -z)
+  [ "${#skill_dirs[@]}" -gt 0 ] || fail "no skill materialized under .agents/skills/"
+  note "skills materialized: ${#skill_dirs[@]}"
 
-  # 4 frontmatter, per skill.
-  for d in $skill_dirs; do
+  # 4 frontmatter: both required fields must be inside a closed block.
+  for d in "${skill_dirs[@]}"; do
     name=$(basename "$d")
+    skill_names+=("$name")
     [ -f "$d/SKILL.md" ] || fail "$name: SKILL.md missing"
 
     fm_name=$(frontmatter_field "$d/SKILL.md" name) \
@@ -132,45 +138,73 @@ check_tree() {
       || fail "$name: frontmatter name '$fm_name' does not match the directory"
 
     fm_desc=$(frontmatter_field "$d/SKILL.md" description) \
-      || fail "$name: frontmatter has no 'description' field"
+      || fail "$name: frontmatter has no 'description' field or is not delimited"
     [ -n "$fm_desc" ] || fail "$name: description is empty"
     description_is_parseable "$fm_desc" \
       || fail "$name: description is a bare scalar containing ': ', which YAML reads as a nested mapping"
   done
 
-  # 3 discovered / 4 no parse errors.
-  if [ -n "$list_output" ]; then
-    skipped=$(printf '%s\n' "$list_output" | grep -c 'Skipped' || true)
-    [ "$skipped" -eq 0 ] \
-      || fail "skills list reported $skipped skipped skill(s) with a frontmatter error"
-    listed=$(printf '%s\n' "$list_output" | grep -c '\.agents' || true)
-    [ "$listed" -ge 1 ] || fail "skills list did not report any project-scope skill"
-  fi
+  # 3 discovery evidence is required for every materialized skill.
+  [ -n "$list_output" ] || fail "skills list transcript missing"
+  skipped=$(printf '%s\n' "$list_output" | grep -c 'Skipped' || true)
+  [ "$skipped" -eq 0 ] \
+    || fail "skills list reported $skipped skipped skill(s) with a frontmatter error"
+  for name in "${skill_names[@]}"; do
+    printf '%s\n' "$list_output" | grep -F -- "$name" | grep -q '\.agents' \
+      || fail "skills list did not report project-scope skill: $name"
+  done
 
-  # 6 provenance.
+  # 6 provenance: parse the lock as JSON and validate each materialized skill.
   [ -f "$root/skills-lock.json" ] \
     || fail "skills-lock.json missing: source/hash provenance is not recoverable"
-  for field in source skillPath computedHash; do
-    grep -q "\"$field\"" "$root/skills-lock.json" \
-      || fail "skills-lock.json has no '$field' field"
-  done
-  hash_n=$(grep -c '"computedHash"' "$root/skills-lock.json" || true)
-  skill_n=$(grep -c '"skillPath"' "$root/skills-lock.json" || true)
-  [ "$hash_n" -eq "$skill_n" ] \
-    || fail "skills-lock.json has $skill_n skillPath entries but $hash_n computedHash entries"
-  note "lock entries: $skill_n"
+  if command -v python3 > /dev/null 2>&1; then
+    py=python3
+  elif command -v python > /dev/null 2>&1; then
+    py=python
+  else
+    fail "Python JSON parser unavailable for skills-lock.json validation"
+  fi
+  lock_n=$("$py" - "$root/skills-lock.json" "${skill_names[@]}" <<'PY'
+import json
+import sys
+try:
+    with open(sys.argv[1], encoding="utf-8") as f:
+        root = json.load(f)
+    skills = root["skills"]
+    wanted = set(sys.argv[2:])
+    if not isinstance(skills, dict) or set(skills) != wanted:
+        raise ValueError("lock entries do not match materialized skills")
+    for name in wanted:
+        entry = skills[name]
+        if not isinstance(entry, dict):
+            raise ValueError(f"{name}: lock entry is not a JSON object")
+        for field in ("source", "skillPath", "computedHash"):
+            if not isinstance(entry.get(field), str) or not entry[field].strip():
+                raise ValueError(f"{name}: lock {field} missing or empty")
+    print(len(skills))
+except (OSError, ValueError, KeyError, TypeError) as exc:
+    print(str(exc), file=sys.stderr)
+    sys.exit(1)
+PY
+  ) || fail "skills-lock.json provenance invalid"
+  note "lock entries: $lock_n"
 
-  # 5 no global install.
-  case "$root/.agents/skills" in
-    "$HOME"/*) fail ".agents/skills resolved under the user home: this is a global install" ;;
-  esac
+  # 5 project-local means under <project>/.agents/skills, not under
+  # ~/.agents/skills. Projects anywhere below $HOME are valid.
+  root_abs=$(cd "$root" && pwd -P) || fail "project path unavailable"
+  home_abs=$(cd "$HOME" && pwd -P) || fail "home path unavailable"
+  [ "$root_abs" != "$home_abs" ] || fail "project root is user home (global scope)"
 
-  # 7 no duplicate tracking of runtime-generated links.
+  # 7 no duplicate tracking: the rule must apply to EACH existing dir.
   for agent_dir in "$root/.claude/skills" "$root/.codex/skills"; do
     [ -e "$agent_dir" ] || continue
     rel=${agent_dir#"$root"/}
-    if [ -f "$root/.gitignore" ] \
-      && grep -qE "^/?\.claude/skills/?$|^/?\.codex/skills/?$" "$root/.gitignore"; then
+    if [ -f "$root/.gitignore" ] && {
+      grep -Fxq "$rel/" "$root/.gitignore" ||
+      grep -Fxq "/$rel/" "$root/.gitignore" ||
+      grep -Fxq "$rel" "$root/.gitignore" ||
+      grep -Fxq "/$rel" "$root/.gitignore";
+    }; then
       note "agent link gitignored: $rel"
       continue
     fi
@@ -182,13 +216,12 @@ check_tree() {
   # failure there would exit only the subshell and the grader would go on to
   # print PASS.
   missing_refs=""
-  for d in $skill_dirs; do
+  for d in "${skill_dirs[@]}"; do
     name=$(basename "$d")
-    refs=$(grep -o '(references/[^)]*)' "$d/SKILL.md" 2> /dev/null | sed 's/^(//; s/)$//' | sort -u)
-    for ref in $refs; do
+    while IFS= read -r ref; do
       [ -n "$ref" ] || continue
       [ -f "$d/$ref" ] || missing_refs="$missing_refs $name:$ref"
-    done
+    done < <(grep -o '(references/[^)]*)' "$d/SKILL.md" 2> /dev/null | sed 's/^(//; s/)$//' | sort -u)
   done
   [ -z "$missing_refs" ] || fail "SKILL.md references absent files:$missing_refs"
 
@@ -220,12 +253,12 @@ case "$mode" in
     # environment problem. Creating the directory next to this script keeps it
     # on a native path. Override with SKILLS_WORKDIR when the caller wants a
     # different location.
-    work=${SKILLS_WORKDIR:-$D/.work}
-    case "$work" in
-      '\\\\'*|*'\\'*) fail "SKILLS_WORKDIR resolves to a UNC path that the Node runtime cannot write to: $work" ;;
+    work_root=${SKILLS_WORKDIR:-$D/.work}
+    case "$work_root" in
+      '\\\\'*|*'\\'*) fail "SKILLS_WORKDIR resolves to a UNC path that the Node runtime cannot write to: $work_root" ;;
     esac
-    rm -rf "$work"
-    mkdir -p "$work" || fail "cannot create work directory: $work"
+    mkdir -p "$work_root" || fail "cannot create work root: $work_root"
+    work=$(mktemp -d "$work_root/materialization.XXXXXX") || fail "cannot create temporary work directory"
     trap 'rm -rf "$work"' EXIT
     cd "$work" || fail 'cannot enter work directory'
     git init -q . || fail 'git init failed'
@@ -233,20 +266,22 @@ case "$mode" in
 
     # 1 discovery
     list_out=$($cli add "$SOURCE_REPO" --list 2>&1 | strip_ansi)
-    list_rc=${PIPESTATUS[0]}
+    list_rc=$?
     [ "$list_rc" -eq 0 ] || { printf '%s\n' "$list_out" | tail -n 20; fail "discovery failed (rc=$list_rc)"; }
     printf '%s\n' "$list_out" | grep -q "$skill" \
       || fail "discovery did not offer '$skill' from $SOURCE_REPO"
     note "discovery ok: $skill is offered"
 
     # 2 install
+    global_pre=0
+    [ -e "$HOME/.agents/skills/$skill" ] && global_pre=1
     install_out=$($cli add "$SOURCE_REPO" --skill "$skill" -y 2>&1 | strip_ansi)
-    install_rc=${PIPESTATUS[0]}
+    install_rc=$?
     [ "$install_rc" -eq 0 ] || { printf '%s\n' "$install_out" | tail -n 20; fail "install failed (rc=$install_rc)"; }
 
     # 3 discovered
     post_out=$($cli list 2>&1 | strip_ansi)
-    post_rc=${PIPESTATUS[0]}
+    post_rc=$?
     [ "$post_rc" -eq 0 ] || fail "list failed after install (rc=$post_rc)"
     printf '%s\n' "$post_out" | grep -q "$skill" \
       || fail "'$skill' is not reported by skills list after a successful install"
@@ -254,7 +289,7 @@ case "$mode" in
 
     # 5 no global: assert the stronger structural property -- the skill
     # resolved inside the project, not under the user home.
-    if [ -e "$HOME/.agents/skills/$skill" ]; then
+    if [ "$global_pre" -eq 0 ] && [ -e "$HOME/.agents/skills/$skill" ]; then
       fail "'$skill' also exists under the user home: a global install happened"
     fi
 

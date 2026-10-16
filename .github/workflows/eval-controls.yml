@@ -1,0 +1,24 @@
+name: eval-controls
+on:
+  pull_request:
+    paths:
+      - 'evals/**'
+      - '.gitattributes'
+      - '.github/workflows/eval-controls.yml'
+  push:
+    branches: [main, 'release-*']
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic controls
+        shell: bash
+        run: |
+          bash evals/policy-evaluation/controls.sh
+          bash evals/interaction-discipline/controls.sh
+          bash evals/writing-discipline/controls.sh
+          bash evals/linear-release-control/controls.sh
+          bash evals/skills-cli-materialization/controls.sh
