@@ -82,8 +82,8 @@ Cloudflareを利用するprojectでは、Cloudflare control plane / resource API
 ### Interactive AI harness/provider configuration
 
 - Project runtime contractは、必要なagent能力・recovery evidence・budget/authorizationを定義する。個人のAPI契約、モデル名、token残量、ログイン状態をproject-levelの正しさとして固定しない。
-- current user environmentでは、machine-global CLIの導入は`pc-setup` / mise、任意のAPI接続先への切替は`dotfiles`の**global mise tasks + process-scoped Infisical ENV injection**で行う。別の専用ルーターや長寿命proxyを要求しない。
-- CLIの通常コマンドはnative loginのまま保持し、特別なprovider/accountは明示的なmise taskで選択する。quota枯渇による無断の従量課金failoverはしない。
+- current user environmentでは、machine-global CLIの導入は`pc-setup` / mise、任意のAPI接続先への切替は`dotfiles`の**統一`agent` launcher（宣言TOML `config/agents.toml` + process-scoped Infisical ENV injection）**で行う。別の専用ルーターや長寿命proxyを要求しない。
+- CLIの通常コマンドはnative loginのまま保持し、特別なprovider/accountは明示的な`agent <ハーネス> <provider>` routeで選択する。model・endpoint・credential名はTOMLの宣言のみで変更し、未知の組み合わせは起動前に失敗させる。quota枯渇による無断の従量課金failoverはしない。
 - 個別ハーネスのplugins/hooks/sessions/config、秘密情報のSoT、project-localな役割を混同しない。task再開はコミット・Issue/PR・validationなどdurable evidenceに基づく。
 
 ### Secret / environment defaults
