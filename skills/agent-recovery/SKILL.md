@@ -159,9 +159,9 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 
 1. Issue / GitHub Project / PR / target release / dependencyを特定する。
 2. current ticket/release branch、remote commit graph、stack predecessor/successor relationをfetchする。
-3. durable ticket branchではpublished remote headとPR identity/state、linked Issue、assignee / reviewer / labels / intended baseが整合していることを確認する。PR欠落ならintended base/stackをrepository evidenceから復元してPRを作成し、state driftも修復する。
-4. Ready ticket PRにreal blockerがなく未landingならticket-classとして自律landingする。target release trunkへland済みなのにIssueがopenなら明示closeし、landed/merged ticket branchが残っていればdependent PRをreconcileしたうえでsafeに削除する。
-5. release branchでは`main`との差分を確認する。zero-diffならDraft release PR不要、differenceが存在するならDraft release PRとmetadataを確認・修復する。release PRはautonomous/bulk ticket landingから除外し、explicit release authorizationなしにmergeしない。
+3. durable ticket branchではpublished remote headとPR identity/state、linked Issue、assignee / reviewer / labels / intended baseをread-onlyで確認する。PR欠落やstate driftは修復対象として記録し、この段階ではmutationしない。
+4. Ready ticket PRの未landing、land済みIssueの未close、残存ticket branch、dependent PRをread-onlyで検出し、必要なmutationを記録する。ownership取得前にはlanding / close / branch cleanupを実行しない。
+5. release branchでは`main`との差分、Draft release PR、metadataをread-onlyで確認する。zero-diffならDraft release PR不要、differenceが存在するなら修復対象を記録する。release PRはautonomous/bulk ticket landingから除外し、explicit release authorizationなしにmergeしない。
 6. latest valid recovery checkpointを読む。
 7. canonical design/policy/decision refsを再確認する。
 8. observed fencing identityに対するcompare-and-set等でrecovery ownershipを**原子的に取得**し、新しいfencing identityを確定する。current implementationでgeneration方式を使う場合はnew `execution_generation` と一意なlease/fencing tokenを発行する。競合した場合はownershipを共有せず、stateを再読してやり直す。
@@ -169,7 +169,7 @@ branch/UI clutterとhistory noiseを増やしすぎない方式を優先する�
 10. current workspaceをcheckpointからrecreateする。
 11. stack-ready workではrecorded predecessor SHAとcurrent intended predecessor stateを比較し、差があればstale baseとしてreconcileする。
 12. completed/pending validationをcurrent snapshotに対して再評価する。
-13. current fencing tokenが有効であることを確認した上で、external side effectの実行済み/未実行/不明をremote actual stateからreconcileする。
+13. current fencing tokenが有効であることを確認した上で、external side effectの実行済み/未実行/不明をremote actual stateからreconcileする。所有権、current refs、validation、既実行side effectを再確認してから、手順3〜5で記録したPR修復、ticket-class landing、Issue close、dependent PRのreconcile、safe branch cleanupを順に実行する。mutationごとにfencingを再検証し、release PRをbulk landingへ混入させない。
 14. stale base / conflicting integrationを確認する。
 15. remaining planを再構成する。
 16. safeな最小verificationを実行してstateを信頼できることを確認する。
