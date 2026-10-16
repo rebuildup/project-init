@@ -116,6 +116,10 @@ release branchはsprint開始時に `main` のrelease基準commitから作成す
 
 緊急patchや明示的なrelease判断では1週間から外れてよいが、通常planning cadenceは1週間を基準とする。patchでも`main`を直接変更せず、target patch release branch -> `main` のrelease PRを使用する。
 
+### Release scope admission
+
+release critical pathへ入れる前に要件・bugの証拠・受入条件・owner・validation path・Work Graphの安定性を確認する。予定日だけでunknownをadmitしない。詳細: [release scope admission](references/release-scope-admission.md)。
+
 ### Delivery forecast / capacity
 
 1週間はplanning cadenceであり、選んだscopeが必ず1週間で完了するというestimateではない。
