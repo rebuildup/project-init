@@ -79,6 +79,13 @@ Cloudflareを利用するprojectでは、Cloudflare control plane / resource API
 - Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
 - `cf` / WranglerはPracticeでありConstitutionではない。provider/tool capabilityの変化に応じて同等以上のguaranteeを持つmechanismへ置換できる
 
+### Interactive AI harness/provider configuration
+
+- Project runtime contractは、必要なagent能力・recovery evidence・budget/authorizationを定義する。個人のAPI契約、モデル名、token残量、ログイン状態をproject-levelの正しさとして固定しない。
+- current user environmentでは、machine-global CLIの導入は`pc-setup` / mise、任意のAPI接続先への切替は`dotfiles`の**global mise tasks + process-scoped Infisical ENV injection**で行う。別の専用ルーターや長寿命proxyを要求しない。
+- CLIの通常コマンドはnative loginのまま保持し、特別なprovider/accountは明示的なmise taskで選択する。quota枯渇による無断の従量課金failoverはしない。
+- 個別ハーネスのplugins/hooks/sessions/config、秘密情報のSoT、project-localな役割を混同しない。task再開はコミット・Issue/PR・validationなどdurable evidenceに基づく。
+
 ### Secret / environment defaults
 
 - application / serviceのsecret valueはInfisicalをcurrent default SoTとする
