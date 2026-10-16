@@ -122,7 +122,9 @@ check_tree() {
 
   # 2 install: collect paths as NUL-delimited records to preserve whitespace.
   local -a skill_dirs=() skill_names=()
-  mapfile -d '' -t skill_dirs < <(find "$root/.agents/skills" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null | sort -z)
+  while IFS= read -r -d '' d; do
+    skill_dirs+=("$d")
+  done < <(find "$root/.agents/skills" -mindepth 1 -maxdepth 1 -type d -print0 2> /dev/null)
   [ "${#skill_dirs[@]}" -gt 0 ] || fail "no skill materialized under .agents/skills/"
   note "skills materialized: ${#skill_dirs[@]}"
 
