@@ -26,7 +26,8 @@ jobs:
             interaction-discipline \
             writing-discipline \
             linear-release-control \
-            skills-cli-materialization; do
+            skills-cli-materialization \
+            release-scope-admission; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"
             rc=$?
