@@ -1,0 +1,8 @@
+⚠ Skipped C:\tmp\x\.agents\skills\engineering-decisions\SKILL.md  EYAML parse error: Nested mappings are not allowed in compact mappings at line 2, column 14:
+
+description: Use when a non-trivial engineering decision is needed. Trig…
+             ^
+
+Project Skills
+
+engineering-decisions         ~\Desktop\x\.agents\skills\engineering-decisions
