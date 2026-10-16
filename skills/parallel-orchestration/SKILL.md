@@ -193,8 +193,8 @@ predecessor_snapshot
 fencing_identity_or_execution_generation
 attempt_class
 result_commit_or_ref
-pr_identity
-pr_state
+pr_identity (PR設定完了後は必須。それ以前の権限不足handoffではnull/omitted)
+pr_state (PR設定完了後は必須。それ以前の権限不足handoffではnull/omitted)
 summary
 validation_results
 known_issues
