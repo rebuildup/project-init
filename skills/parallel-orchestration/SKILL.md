@@ -193,13 +193,14 @@ predecessor_snapshot
 fencing_identity_or_execution_generation
 attempt_class
 result_commit_or_ref
-draft_pr_identity
+pr_identity
+pr_state
 summary
 validation_results
 known_issues
 ```
 
-durable workerでは上記に加えて、`checkpoint_sha_or_snapshot`、`status`、`completed_steps`、`next_steps`、`pending_validation`、`external_side_effects`、`artifact_refs`、`updated_at`を含むrecovery handoffを必須とする。GitHub/branch deliveryの場合はpublished remote head、Draft PR identity、Issue/branch metadataも必須とする。
+durable workerでは上記に加えて、`checkpoint_sha_or_snapshot`、`status`、`completed_steps`、`next_steps`、`pending_validation`、`external_side_effects`、`artifact_refs`、`updated_at`を含むrecovery handoffを必須とする。GitHub/branch deliveryの場合はpublished remote head、PR identityと実際のstate（Draft / Ready）、Issue/branch metadataも必須とする。
 
 applicableなcurrent fencing identity（current implementationでは `execution_generation`）と一致しないresultは自動統合しない。
 
