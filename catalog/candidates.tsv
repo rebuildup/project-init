@@ -36,7 +36,7 @@ unslop	cursor/plugins	pstack/skills/unslop/SKILL.md	prose-artifact	reference	man
 technical-writing	cursor/plugins	pstack/skills/technical-writing/SKILL.md	prose-artifact	reference	manual	MIT	skimmed	101b274	2026-10-17	技術文書の書き方。writing-disciplineと担当が重なる
 *	cursor/plugins	pstack/skills/principle-*	engineering-decisions	reference	manual	MIT	skimmed	101b274	2026-10-17	短い原則Skill群。engineering-decisions / correctness-assuranceを見直す時の比較対象
 grilling	mattpocock/skills	skills/productivity/grilling/SKILL.md	design-before-build	alternative	auto	MIT	skimmed	49dd158	2026-10-17	計画を質問で詰める。design-refinementが担当を持つ
-brainstorming	obra/superpowers	skills/brainstorming/SKILL.md	design-before-build	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	userの回答と承認を待ち続けるので自律実行を止める
+brainstorming	obra/superpowers	skills/brainstorming/SKILL.md	design-before-build	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	userの回答と承認を一問ずつ待つため自律実行を止め、短い作業も長くする。発想の担当（ideation）としても採らない
 i-have-adhd	ayghri/i-have-adhd	skills/i-have-adhd/SKILL.md	interaction-style	alternative	manual	MIT	read	1ecea19	2026-10-17	応答を次の一手中心に絞る。interaction-disciplineと同じ担当。userが明示的に呼んだ時だけ使う
 poteto-mode	cursor/plugins	pstack/skills/poteto-mode/SKILL.md	routing	excluded	manual	MIT	read	101b274	2026-10-17	pstack自身のrouter。cursor-team-kit等Cursor固有の前提も多い
 using-superpowers	obra/superpowers	skills/using-superpowers/SKILL.md	routing	excluded	auto	MIT	read	bb92a77	2026-10-17	少しでも当てはまるSkillを応答前に必ず呼ばせるrouter
@@ -60,3 +60,4 @@ pptx	anthropics/skills	skills/pptx/SKILL.md	document-formats	default	auto	Propri
 pdf	anthropics/skills	skills/pdf/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
 skill-selection	rebuildup/project-init	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	project-initの正本
 yomiyasu	nanaism/yomiyasu	skills/yomiyasu/SKILL.md	prose-japanese	reference	auto	MIT	skimmed	1bc21f9	2026-10-17	AIが書いた日本語を構造から推敲する。SKILL.md単体で約110KBあり、起動のたびに重い。意味保持などの考え方はwriting-skillsのnatural-japaneseへ取り込む（writing-skills#30）
+idea-discovery	rebuildup/project-init	skills/idea-discovery/SKILL.md	ideation	default	auto	MIT	read	self	2026-10-17	長い探究から残った仮説にもとづく。発火場面を狭く絞ったガードレール。直接答えた場合との比較評価は未実施

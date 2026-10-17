@@ -136,6 +136,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ idea-discovery/
    ├─ herdr-runtime/
    ├─ interaction-discipline/
    ├─ linear-release-control/
@@ -200,6 +201,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
 - `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
+- `idea-discovery` — 既存の延長ではない発想を求められた時に、候補の順位づけではなく一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する（仮説段階）
 - `skill-selection` — 能力ごとに担当Skillを1つ決め、外部Skillを個別に導入して `skills-lock.json` と採否を記録する
 
 ## Core principle
