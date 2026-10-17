@@ -34,7 +34,7 @@ scripts:
 - `.worktreeinclude` はWorktrunkとOrcaの両方が読む。literalなpathだけで書き、承認済みのnon-secret pathに限る。`.env` やcredentialは入れず、secretは `secrets-management` のruntime injectionで渡す。
 - worktreeの作成にはWorktrunk（`wt switch --create <issue-number> --base=release-x-y-z`）を使ってよい。Orcaの Settings → General → Workspace で、Worktrunkのworktree置き場を外部worktreeの置き場として登録すると、Orcaのsidebarに表示できる。
 - Orcaからworktreeを作る場合は、Advancedでbranch名をIssue番号にする。Orcaが作業名から派生させるbranch名は、ticket branchの命名規則に合わない。
-- Orca同梱のSkill（`orca-cli` 等）は、Orcaの実行中だけ動くdiscovery stubである。入れる場合は `skill-selection` に従ってproject-localに入れ、Orcaのin-app installerによるglobal配置をproject truthにしない。
+- Orca同梱のSkill（`orca-cli` 等）は、Orcaの実行中だけ動くdiscovery stubで、Orcaのbuildと版を合わせる必要がある。machine単位のglobal配置はOrcaのupdaterに任せてよい（updaterは実行中のbuildのcommitにpinして入れ直す）。projectの `skills-lock.json` には入れず、projectの正しさをこれらのstubに依存させない。
 
 ## 操作の注意
 
