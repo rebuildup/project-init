@@ -17,3 +17,7 @@
 *.yml text eol=lf
 *.yaml text eol=lf
 *.json text eol=lf
+# TOML (mise, Worktrunk) and the TSV catalog are parsed line by line; a
+# trailing CR breaks exact header checks in evals/policy-evaluation.
+*.toml text eol=lf
+*.tsv text eol=lf
