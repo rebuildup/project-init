@@ -23,7 +23,6 @@ must_match() {
 PROFILE="organization/profiles/release-driven-solo.md"
 SKILL="skills/github-delivery/SKILL.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 CONTRIB="CONTRIBUTING.md"
 ADR="docs/adr/ADR-0018.md"
 
@@ -40,14 +39,11 @@ must_contain "$SKILL" 'methodを暗黙選択せず `merge` を明示'
 must_match "$PROMPT_JA" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
 must_match "$PROMPT_JA" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
 must_match "$PROMPT_JA" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
-must_match "$PROMPT_EN" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
-must_match "$PROMPT_EN" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
-must_match "$PROMPT_EN" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
 
 must_contain "$CONTRIB" 'current release-driven profileではGitHub Pull Requestをmerge commitでlandします。'
 must_contain "$ADR" 'current release-driven profileでGitHub Pull Requestをlandする場合、標準methodは **merge commit** のみとする。'
 
-for file in "$PROFILE" "$SKILL" "$PROMPT_JA" "$PROMPT_EN" "$CONTRIB"; do
+for file in "$PROFILE" "$SKILL" "$PROMPT_JA" "$CONTRIB"; do
   if grep -Eq 'merge / squash( merge)? / rebase( merge)?|merge / squash / rebase' "$R/$file"; then
     fail "$file still presents merge/squash/rebase as peer PR landing choices"
   fi

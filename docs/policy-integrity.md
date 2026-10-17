@@ -32,7 +32,7 @@ merge前に:
 3. semantic changeならADR/revision referenceを示す
 4. intentional removalならreason / impactを示す
 5. location/revision/removal recordのないruleをblockerとして扱う
-6. `PROMPT.ja.md` / `PROMPT.en.md` のoperational semanticsを確認する
+6. `PROMPT.ja.md` が正本のruleを複製せずroutingしていることを確認する
 7. README / CONTRIBUTING / Skills / ADR / policy overviewとの矛盾を確認する
 8. generated root contractやinitialization completion条件からdetailへのdiscovery pathを確認する
 

@@ -20,8 +20,7 @@
 
 新規または既存 project で通常の `/init` 相当処理と同時に、用途に応じて次の prompt を渡してください。
 
-- [`PROMPT.ja.md`](./PROMPT.ja.md) — 日本語版。primary specification。
-- [`PROMPT.en.md`](./PROMPT.en.md) — 英語版。同じ operational semantics を定義。
+- [`PROMPT.ja.md`](./PROMPT.ja.md) — 初期化手順。詳細ruleは profile / Skill を正本とし、prompt は routing だけを持つ。
 
 初期化時だけ包括的な prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
 
@@ -76,9 +75,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 既にSkillが導入済みでも、それだけで「更新不要」と判断しません。明示的にversionをpin/freezeしていない限り、配布元のcurrent revision/contentとの差分を確認し、変更があればproject-local customizationを保持しながらreconcile/updateします。配布元やrevisionを確認できない場合も、agentが独断で据え置き扱いにはしません。
 
 > [!IMPORTANT]
-> `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` / `PROMPT.en.md` は初期化用の包括的 prompt であり、Skills CLI によって自動実行・適用されるものではありません。
+> `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` は初期化用の prompt であり、Skills CLI によって自動実行・適用されるものではありません。
 >
-> 新規 project の初期構築には `PROMPT.*.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
+> 新規 project の初期構築には `PROMPT.ja.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
 
 ## Delivery model
 
@@ -106,7 +105,6 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ```text
 .
 ├─ PROMPT.ja.md
-├─ PROMPT.en.md
 ├─ README.md
 ├─ CONTRIBUTING.md
 ├─ LICENSE

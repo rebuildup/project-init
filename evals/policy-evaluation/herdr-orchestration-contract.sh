@@ -16,7 +16,6 @@ must_contain() {
 
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 PARALLEL="skills/parallel-orchestration/SKILL.md"
 HERDR="skills/herdr-runtime/SKILL.md"
 ADR="docs/adr/ADR-0025.md"
@@ -29,9 +28,6 @@ must_contain "$PROFILE" 'agent数自体をoptimization targetにしない'
 must_contain "$PROMPT_JA" '### Adaptive agent orchestration'
 must_contain "$PROMPT_JA" '`herdr-runtime`'
 must_contain "$PROMPT_JA" '多数決ではなくevidence / measurement / validation'
-must_contain "$PROMPT_EN" '### Adaptive agent orchestration'
-must_contain "$PROMPT_EN" '`herdr-runtime`'
-must_contain "$PROMPT_EN" 'rather than majority vote'
 
 must_contain "$PARALLEL" '## Adaptive fan-out / fan-in'
 must_contain "$PARALLEL" '**competitive exploration**'

@@ -18,7 +18,6 @@ must_contain() {
 
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 ONBOARDING="skills/onboarding/SKILL.md"
 ADR="docs/adr/ADR-0022.md"
 CONSTITUTION="constitution/CONSTITUTION.md"
@@ -40,13 +39,6 @@ must_contain "$PROMPT_JA" '`mise install --locked`'
 must_contain "$PROMPT_JA" 'arbitraryなhost-global toolへsilent fallbackしない'
 must_contain "$PROMPT_JA" 'miseはPracticeでありConstitutionではない'
 
-must_contain "$PROMPT_EN" '### Project toolchain / bootstrap default'
-must_contain "$PROMPT_EN" '`mise install`'
-must_contain "$PROMPT_EN" 'do not add an independent conflicting mise pin'
-must_contain "$PROMPT_EN" 'a bounded version request plus a committed mise lockfile'
-must_contain "$PROMPT_EN" '`mise install --locked`'
-must_contain "$PROMPT_EN" 'never silently fall back to arbitrary host-global tools'
-must_contain "$PROMPT_EN" 'mise is a Practice, not a Constitutional invariant'
 
 must_contain "$ONBOARDING" 'project-local toolchain bootstrap: mise'
 must_contain "$ONBOARDING" '`mise exec -- ...` / `mise run <task>`'

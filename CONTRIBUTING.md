@@ -19,9 +19,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 
 ## 基本方針
 
-変更時は `PROMPT.ja.md` と `PROMPT.en.md` のoperational semanticsを一致させてください。
-
-日本語版をprimary specificationとして扱って構いませんが、release/merge前に英語版へ同じ意味を反映してください。
+初期化promptは `PROMPT.ja.md` の1本だけを保守します（ADR-0028）。promptは初期化手順とprofile / Skillへのroutingだけを持ち、詳細ruleを書き写しません。ruleを追加・変更する場合は正本（profile / Skill / ADR）を更新し、promptには必要ならpointerだけを足してください。
 
 `CODEX_ROLES.ja.md` と `CODEX_ROLES.en.md` もrole policyを変更する場合は同一変更で同期してください。
 
@@ -471,11 +469,11 @@ current official sourceを確認すべき対象:
 
 変更後は最低限:
 
-- `PROMPT.ja.md` / `PROMPT.en.md` のoperational semantics一致
+- `PROMPT.ja.md` が詳細ruleを複製せず、正本へのroutingだけを持つ
 - role policy変更時の `CODEX_ROLES.*` 意味同値性
 - full promptと標準Skill群の整合
 - README / CONTRIBUTING / ADR整合
-- current Infisical Practice変更時はself-host endpoint / Cloud fallback / project pointer semanticsがPROMPT ja/en・profile・ADR・Skillで一貫
+- current Infisical Practice変更時はself-host endpoint / Cloud fallback / project pointer semanticsがprofile・ADR・Skillで一貫
 - broken Markdown structureがない
 - conflicting rulesがない
 - old shared-main/worktree-only assumptionsがcanonical ruleとして残っていない

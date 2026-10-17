@@ -17,8 +17,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 
 ## Files
 
-- `PROMPT.ja.md` — 日本語版の初期化prompt本体。
-- `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
+- `PROMPT.ja.md` — 初期化prompt。初期化手順と正本へのroutingだけを持つ。
 - `skills/parallel-orchestration/SKILL.md` — adaptive fan-out / fan-in、subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/herdr-runtime/SKILL.md` — Herdrをoptional Supervisor/session Practiceとして使うagent-driven orchestration adapter。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
@@ -514,7 +513,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 
 ## Usage
 
-新規または既存projectで通常の `/init` 相当処理と同時に `PROMPT.ja.md` または `PROMPT.en.md` を渡してください。
+新規または既存projectで通常の `/init` 相当処理と同時に `PROMPT.ja.md` を渡してください。
 
 初期化agentは全文をroot agent fileへコピーせず:
 
