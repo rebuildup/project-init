@@ -156,6 +156,8 @@ durable workerでは上記に加えて、`recovery_boundary`、durable checkpoin
 
 dependency / durable GitHub deliveryを使わない短命taskでは該当しないfieldはnull/omittedでよい。
 
+`budget` にはresource / cost / timeoutに加えて、childがさらにspawnできる深さと数の上限を含める。上限のないrecursive spawn（fork bomb）やunbounded costを作らない。
+
 `filesystem_policy` / `network_policy` はSupervisorが実際にenforceする境界を表す。policy enforcementが別のruntime/provider設定で行われる場合も、spawn contractにはそのpolicy IDまたは解決済みpolicyを記録し、worker inputと実際のsandbox制約が追跡可能でなければならない。
 
 ## Durable branch contract
@@ -226,7 +228,7 @@ standaloneでticket PRを扱うAgentはreadiness/quality gate通過後に自律l
 
 Reviewer inputはclean candidate snapshotへpinする。
 
-Reviewerが見るのは、requested scopeの網羅、decision precedenceとの整合、correctness、regression risk、required verification levelに対するtest adequacy、validation evidenceがcurrent SHAのものか、hidden coupling、target release / stack predecessorとの整合である。
+Reviewerが見るのは、requested scopeの網羅、decision precedenceとの整合、correctness / architecture consistency、regression risk、required verification levelに対するtest adequacy、validation evidenceがcurrent SHAのものか、hidden coupling、sandbox / runtimeでの再現性、target release / stack predecessorとの整合、PR metadataとIssue linkageの整合、関係する場合はrecovery / checkpointとの整合である。
 
 PR review contextには最低限:
 
