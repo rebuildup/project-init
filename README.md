@@ -10,6 +10,7 @@
 - [`organization/`](./organization/) — Operating Modelとcurrent profile
 - [`formal/`](./formal/) — Constitutionのabstract state-transition model
 - [`skills/`](./skills/) — context-dependent judgment / playbook
+- [`catalog/`](./catalog/) — 能力の一覧と、外部を含むSkill候補の評価記録。導入するSkillの選定に使う（`skill-selection`）
 - [`docs/adr/`](./docs/adr/) — long-lived decision history
 
 現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk / mise等の既存workflowはここで維持されます。
@@ -106,6 +107,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ├─ README.md
 ├─ CONTRIBUTING.md
 ├─ LICENSE
+├─ catalog/
+│  ├─ capabilities.tsv
+│  └─ candidates.tsv
 ├─ constitution/
 │  └─ CONSTITUTION.md
 ├─ organization/
@@ -121,7 +125,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0028.md
+│  │  └─ ADR-0001.md ... ADR-0029.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -143,6 +147,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ secrets-management/
    ├─ security-audit/
    ├─ security-maintenance/
+   ├─ skill-selection/
    ├─ worktree-workflow/
    └─ writing-discipline/
 ```
@@ -157,6 +162,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — release PR mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
 - [`ADR-0027`](./docs/adr/ADR-0027.md) — autonomous ticket landing、Issue close、branch cleanup、guarded release merge boundary。
 - [`ADR-0028`](./docs/adr/ADR-0028.md) — 初期化promptをroutingに縮約し、英語版を廃止。
+- [`ADR-0029`](./docs/adr/ADR-0029.md) — 能力の一覧と候補記録による、再現可能なSkill選定。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
@@ -194,6 +200,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
 - `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
+- `skill-selection` — 能力ごとに担当Skillを1つ決め、外部Skillを個別に導入して `skills-lock.json` と採否を記録する
 
 ## Core principle
 

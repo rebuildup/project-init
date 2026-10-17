@@ -1,0 +1,62 @@
+skill	source	path	capability	status	invocation	license	review_depth	reviewed_rev	reviewed_on	reason
+github-delivery	rebuildup/project-init	skills/github-delivery/SKILL.md	delivery	default	auto	MIT	read	self	2026-10-17	project-initの正本
+agent-recovery	rebuildup/project-init	skills/agent-recovery/SKILL.md	recovery	default	auto	MIT	read	self	2026-10-17	project-initの正本
+parallel-orchestration	rebuildup/project-init	skills/parallel-orchestration/SKILL.md	orchestration	default	auto	MIT	read	self	2026-10-17	project-initの正本
+quality-gate	rebuildup/project-init	skills/quality-gate/SKILL.md	quality-gate	default	auto	MIT	read	self	2026-10-17	project-initの正本
+design-refinement	rebuildup/project-init	skills/design-refinement/SKILL.md	design-before-build	default	auto	MIT	read	self	2026-10-17	project-initの正本
+engineering-decisions	rebuildup/project-init	skills/engineering-decisions/SKILL.md	engineering-decisions	default	auto	MIT	read	self	2026-10-17	project-initの正本
+correctness-assurance	rebuildup/project-init	skills/correctness-assurance/SKILL.md	correctness	default	auto	MIT	read	self	2026-10-17	project-initの正本
+security-maintenance	rebuildup/project-init	skills/security-maintenance/SKILL.md	security-advisory	default	auto	MIT	read	self	2026-10-17	project-initの正本
+security-audit	rebuildup/project-init	skills/security-audit/SKILL.md	security-audit	default	auto	MIT	read	self	2026-10-17	project-initの正本
+secrets-management	rebuildup/project-init	skills/secrets-management/SKILL.md	secrets	default	auto	MIT	read	self	2026-10-17	project-initの正本
+agent-delivery-estimation	rebuildup/project-init	skills/agent-delivery-estimation/SKILL.md	estimation	default	auto	MIT	read	self	2026-10-17	project-initの正本
+onboarding	rebuildup/project-init	skills/onboarding/SKILL.md	onboarding	default	auto	MIT	read	self	2026-10-17	project-initの正本
+writing-discipline	rebuildup/project-init	skills/writing-discipline/SKILL.md	prose-artifact	default	auto	MIT	read	self	2026-10-17	project-initの正本
+interaction-discipline	rebuildup/project-init	skills/interaction-discipline/SKILL.md	interaction-style	default	auto	MIT	read	self	2026-10-17	project-initの正本
+policy-evaluation	rebuildup/project-init	skills/policy-evaluation/SKILL.md	policy-evaluation	default	auto	MIT	read	self	2026-10-17	project-initの正本
+herdr-runtime	rebuildup/project-init	skills/herdr-runtime/SKILL.md	supervisor-runtime	default	auto	MIT	read	self	2026-10-17	Herdrを使う場合のSupervisor adapter
+sandbox-runtime	rebuildup/project-init	skills/sandbox-runtime/SKILL.md	execution-isolation	default	auto	MIT	read	self	2026-10-17	workerごとの独立runtimeとhost差の吸収
+worktree-workflow	rebuildup/project-init	skills/worktree-workflow/SKILL.md	workspace-lifecycle	default	auto	MIT	read	self	2026-10-17	Worktrunkを使う場合のworktree lifecycleとRust build cache
+linear-release-control	rebuildup/project-init	skills/linear-release-control/SKILL.md	release-planning	default	auto	MIT	read	self	2026-10-17	Linearでrelease planningをする場合
+natural-japanese	rebuildup/writing-skills	skills/natural-japanese/SKILL.md	prose-japanese	default	auto	MIT	skimmed	7ba09d1	2026-10-17	writing-disciplineの上に重ねる日本語の自然さ。lintはuvでPythonを実行する。比較評価は未実施
+writing-discipline	rebuildup/writing-skills	skills/writing-discipline/SKILL.md	prose-artifact	alternative	auto	MIT	read	7ba09d1	2026-10-17	project-init版と内容がずれた複製。正本の一本化が済むまでproject-init版を使う
+skill-authoring	rebuildup/writing-skills	skills/skill-authoring/SKILL.md	skill-authoring	default	auto	MIT	skimmed	7ba09d1	2026-10-17	Skillをprose artifactとして書くための指針
+design-intent	rebuildup/design-skills	skills/design-intent/SKILL.md	visual-design	default	auto	MIT	read	342d709	2026-10-17	visual directionを実装前に固めるbrief。design-skills内で最も単独で機能する
+*	rebuildup/design-skills	skills	visual-design	watch	auto	MIT	skimmed	342d709	2026-10-17	82 Skillの網羅型で、descriptionから正しいSkillを選べるか未検証。Inspect→Extract→Translate→Implement→Verifyの核へ再編予定
+motion-system	rebuildup/design-skills	skills/motion-system/SKILL.md	motion-design	default	auto	MIT	skimmed	342d709	2026-10-17	motionの設計語彙と検証観点
+diagnosing-bugs	mattpocock/skills	skills/engineering/diagnosing-bugs/SKILL.md	debugging	default	auto	MIT	read	49dd158	2026-10-17	再現できるfeedback loopを先に作る構成が明快で、環境依存がない
+systematic-debugging	obra/superpowers	skills/systematic-debugging/SKILL.md	debugging	alternative	auto	MIT	skimmed	bb92a77	2026-10-17	仮説先行の手順。diagnosing-bugsと同じ担当なので併用しない
+tdd	cursor/plugins	pstack/skills/tdd/SKILL.md	tdd	default	manual	MIT	read	101b274	2026-10-17	testが安く書ける時だけ先に書き、無理なら最も近い検証で代える。手動起動なのでroot contractからpathでroutingする
+tdd	mattpocock/skills	skills/engineering/tdd/SKILL.md	tdd	alternative	auto	MIT	read	49dd158	2026-10-17	testのseamをuserと事前合意する前提で、自律実行と相性が悪い
+test-driven-development	obra/superpowers	skills/test-driven-development/SKILL.md	tdd	alternative	auto	MIT	skimmed	bb92a77	2026-10-17	red-green-refactorを常に強制する。小さな修正には重い
+code-review	mattpocock/skills	skills/engineering/code-review/SKILL.md	code-review	default	auto	MIT	skimmed	49dd158	2026-10-17	固定点からのdiffをrepoの規約と仕様の2軸で見る。quality-gateとparallel-orchestrationのreviewer観点を補う
+requesting-code-review	obra/superpowers	skills/requesting-code-review/SKILL.md	code-review	alternative	auto	MIT	skimmed	bb92a77	2026-10-17	reviewer subagentの起動手順。起動はparallel-orchestrationが担当する
+verification-before-completion	obra/superpowers	skills/verification-before-completion/SKILL.md	quality-gate	reference	auto	MIT	skimmed	bb92a77	2026-10-17	完了宣言前の検証。quality-gateが同じ担当を持つので考え方だけ参照する
+create-verification-skill	cursor/plugins	pstack/skills/create-verification-skill/SKILL.md	quality-gate	watch	manual	MIT	skimmed	101b274	2026-10-17	appを実際に操作するproject-local verify Skillを生成する。出力先が.cursor固定なので要調整
+unslop	cursor/plugins	pstack/skills/unslop/SKILL.md	prose-artifact	reference	manual	MIT	skimmed	101b274	2026-10-17	AIらしい文の癖を削る。writing-disciplineと担当が重なる
+technical-writing	cursor/plugins	pstack/skills/technical-writing/SKILL.md	prose-artifact	reference	manual	MIT	skimmed	101b274	2026-10-17	技術文書の書き方。writing-disciplineと担当が重なる
+*	cursor/plugins	pstack/skills/principle-*	engineering-decisions	reference	manual	MIT	skimmed	101b274	2026-10-17	短い原則Skill群。engineering-decisions / correctness-assuranceを見直す時の比較対象
+grilling	mattpocock/skills	skills/productivity/grilling/SKILL.md	design-before-build	alternative	auto	MIT	skimmed	49dd158	2026-10-17	計画を質問で詰める。design-refinementが担当を持つ
+brainstorming	obra/superpowers	skills/brainstorming/SKILL.md	design-before-build	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	userの回答と承認を待ち続けるので自律実行を止める
+i-have-adhd	ayghri/i-have-adhd	skills/i-have-adhd/SKILL.md	interaction-style	alternative	manual	MIT	read	1ecea19	2026-10-17	応答を次の一手中心に絞る。interaction-disciplineと同じ担当。userが明示的に呼んだ時だけ使う
+poteto-mode	cursor/plugins	pstack/skills/poteto-mode/SKILL.md	routing	excluded	manual	MIT	read	101b274	2026-10-17	pstack自身のrouter。cursor-team-kit等Cursor固有の前提も多い
+using-superpowers	obra/superpowers	skills/using-superpowers/SKILL.md	routing	excluded	auto	MIT	read	bb92a77	2026-10-17	少しでも当てはまるSkillを応答前に必ず呼ばせるrouter
+ask-matt	mattpocock/skills	skills/engineering/ask-matt/SKILL.md	routing	excluded	manual	MIT	skimmed	49dd158	2026-10-17	mattpocock/skills内のrouter
+setup-matt-pocock-skills	mattpocock/skills	skills/engineering/setup-matt-pocock-skills/SKILL.md	routing	excluded	manual	MIT	skimmed	49dd158	2026-10-17	pack専用のrepo設定を書き込む
+using-git-worktrees	obra/superpowers	skills/using-git-worktrees/SKILL.md	orchestration	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	worktree運用はworktree-workflowとsandbox-runtimeが担当する
+finishing-a-development-branch	obra/superpowers	skills/finishing-a-development-branch/SKILL.md	delivery	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	branchの完了とPRはgithub-deliveryが担当し、merge方針も異なる
+subagent-driven-development	obra/superpowers	skills/subagent-driven-development/SKILL.md	orchestration	excluded	auto	MIT	skimmed	bb92a77	2026-10-17	parallel-orchestrationと同じ担当で手順が衝突する
+cf-cli	cloudflare/skills	skills/cf-cli/SKILL.md	platform-cloudflare	default	auto	Apache-2.0	skimmed	86505e4	2026-10-17	profileのcf primary方針と一致する公式Skill
+workers-best-practices	cloudflare/skills	skills/workers-best-practices/SKILL.md	platform-cloudflare	default	auto	Apache-2.0	listed	86505e4	2026-10-17	Workersを使う時の公式指針
+wrangler	cloudflare/skills	skills/wrangler/SKILL.md	platform-cloudflare	alternative	auto	Apache-2.0	listed	86505e4	2026-10-17	cfで代替できない操作がある時だけ
+durable-objects	cloudflare/skills	skills/durable-objects/SKILL.md	platform-cloudflare	default	auto	Apache-2.0	listed	86505e4	2026-10-17	Durable Objectsを使う時だけ
+deploy-to-vercel	vercel-labs/agent-skills	skills/deploy-to-vercel/SKILL.md	platform-vercel	default	auto	MIT	listed	063bee9	2026-10-17	Vercelへdeployする時の公式Skill
+vercel-react-best-practices	vercel-labs/agent-skills	skills/react-best-practices/SKILL.md	framework-react	default	auto	MIT	listed	063bee9	2026-10-17	Reactの公式寄り実装指針
+vercel-react-native-skills	vercel-labs/agent-skills	skills/react-native-skills/SKILL.md	framework-react	default	auto	MIT	listed	063bee9	2026-10-17	React Nativeを使う時だけ
+frontend-design	anthropics/skills	skills/frontend-design/SKILL.md	visual-design	alternative	auto	Apache-2.0	listed	dbd4588	2026-10-17	UIの美的方向づけ。design-intentと担当が重なる
+webapp-testing	anthropics/skills	skills/webapp-testing/SKILL.md	quality-gate	alternative	auto	Apache-2.0	listed	dbd4588	2026-10-17	Playwrightでweb appを操作して確かめる
+docx	anthropics/skills	skills/docx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
+xlsx	anthropics/skills	skills/xlsx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
+pptx	anthropics/skills	skills/pptx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
+pdf	anthropics/skills	skills/pdf/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
+skill-selection	rebuildup/project-init	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	project-initの正本
