@@ -52,6 +52,7 @@ wording、section number、file pathを固定する必要はない。
 2026-09-09の初回lost-rule audit:
 
 - [`audits/2026-09-09-lost-rule-audit.md`](./audits/2026-09-09-lost-rule-audit.md)
+- [`audits/2026-10-17-prompt-routing-audit.md`](./audits/2026-10-17-prompt-routing-audit.md) — ADR-0028のprompt縮約に対するaudit
 
 このauditは初期commit `06c99b1adb2ff8d1c5cd70028498ebe35e72f64a` と当時のcurrent policyを比較したbaselineである。
 
