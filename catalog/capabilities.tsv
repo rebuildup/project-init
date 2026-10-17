@@ -1,0 +1,33 @@
+capability	scope	needed_when	description
+routing	single	always	作業内容から使うSkillを決める入口。projectのroot contractだけが持つ
+delivery	single	GitHubでIssue / PR運用をする	Issue / branch / PR / release の進め方
+recovery	single	always	中断からの再開、checkpoint、外部side effectの扱い
+orchestration	single	subagentや複数workerを使う	作業の分解、委譲、結果の統合
+quality-gate	single	コードやbuild成果物がある	verification level、gate、CI
+design-before-build	single	非自明なfeature / architecture / product designを扱う	実装前にfactと未決定事項を整理し、必要な質問だけをする
+engineering-decisions	single	always	実装判断の優先順位、userへ返す判断の境界、tool選定
+debugging	single	コードがある	再現できる失敗のloopを作り、原因を特定する
+tdd	single	test基盤がある	失敗するtestを先に書く進め方
+code-review	multi	コードがある	diffを基準や仕様と照らして確認する観点
+correctness	single	重要な不変条件を持つ処理がある	不変条件の抽出と最小十分な保証手段の設計
+security-advisory	single	外部dependencyがある	脆弱性情報の取り込みと優先度
+security-audit	single	未知のsecurity defectを能動的に探すことを選んだ	coverageを明示した探索と独立検証
+secrets	single	application / serviceがsecretを使う	secret valueの保管、注入、権限
+estimation	single	中長期のrelease計画を立てる	実績にもとづく見積もり
+onboarding	single	always	会話履歴なしで始められるdocs
+prose-artifact	single	always	README / ADR / Issue / PR / commit等、残る文章を書く
+prose-japanese	single	日本語の文章を書く	日本語として自然で読みやすい文章
+interaction-style	single	always	userとのやりとり、質問の絞り方、blockerの見せ方
+policy-evaluation	single	Skillやpolicyを変更する	policyの評価、context budget
+skill-authoring	single	repositoryでSkillを書く	Skillの書き方
+visual-design	single	UIや視覚的な成果物を作る	実例を観察し、構造を抽出し、翻訳して作り、出来上がりで確かめる
+motion-design	multi	animationやmotion graphicsを作る	motionの設計と検証
+platform-cloudflare	multi	Cloudflareを使う	Cloudflareのproductとtool
+platform-vercel	multi	Vercelを使う	Vercelへのdeployと最適化
+framework-react	multi	ReactまたはReact Nativeを使う	Reactの実装パターン
+document-formats	multi	docx / xlsx / pptx / pdf を生成・編集する	office文書とPDFの操作
+supervisor-runtime	single	Herdr等のSupervisor runtimeを使う	worker attemptのstart / prompt / wait / read
+execution-isolation	single	implementation workerを並行させる	workerごとの独立mutable runtime
+workspace-lifecycle	single	worktreeを作業単位に使う	worktreeの作成・掃除とbuild cache
+release-planning	single	release planningのcontrol planeを使う	release goal / health / portfolio
+skill-selection	single	always	導入するSkillを能力ごとに選び、lockと採否を記録する

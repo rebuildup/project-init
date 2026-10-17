@@ -41,7 +41,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 
 ## 3. 何をどこへ反映するか
 
-profileとSkillを読み、project固有の事情に合わせてmaterializeしてください。各領域の正本は次のとおりです。
+profileとSkillを読み、project固有の事情に合わせてmaterializeしてください。下の表は、project-initが持つ領域ごとの正本です。
 
 | 領域 | 正本 |
 | --- | --- |
@@ -64,10 +64,22 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | README / ADR / Issue / PR / commit等、残る文章を書く時 | `writing-discipline` |
 | userとのやりとり、質問の絞り方、blockerの見せ方 | `interaction-discipline` |
 | policy自体の評価、context budget | `policy-evaluation` |
+| 導入するSkillの選定（外部Skillを含む） | `skill-selection` |
 
 mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofileに定義されています。そのprojectで実際に意味がある場合だけ導入してください。使っていないtoolをpolicy上の形式だけで追加しないでください。
 
-Skillの導入には `bunx skills add rebuildup/project-init`（Node.js環境では `npx skills`）を使えます。project-localに入れ、`--global` は使いません。projectに不要なSkillは入れません。
+### 導入するSkillを選ぶ
+
+上の表はproject-initの自作Skillだけです。debugging、TDD、platform固有の知識、日本語の文章、visual designなどは、外部や別repositoryのSkillが担当する方が良い場合があります。
+
+導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
+
+- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。
+- 候補を `catalog/candidates.tsv` と外部の探索から集めて評価し、能力ごとに担当を決めます。
+- 外部packの入口（router）は入れず、個別のSkillだけを入れます。
+- project-localに `--copy` で導入し、Skillのfileと `skills-lock.json` をcommitします。
+
+`candidates.tsv` は許可リストではありません。記録にないSkillも評価して構いません。project固有でない評価結果は、project-initへPRとして戻してください。
 
 ## 4. root contractを生成する
 
@@ -83,7 +95,7 @@ root contractに書くもの:
 - 文章を残す前には `writing-discipline` を使う、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
 - 下のhouse ruleのうち、そのprojectに該当するもの
-- Skill一覧と、それぞれを使う場面
+- 能力ごとの担当表：採用したSkill（外部Skillを含む）と使う場面。手動起動のSkillはpathも書く
 
 ### House rule
 
@@ -106,6 +118,8 @@ profileやSkillに正本がない、このorganization共通の約束です。�
 - 2つ以上のworkerを同時に動かしても、port / DB / build outputなどのmutable stateが衝突しない設計になっている
 - delivery設定がprofileどおりになっている、またはずれがblockerとして明示されている
 - secretがrepository・checkpoint・agent resultに入らない
+- 導入したSkillのfileと `skills-lock.json` がcommitされ、fresh cloneにSkillが揃っている
+- `single` の能力ごとに担当が1つで、外部packのrouterが入っていない
 - README / AGENTS / Skills / ADRの間に矛盾がない
 - `evals/` 等、policyを検査する仕組みがprojectにあれば通っている
 

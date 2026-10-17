@@ -35,6 +35,8 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/design-refinement/SKILL.md` — 実装前evidence-first design / unknown分解 / scope-risk調整 / trade-off documentation。
 - `skills/writing-discipline/SKILL.md` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline。
 - `skills/interaction-discipline/SKILL.md` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing。
+- `skills/skill-selection/SKILL.md` — 能力ごとの担当Skillの選定、外部Skillの個別導入、`skills-lock.json` と採否の記録。
+- `catalog/capabilities.tsv` / `catalog/candidates.tsv` — 能力の一覧と、Skill候補の評価記録。
 - `skills/linear-release-control/SKILL.md` — Linearをoptional release planning / health / portfolio control planeとして使う契約（採用時のみ）。
 - `skills/worktree-workflow/SKILL.md` — WorktrunkをWSL/Linuxのworktree操作layerとして使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
@@ -52,6 +54,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0012.md` — release mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
 - `ADR-0027.md` — autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary。
 - `ADR-0028.md` — 初期化promptをroutingに縮約し、英語版を廃止。
+- `ADR-0029.md` — 能力の一覧と候補記録による、再現可能なSkill選定。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
@@ -469,6 +472,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `interaction-discipline`
 - `linear-release-control`
 - `worktree-workflow`
+- `skill-selection`
 
 project固有のarchitecture / UI / release / debugging等は必要に応じて追加します。
 

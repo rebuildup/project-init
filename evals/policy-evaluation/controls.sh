@@ -56,6 +56,14 @@ else
   RC=1
 fi
 
+if catalog_out=$(bash "$R/evals/policy-evaluation/skill-catalog-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "skill catalog contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "skill catalog contract"
+  printf '%s\n' "$catalog_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
 else
