@@ -20,7 +20,7 @@ worktreeのlifecycleの正本は `worktree-workflow` である。このSkillは�
 
 ## 設定
 
-`orca.yaml` は `worktree-workflow` と同じ入口を呼ぶ。
+`orca.yaml` は `worktree-workflow` と同じ入口を呼ぶ。`setupAgentStartupPolicy: wait-for-setup` にして、setupが終わる前にagentを起動させない。
 
 ```yaml
 # orca.yaml
@@ -29,6 +29,7 @@ scripts:
     mise run worktree:setup
   archive: |
     mise run worktree:teardown
+setupAgentStartupPolicy: wait-for-setup
 ```
 
 - `.worktreeinclude` はWorktrunkとOrcaの両方が読む。literalなpathだけで書き、承認済みのnon-secret pathに限る。`.env` やcredentialは入れず、secretは `secrets-management` のruntime injectionで渡す。

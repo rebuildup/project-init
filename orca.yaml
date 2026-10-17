@@ -1,0 +1,7 @@
+# Orca calls the same frontend-neutral worktree lifecycle as Worktrunk (see orca-frontend).
+scripts:
+  setup: |
+    mise run worktree:setup
+  archive: |
+    mise run worktree:teardown
+setupAgentStartupPolicy: wait-for-setup

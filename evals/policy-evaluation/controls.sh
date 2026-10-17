@@ -56,6 +56,14 @@ else
   RC=1
 fi
 
+if lifecycle_out=$(bash "$R/evals/policy-evaluation/worktree-lifecycle-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "worktree lifecycle contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "worktree lifecycle contract"
+  printf '%s\n' "$lifecycle_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if vendored_out=$(bash "$R/evals/policy-evaluation/vendored-skills-contract.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "vendored skills contract"
 else

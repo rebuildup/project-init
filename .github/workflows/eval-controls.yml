@@ -9,6 +9,10 @@ on:
       - '.claude/skills/**'
       - 'skills-lock.json'
       - 'PROMPT.ja.md'
+      - 'scripts/**'
+      - 'mise.toml'
+      - 'orca.yaml'
+      - '.config/**'
       - '.gitattributes'
       - '.github/workflows/eval-controls.yml'
   push:

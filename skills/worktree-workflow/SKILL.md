@@ -135,7 +135,7 @@ teardown = "mise run worktree:teardown"
 - `.worktreeinclude` はliteralなpathだけで書く。globはOrcaが無視する。
 - 全frontendで使える入口がなければ、plain gitで作ったworktreeで手動実行できる形にする。
 
-Orcaを併用する手順は `orca-frontend` Skillを参照する。
+参照実装はproject-initの `scripts/worktree/`、`mise.toml`、`.config/wt.toml`、`orca.yaml` にある。projectへ写してから、project固有のsetupを入口に足す。Orcaを併用する手順は `orca-frontend` Skillを参照する。
 
 ## Rust / Cargo build output and cache
 

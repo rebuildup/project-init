@@ -1,0 +1,7 @@
+[tasks."worktree:setup"]
+description = "Prepare this worktree; every worktree frontend calls this"
+run = "bash scripts/worktree/setup.sh"
+
+[tasks."worktree:teardown"]
+description = "Release out-of-tree resources before this worktree is removed"
+run = "bash scripts/worktree/teardown.sh"

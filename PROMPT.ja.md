@@ -96,6 +96,7 @@ root contractに書くもの:
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
+- worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。project-initの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
 - 下のhouse ruleのうち、そのprojectに該当するもの
 - 能力ごとの担当表：採用したSkill（外部Skillを含む）と使う場面。手動起動のSkillはpathも書く
 
