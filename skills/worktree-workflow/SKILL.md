@@ -104,7 +104,7 @@ wt config create --project
 
 universalなdev commandを決め打ちしない。initializerはpackage scripts、framework docs/config、existing startup commandを調査して、port override方法を特定する。
 
-共有host上でdev serverをworktreeごとに起動する場合のshape:
+**Worktrunkだけをfrontendとして使うproject** で、共有host上のdev serverをworktreeごとに起動する場合のshape（Worktrunk固有のtemplateであり、Orcaやplain gitからは展開されない）:
 
 ```toml
 # .config/wt.toml
@@ -115,7 +115,7 @@ server = "wt step tether -- <project-specific command using {{ branch | hash_por
 url = "http://localhost:{{ branch | hash_port }}"
 ```
 
-例のplaceholderをそのままcommitしてはいけない。Vite / Next.js / backend CLI / env-based server等、実際のcommand semanticsへ変換する。
+例のplaceholderをそのままcommitしてはいけない。Vite / Next.js / backend CLI / env-based server等、実際のcommand semanticsへ変換する。Orcaやplain gitと併用するprojectではこのtemplate例を採用せず、後述のrepository-controlledな共通入口でportを決める。
 
 ## Frontend independence
 
@@ -239,7 +239,7 @@ recursive cleaner等のthird-party toolはhost convenienceとして使ってよ�
 
 ## Port allocation
 
-`{{ branch | hash_port }}`はbranch名からdeterministicなhost portを生成する。共有WSL/Linux hostで複数worktreeのdev serverを並行起動する時の標準候補とする。
+`{{ branch | hash_port }}` はWorktrunk固有のtemplateで、branch名からdeterministicなhost portを生成する。Worktrunkのみのprojectでは候補だが、Orcaやplain gitと併用するprojectでは使わず、repository-controlledなsetup入口でbranch名から同じportを決め、生成したworktree-local設定を各frontendで読む。
 
 ただしhash-based allocationは絶対的なuniqueness guaranteeではない。dev server / runtimeはbind failureを明示的に検出し、必要ならproject-specificなport reservationまたはcollision-resolutionを追加する。既に別processが占有しているportを「自分のbranch用」と仮定して継続してはいけない。
 
@@ -248,7 +248,7 @@ recursive cleaner等のthird-party toolはhost convenienceとして使ってよ�
 - hostへ直接bindするprocess: dev commandのportへ適用
 - container/sandbox: host-published portへ適用し、container内部portは通常固定でよい
 - preview URL: 同じport templateから構築できる
-- DB等の別service: service identityを別namespaceにし、必要なら`('db-' ~ branch) | hash_port`のようにdev serverと異なるinputへ分離する
+- DB等の別service: service identityを別namespaceにし、dev serverと異なるinputへ分離する（Worktrunk専用構成なら `('db-' ~ branch) | hash_port` も使えるが、複数frontendでは共通入口で決める）
 
 portが一意でもprocess/database/filesystem/credential isolationが成立したとは扱わない。
 
