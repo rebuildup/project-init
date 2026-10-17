@@ -16,7 +16,7 @@ worktreeのlifecycleの正本は `worktree-workflow` である。このSkillは�
 - **worktreeのsetup / teardown**：処理は `worktree-workflow` のrepository-controlledな入口に置き、`orca.yaml` からはそれを呼ぶだけにする。
 - **作業の正本**：Issue、branch、PRがcanonical stateである。Orcaのworkspace名、親子関係、sidebarの状態はUIの状態として扱う。
 - **orchestrationの状態**：Orcaの Run / Task / Dispatch / 完了通知はtelemetryとして扱う。taskの完了やresultの採否は、GitHub IssueとPR、検証結果で判断する（`parallel-orchestration`）。
-- **共有されるmutable state**：`worktree.sharedDirectories` とWorktree Shared Pathsはsymlinkで共有する。build outputや、書き込まれる `node_modules` のように並行して変わるpathには使わない（Mutable Ownership Safety）。
+- **共有されるmutable state**：`worktree.sharedDirectories` はsymlinkで同一directoryを共有するため、並行して書き込むbuild outputや `node_modules` には使わない。ユーザー設定のWorktree Shared PathsはmacOSでAPFS clone-copy（非対応環境ではsymlink）となる場合があり、複製後の変更は自動同期されない。方式を混同せず、mutable stateのworktree別ownershipと各worktreeでの検証を維持する（Mutable Ownership Safety）。
 
 ## 設定
 
