@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "skills": {
+    "writing-discipline": {
+      "source": "rebuildup/writing-skills",
+      "ref": "release-0-4-0",
+      "sourceType": "github",
+      "skillPath": "skills/writing-discipline/SKILL.md",
+      "computedHash": "8fc981b012b8fff0ad25633adbf8826be05fd79bd45b7e570024de416c1a3073"
+    }
+  }
+}

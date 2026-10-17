@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "engineering-decisions": {
+      "source": "rebuildup/project-init",
+      "sourceType": "github",
+      "skillPath": "skills/engineering-decisions/SKILL.md",
+      "computedNote": "hash not recorded"
+    }
+  }
+}

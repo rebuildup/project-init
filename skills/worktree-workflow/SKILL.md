@@ -20,7 +20,7 @@ Worktrunk自体はConstitutionではない。採用理由はworkspace lifecycle 
 - Worktrunkはworkspace lifecycle toolであり、execution isolation boundaryではない。
 - branch/ref/GitHub Issue/PRがcanonical stateであり、worktree pathやWorktrunk local stateをSoTにしない。
 - ticket branchはIssue番号のみ、release branchは`release-<major>-<minor>-<patch>`を維持する。
-- `wt merge main`等でGitHub PR / release integration / explicit merge authorizationを迂回しない。
+- `wt merge main`等でGitHub PR lifecycle / protected main / explicit release authorization boundaryを迂回しない。ticket PRのautonomous landingもGitHub delivery contract経由で行う。
 - project-shared Worktrunk hookは`.config/wt.toml`へcommitする。
 - worktree path等のmachine preferenceはuser configであり、project truthにしない。
 - WSLでは高頻度build/watch用worktreeをLinux filesystemへ置き、`/mnt/c`を標準にしない。
@@ -104,7 +104,7 @@ wt config create --project
 
 universalなdev commandを決め打ちしない。initializerはpackage scripts、framework docs/config、existing startup commandを調査して、port override方法を特定する。
 
-共有host上でdev serverをworktreeごとに起動する場合のshape:
+Worktrunk専用のdev server例（Orca/plain gitでは展開されない）:
 
 ```toml
 # .config/wt.toml
@@ -116,6 +116,26 @@ url = "http://localhost:{{ branch | hash_port }}"
 ```
 
 例のplaceholderをそのままcommitしてはいけない。Vite / Next.js / backend CLI / env-based server等、実際のcommand semanticsへ変換する。
+
+## Frontend independence
+
+worktreeを作るfrontendはWorktrunk以外（Orca、plain git等）も使われる。frontendごとにsetupが違うと、同じbranchでも作り方によって状態がずれる。そのため、作成・削除時の処理はfrontendに書かず、repository-controlledな入口（例：`mise run worktree:setup` / `mise run worktree:teardown`）に置く。frontendはその入口を呼ぶだけにする。
+
+```toml
+# .config/wt.toml
+[pre-start]
+setup = "mise run worktree:setup"
+
+[pre-remove]
+teardown = "mise run worktree:teardown"
+```
+
+- portなどworktreeごとの値は、frontendのtemplate（`hash_port` 等）ではなく入口の中でbranch名から決める。
+- 入口は何度実行しても同じ状態になるようにする。どのfrontendから、何回呼ばれても壊れないためである。
+- `.worktreeinclude` はliteralなpathだけで書く。globはOrcaが無視する。
+- 全frontendで使える入口がなければ、plain gitで作ったworktreeで手動実行できる形にする。
+
+参照実装はproject-initの `scripts/worktree/`、`mise.toml`、`.config/wt.toml`、`orca.yaml` にある。projectへ写してから、project固有のsetupを入口に足す。Orcaを併用する手順は `orca-frontend` Skillを参照する。
 
 ## Rust / Cargo build output and cache
 
@@ -219,7 +239,7 @@ recursive cleaner等のthird-party toolはhost convenienceとして使ってよ�
 
 ## Port allocation
 
-`{{ branch | hash_port }}`はbranch名からdeterministicなhost portを生成する。共有WSL/Linux hostで複数worktreeのdev serverを並行起動する時の標準候補とする。
+Worktrunk専用の `{{ branch | hash_port }}` はbranch名からportを決める。Orca/plain gitと併用する場合は使わず、共通setup入口でportを決める。
 
 ただしhash-based allocationは絶対的なuniqueness guaranteeではない。dev server / runtimeはbind failureを明示的に検出し、必要ならproject-specificなport reservationまたはcollision-resolutionを追加する。既に別processが占有しているportを「自分のbranch用」と仮定して継続してはいけない。
 
@@ -228,7 +248,7 @@ recursive cleaner等のthird-party toolはhost convenienceとして使ってよ�
 - hostへ直接bindするprocess: dev commandのportへ適用
 - container/sandbox: host-published portへ適用し、container内部portは通常固定でよい
 - preview URL: 同じport templateから構築できる
-- DB等の別service: service identityを別namespaceにし、必要なら`('db-' ~ branch) | hash_port`のようにdev serverと異なるinputへ分離する
+- DB等の別service: 別namespaceを使う。Worktrunk専用なら `('db-' ~ branch) | hash_port`、複数frontendなら共通入口で決める
 
 portが一意でもprocess/database/filesystem/credential isolationが成立したとは扱わない。
 
@@ -270,19 +290,19 @@ Worktrunk commandはGitHub deliveryのergonomic frontendに限定する。
 wt switch release-x-y-z
 -> wt switch --create <issue-number> --base=release-x-y-z
 -> implementation / commit / publish
--> immediate Draft PR
+-> immediate PR creation/state
 -> review / validation
--> authorized GitHub landing
+-> ticket-class: autonomous GitHub landing / release-class: explicitly authorized GitHub landing
 -> wt remove <issue-number>
 ```
 
-`wt merge`のlocal integration convenienceは、project-initのticket PR / release PR / protected main / explicit merge authorizationを置き換えない。
+`wt merge`のlocal integration convenienceは、project-initのticket PR lifecycle / release PR / protected main / explicit release authorization boundaryを置き換えない。
 
 ## Fallback and recovery
 
 ### Authoring
 
-Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、Draft PR lifecycle等のapplicable semanticsは維持する。
+Worktrunkが利用できないmutable authoring workerではnative `git worktree`へ縮退してよい。ただしbranch naming、mutable ownership、runtime state safety、PR state lifecycle等のapplicable semanticsは維持する。
 
 worktree自体を作れないauthoring environmentでは、同じshared checkoutへ複数workerを並行配置しない。isolated clone / sandbox / serialized ownership等、同等以上のmutable ownership guaranteeを選ぶ。
 

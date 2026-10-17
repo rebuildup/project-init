@@ -1,0 +1,5 @@
+Project Skills
+engineering-decisions    .agents/skills/engineering-decisions
+onboarding    .agents/skills/onboarding
+sandbox-runtime    .agents/skills/sandbox-runtime
+verify-case    .agents/skills/verify-case

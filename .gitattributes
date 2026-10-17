@@ -1,0 +1,23 @@
+# Shell scripts must keep LF endings.
+#
+# With `core.autocrlf=true` and no attribute to the contrary, git rewrites
+# `*.sh` to CRLF on checkout. bash then fails on the first line that ends in
+# a stray CR, so a script that passed in the working tree of the author fails
+# immediately for every other contributor. `evals/skills-cli-materialization`
+# hit this exactly: the grader passed on creation and broke after a
+# stash/pop cycle, which is why the controls alone would not have caught it.
+#
+# The eval scripts under `evals/` are executed with `bash`, not sourced by a
+# Windows-native runtime, so LF is the only workable ending.
+*.sh text eol=lf
+
+# Markdown, YAML and JSON stay LF as well; several are parsed by tooling that
+# does not tolerate a trailing CR.
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+# TOML (mise, Worktrunk) and the TSV catalog are parsed line by line; a
+# trailing CR breaks exact header checks in evals/policy-evaluation.
+*.toml text eol=lf
+*.tsv text eol=lf

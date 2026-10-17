@@ -40,14 +40,17 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 - `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
 - `policy-evaluation/merge-method-contract.sh` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
-- `policy-evaluation/mise-toolchain-contract.sh` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / prompt / onboardingへ接続され、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
+- `policy-evaluation/mise-toolchain-contract.sh` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / onboardingに定義され、promptからprofileへroutingされ、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
 - `policy-evaluation/herdr-orchestration-contract.sh` — adaptive fan-out / fan-in、Herdr Supervisor routing、telemetry/admission境界、Constitution layer separationを確認するdeterministic check
-- `policy-evaluation/cloudflare-cli-contract.sh` — Cloudflare projectで`cf` primary / Wrangler explicit fallbackがprofile / prompt / ADRへ接続され、provider-specific tool名がConstitutionへ漏れないことを確認するdeterministic check
+- `policy-evaluation/worktree-lifecycle-contract.sh` — Worktrunk（`.config/wt.toml`）とOrca（`orca.yaml`）が同じ `mise run worktree:*` を呼ぶこと、frontend固有のtemplateや `.worktreeinclude` のglobを使わないこと、`scripts/worktree/` がbranchごとに決まった値を返し何度実行しても同じ状態になることを確認するdeterministic check
+- `policy-evaluation/vendored-skills-contract.sh` — `skills-lock.json` で導入した外部Skillのfileがcommitされ、内容がlockの `computedHash` と一致し、`skills/` で同名を公開していないことを確認するdeterministic check。`writing-discipline` のevalは正本の rebuildup/writing-skills にある
+- `policy-evaluation/skill-catalog-contract.sh` — `catalog/` の能力一覧と候補記録の形式、single能力の担当が1つであること、routerを担当にしないこと、自作Skillの記録漏れ、promptから `skill-selection` へのroutingを確認するdeterministic check
+- `policy-evaluation/cloudflare-cli-contract.sh` — Cloudflare projectで`cf` primary / Wrangler explicit fallbackがprofile / ADRに定義され、promptからprofileへroutingされ、provider-specific tool名がConstitutionへ漏れないことを確認するdeterministic check
 - `policy-evaluation/constitutional-refinement-scenario.md` — current Practiceより強いnative mechanismをtool-name complianceで拒否せず、上位guaranteeからrefinement判断できるかを確認するcold scenario
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
-- `writing-discipline/scenario.md` — persistent proseのpre-write routing / reader content selection / conversation・execution・recovery context serialization防止
 - `policy-evaluation/comparative-scenario.md` — condition parity / runner isolation / identity pinning / blind paired judging / release gate / budgeted resumability
+- `skills-cli-materialization/scenario.md` — Skills CLIによるproject-local Agent Skillのmaterialization contract（discovery / install / frontmatter parseability / global install禁止 / provenance / generated linkの二重追跡防止 / reference完全性）。deterministic check + live end-to-end
 - `linear-release-control/scenario.md` — GitHub / Linear間のsource-of-truth / mirror / worker access / coding session baseline / project mappingのcanonical rule
 - `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
@@ -59,12 +62,15 @@ bash evals/policy-evaluation/merge-method-contract.sh
 bash evals/policy-evaluation/mise-toolchain-contract.sh
 bash evals/policy-evaluation/herdr-orchestration-contract.sh
 bash evals/policy-evaluation/cloudflare-cli-contract.sh
+bash evals/policy-evaluation/skill-catalog-contract.sh
+bash evals/policy-evaluation/vendored-skills-contract.sh
+bash evals/policy-evaluation/worktree-lifecycle-contract.sh
 bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh
-bash evals/writing-discipline/controls.sh
 bash evals/policy-evaluation/comparative-controls.sh
 bash evals/linear-release-control/controls.sh
+bash evals/skills-cli-materialization/controls.sh
 bash evals/policy-evaluation/context-budget.sh
 ```
 
@@ -74,7 +80,6 @@ fresh agentのanswerを採点:
 bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
 bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
 bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
-bash evals/writing-discipline/grade.sh /path/to/writing-answer.md
 bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
 bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
 ```

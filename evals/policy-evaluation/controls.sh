@@ -56,6 +56,30 @@ else
   RC=1
 fi
 
+if lifecycle_out=$(bash "$R/evals/policy-evaluation/worktree-lifecycle-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "worktree lifecycle contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "worktree lifecycle contract"
+  printf '%s\n' "$lifecycle_out" | sed 's/^/         /'
+  RC=1
+fi
+
+if vendored_out=$(bash "$R/evals/policy-evaluation/vendored-skills-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "vendored skills contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "vendored skills contract"
+  printf '%s\n' "$vendored_out" | sed 's/^/         /'
+  RC=1
+fi
+
+if catalog_out=$(bash "$R/evals/policy-evaluation/skill-catalog-contract.sh" 2>&1); then
+  printf '  ok   %-34s -> PASS\n' "skill catalog contract"
+else
+  printf '  FAIL %-34s -> FAIL\n' "skill catalog contract"
+  printf '%s\n' "$catalog_out" | sed 's/^/         /'
+  RC=1
+fi
+
 if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
 else

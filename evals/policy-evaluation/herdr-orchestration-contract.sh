@@ -14,9 +14,21 @@ must_contain() {
   grep -Fq "$text" "$R/$file" || fail "$file missing: $text"
 }
 
+# Require one line of the prompt that routes a domain to its canonical source.
+must_route() {
+  local file=$1; shift
+  local line
+  line=$(grep -F -- "$1" "$R/$file" || true)
+  shift
+  local fragment
+  for fragment in "$@"; do
+    line=$(printf '%s\n' "$line" | grep -F -- "$fragment" || true)
+  done
+  [ -n "$line" ] || fail "$file has no line routing this domain to: $*"
+}
+
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 PARALLEL="skills/parallel-orchestration/SKILL.md"
 HERDR="skills/herdr-runtime/SKILL.md"
 ADR="docs/adr/ADR-0025.md"
@@ -26,12 +38,9 @@ must_contain "$PROFILE" 'Herdrをoptional adaptive Supervisor runtimeとして�
 must_contain "$PROFILE" 'smallest useful fan-out'
 must_contain "$PROFILE" 'agent数自体をoptimization targetにしない'
 
-must_contain "$PROMPT_JA" '### Adaptive agent orchestration'
-must_contain "$PROMPT_JA" '`herdr-runtime`'
-must_contain "$PROMPT_JA" '多数決ではなくevidence / measurement / validation'
-must_contain "$PROMPT_EN" '### Adaptive agent orchestration'
-must_contain "$PROMPT_EN" '`herdr-runtime`'
-must_contain "$PROMPT_EN" 'rather than majority vote'
+# PROMPT holds routing only; the Skills checked below are canonical.
+must_contain "$PROMPT_JA" '`parallel-orchestration`'
+must_route "$PROMPT_JA" 'Herdr' '`herdr-runtime`'
 
 must_contain "$PARALLEL" '## Adaptive fan-out / fan-in'
 must_contain "$PARALLEL" '**competitive exploration**'

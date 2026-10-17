@@ -10,6 +10,7 @@
 - [`organization/`](./organization/) — Operating Modelとcurrent profile
 - [`formal/`](./formal/) — Constitutionのabstract state-transition model
 - [`skills/`](./skills/) — context-dependent judgment / playbook
+- [`catalog/`](./catalog/) — 能力の一覧と、外部を含むSkill候補の評価記録。導入するSkillの選定に使う（`skill-selection`）
 - [`docs/adr/`](./docs/adr/) — long-lived decision history
 
 現在の標準は [release-driven solo development profile](./organization/profiles/release-driven-solo.md) です。GitHub / Linear / release branch / Worktrunk / mise等の既存workflowはここで維持されます。
@@ -18,12 +19,9 @@
 
 ### Initialization prompt
 
-新規または既存 project で通常の `/init` 相当処理と同時に、用途に応じて次の prompt を渡してください。
+新規または既存 project で通常の `/init` 相当処理と同時に [`PROMPT.ja.md`](./PROMPT.ja.md) を渡してください。prompt は初期化手順と profile / Skill へのroutingだけを持ち、詳細ruleの正本は profile / Skill です。
 
-- [`PROMPT.ja.md`](./PROMPT.ja.md) — 日本語版。primary specification。
-- [`PROMPT.en.md`](./PROMPT.en.md) — 英語版。同じ operational semantics を定義。
-
-初期化時だけ包括的な prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
+初期化時だけ prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
 
 ### Install Agent Skills with `bunx skills` / `npx skills`
 
@@ -76,9 +74,9 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 既にSkillが導入済みでも、それだけで「更新不要」と判断しません。明示的にversionをpin/freezeしていない限り、配布元のcurrent revision/contentとの差分を確認し、変更があればproject-local customizationを保持しながらreconcile/updateします。配布元やrevisionを確認できない場合も、agentが独断で据え置き扱いにはしません。
 
 > [!IMPORTANT]
-> `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` / `PROMPT.en.md` は初期化用の包括的 prompt であり、Skills CLI によって自動実行・適用されるものではありません。
+> `bunx skills add` / `npx skills add` が導入するのは `skills/` 配下の Agent Skills です。ルートの `PROMPT.ja.md` は初期化用の prompt であり、Skills CLI によって自動実行・適用されるものではありません。
 >
-> 新規 project の初期構築には `PROMPT.*.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
+> 新規 project の初期構築には `PROMPT.ja.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
 
 ## Delivery model
 
@@ -91,10 +89,13 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
 - same-releaseのlinear hard dependencyはstacked PRとしてpredecessor branchへ向けられる
-- durable branchはfirst meaningful commit直後にDraft PRを必ず作成し、worker/subagentも例外にしない
+- durable branchはfirst meaningful commit直後にPRを必ず作成し、active/incompleteならDraft、readiness条件を満たしていればReady for reviewにする。作成時点で完成済みなら最初からReadyとし、worker/subagentも例外にしない
 - PR作成時にIssue linkage、assignee、reviewer/CODEOWNERS、repository-established labels、target release、stack contextを適切に設定する
 - stack predecessor変更後はcurrent SHAでaffected validationを再実行する
-- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開く
+- non-release ticket PRはreadiness/quality gate通過後に追加のmerge許可を待たず自律landingする
+- target release trunk landing後はIssueを明示closeし、dependent PRをreconcileしたうえでsafeならticket branchを削除する
+- PRなしticket branch / Ready未landing PR / land済みopen Issue / merged後残存branchをrecovery/completion時にrepairする
+- release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開き、release PRだけはexplicit user authorizationなしにmergeしない
 
 詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
@@ -103,10 +104,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 ```text
 .
 ├─ PROMPT.ja.md
-├─ PROMPT.en.md
 ├─ README.md
 ├─ CONTRIBUTING.md
 ├─ LICENSE
+├─ catalog/
+│  ├─ capabilities.tsv
+│  └─ candidates.tsv
 ├─ constitution/
 │  └─ CONSTITUTION.md
 ├─ organization/
@@ -122,7 +125,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0026.md
+│  │  └─ ADR-0001.md ... ADR-0031.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -133,10 +136,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ design-refinement/
    ├─ engineering-decisions/
    ├─ github-delivery/
+   ├─ idea-discovery/
    ├─ herdr-runtime/
    ├─ interaction-discipline/
    ├─ linear-release-control/
    ├─ onboarding/
+   ├─ orca-frontend/
    ├─ parallel-orchestration/
    ├─ policy-evaluation/
    ├─ quality-gate/
@@ -144,8 +149,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ secrets-management/
    ├─ security-audit/
    ├─ security-maintenance/
-   ├─ worktree-workflow/
-   └─ writing-discipline/
+   ├─ skill-selection/
+   └─ worktree-workflow/
 ```
 
 ## Documentation
@@ -155,7 +160,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0009`](./docs/adr/ADR-0009.md) — GitHub Actions の cost-aware CI resource efficiency policy。
 - [`ADR-0010`](./docs/adr/ADR-0010.md) — AI agent delivery の evidence-based forecasting / capacity estimation policy。
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policy を eval 可能な executable contract として扱う policy evaluation model。
-- [`ADR-0012`](./docs/adr/ADR-0012.md) — PR merge を explicit な human-authorized side effect として扱う境界。
+- [`ADR-0012`](./docs/adr/ADR-0012.md) — release PR mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
+- [`ADR-0027`](./docs/adr/ADR-0027.md) — autonomous ticket landing、Issue close、branch cleanup、guarded release merge boundary。
+- [`ADR-0028`](./docs/adr/ADR-0028.md) — 初期化promptをroutingに縮約し、英語版を廃止。
+- [`ADR-0029`](./docs/adr/ADR-0029.md) — 能力の一覧と候補記録による、再現可能なSkill選定。
+- [`ADR-0030`](./docs/adr/ADR-0030.md) — writing-disciplineをwriting-skillsへ一本化し、導入した複製をhashで検査する。
+- [`ADR-0031`](./docs/adr/ADR-0031.md) — worktree lifecycleをfrontendから独立させ、Orcaを任意のfrontendとして併用する。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
@@ -177,7 +187,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / weekly release sprint / stacked PR / Draft PR lifecycle。release planning / health / portfolio control planeはLinearに統一
+- `github-delivery` — Issues / weekly release sprint / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
@@ -189,10 +199,13 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
-- `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
+- `writing-discipline` — reader-oriented writing。正本は [rebuildup/writing-skills](https://github.com/rebuildup/writing-skills) で、このrepositoryは `.claude/skills/` にlock付きで導入している
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
 - `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
+- `idea-discovery` — 既存の延長ではない発想を求められた時に、候補の順位づけではなく一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する（仮説段階）
+- `orca-frontend` — Orcaを任意のworktree / agent terminal frontendとして併用し、lifecycle・作業の正本・orchestration stateをOrcaに依存させない
+- `skill-selection` — 能力ごとに担当Skillを1つ決め、外部Skillを個別に導入して `skills-lock.json` と採否を記録する
 
 ## Core principle
 

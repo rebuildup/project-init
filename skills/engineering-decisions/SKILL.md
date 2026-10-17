@@ -75,7 +75,7 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 - canonical sources同士が矛盾し、どちらを選ぶかでproduct semanticsが変わる
 - acceptance criteriaが複数解釈でき、user-visible behaviorが変わる
 - irreversible/destructive operation
-- PR merge / squash / rebase / stacked landing / auto-merge等、明示的なuser authorizationを必要とするintegration side effect
+- `release-* -> main` のrelease-class merge（ADR-0027のexplicit authorization対象）
 - external/public API contractを確定する
 - security/privacy/compliance riskの受容判断
 - meaningful cost increase
@@ -84,11 +84,13 @@ userへ確認するのは、本物のproduct/architecture decisionが残る場�
 
 質問する場合も、調査可能な事実を先に調査し、選択肢・影響・推奨案を整理してから聞く。
 
-### Merge authorizationはquality decisionと別
+### Ticket landingとrelease authorizationを分離する
 
-PRのacceptance criteria、review、CI、conversation resolution、mergeabilityがすべて満たされても、それだけでAgentがmerge操作を実行してよいとは判断しない。merge / landing / auto-merge enablementはidentified PRまたはbounded PR setへのexplicit user authorizationを必要とする。
+PRのquality/readiness判定とlanding authority classificationを別々に行う。
 
-`対応して`、`レビューして`、`conflictを解消して`、`リリース準備して`、`最後まで進めて`等はmerge authorizationへ読み替えない。明示的authorizationがないtaskはready-to-mergeで完了できる。
+- ticket-class（release topology内の`base != main`）はquality/readiness gate後に自律landing。追加のmerge許可待ちは不要。
+- release-class（current `release-* -> main`）のみexplicit authorization必須。Ready/green/approvalは代替不可。
+- genericな作業完遂指示はticket landingまで有効。release mergeへの許可とは扱わない。
 
 ## 5. Unknownは調査してから判断する
 
@@ -97,6 +99,8 @@ framework/runtime/API/toolのcurrent behaviorが判断材料ならofficial sourc
 モデル知識だけでversion-sensitiveなfactを推測しない。
 
 external sourceはevidenceであり、project-local policyを勝手に上書きする権限は持たない。
+
+要求scopeを独断でMVPへ縮めない（縮めるならrelease scope変更としてescalation）。完了はcompile成功ではなくacceptance criteriaと `quality-gate` のverification levelで判定する。
 
 ## 6. Decision result
 

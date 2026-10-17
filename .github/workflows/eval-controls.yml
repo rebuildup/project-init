@@ -1,0 +1,46 @@
+name: eval-controls
+on:
+  pull_request:
+    paths:
+      - 'evals/**'
+      - 'skills/**'
+      - 'organization/**'
+      - 'catalog/**'
+      - '.claude/skills/**'
+      - 'skills-lock.json'
+      - 'PROMPT.ja.md'
+      - 'scripts/**'
+      - 'mise.toml'
+      - 'orca.yaml'
+      - '.config/**'
+      - '.gitattributes'
+      - '.github/workflows/eval-controls.yml'
+  push:
+    branches: [main, 'release-*']
+jobs:
+  deterministic:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run deterministic controls
+        shell: bash
+        run: |
+          set +e
+          failed=0
+          for suite in \
+            policy-evaluation \
+            interaction-discipline \
+            linear-release-control \
+            skills-cli-materialization; do
+            echo "::group::evals/$suite"
+            bash "evals/$suite/controls.sh"
+            rc=$?
+            echo "::endgroup::"
+            if [ "$rc" -ne 0 ]; then
+              echo "::error title=Eval failure::$suite returned exit $rc"
+              failed=1
+            fi
+          done
+          exit "$failed"

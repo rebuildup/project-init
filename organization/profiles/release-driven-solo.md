@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026, ADR-0031
 
 ## Purpose
 
@@ -36,14 +36,19 @@
 - ticket branch: Issue number only
 - independent ticket PR: target release branch
 - hard dependency stack: immediate predecessor branchをbaseにできる
-- first meaningful durable commit後はcanonical remote publication + Draft PRを行う
-- release branchにmeaningful differenceが入ったらDraft release PRを維持する
-- `main`へのnormal integrationはcurrent release branchからのrelease PRだけ
+- first meaningful durable commit後はcanonical remote publication + PR作成を行う。active/incomplete implementationではDraft、readiness条件を満たしていればReady for reviewとする
+- Draftは未完了作業の一時状態に限定し、ticket/release PRがreadiness条件を満たしたら速やかにReady for reviewへ遷移する。PR作成時点ですでに条件を満たす場合は最初からReadyで作成する
+- release branchにmeaningful differenceが入ったらDraft release PRを維持し、release readiness条件を満たした時点でReady for reviewへ遷移する
+- readiness/quality gateを満たしたticket PRは追加のuser merge authorizationを待たず、dependency順にtarget release trunkへ自律landingする
+- ticketがtarget release trunkへlandしたらlinked Issueを明示closeし、安全ならticket branchを削除する
+- recovery/completion時にPRなしticket branch、Ready未landing PR、land済みopen Issue、merged後残存branchをreconcileする
+- `main`へのnormal integrationはcurrent release branchからのrelease PRだけ。release PRはbulk/autonomous ticket landingから常に除外する
+- `release-* -> main` のmergeだけはcurrent interactionのexplicit user authorizationを必須とし、generic merge/cleanup指示からrelease authorizationを推定しない
 - PR landing method: merge commit only
 - repository merge settings: `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false`
 - squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance等のbranch mechanicsとして別扱い
 - stacked/native landingはmerge commit semanticsを保持できる場合だけ使用する
-- merge/landingはADR-0012のexplicit authorization boundaryを維持する
+- ticket landingはADR-0027に従い自律実行し、release-class `release-* -> main` landingだけADR-0012/ADR-0027のexplicit authorization boundaryを維持する
 
 ### Workspace/runtime defaults
 
@@ -57,6 +62,8 @@
 - mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する
 - WSL/Linux worktree frontend: Worktrunk
 - Worktrunk unavailable/incompatible時: native Git worktree fallback
+- worktreeのsetup / teardown / port決定はrepository-controlledな入口に置き、Worktrunk・Orca・plain gitのどのfrontendからも同じ入口を呼ぶ
+- Orcaは任意のUI / agent terminal frontendとして併用できる。Orcaのworkspace・orchestration stateはSoTにせず、Orcaなしでも同じ状態を作れることを保つ（`orca-frontend`）
 - Rust/Cargo projectではconcurrent worktree間で`target-dir` / `build.build-dir`を共有せず、Cargo registry/git cacheと必要に応じたbounded `sccache`を共有候補とする
 - short-lived agent worktreeのincremental compilationはreuse期間とdisk footprintを見て`CARGO_INCREMENTAL=0`を選べる。long-lived interactive checkoutへ機械的に伝播させない
 - Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyは`--require-include` + repository-controlled `.worktreeinclude` allowlistを必須とし、承認済みnon-secret cache pathだけを対象にする。reflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する
@@ -78,6 +85,13 @@ Cloudflareを利用するprojectでは、Cloudflare control plane / resource API
 - `cf` がWranglerへ内部委譲するprojectでは、表面commandを `cf` に統一できてもWrangler dependencyを誤って削除しない
 - Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない
 - `cf` / WranglerはPracticeでありConstitutionではない。provider/tool capabilityの変化に応じて同等以上のguaranteeを持つmechanismへ置換できる
+
+### Interactive AI harness/provider configuration
+
+- Project runtime contractは、必要なagent能力・recovery evidence・budget/authorizationを定義する。個人のAPI契約、モデル名、token残量、ログイン状態をproject-levelの正しさとして固定しない。
+- current user environmentでは、machine-global CLIの導入は`pc-setup` / mise、任意のAPI接続先への切替は`dotfiles`の**統一`agent` launcher（宣言TOML `config/agents.toml` + process-scoped Infisical ENV injection）**で行う。別の専用ルーターや長寿命proxyを要求しない。
+- CLIの通常コマンドはnative loginのまま保持し、特別なprovider/accountは明示的な`agent <ハーネス> <provider>` routeで選択する。model・endpoint・credential名はTOMLの宣言のみで変更し、未知の組み合わせは起動前に失敗させる。quota枯渇による無断の従量課金failoverはしない。
+- 個別ハーネスのplugins/hooks/sessions/config、秘密情報のSoT、project-localな役割を混同しない。task再開は既存task（Issue）・PR・commitのdurable handoffを優先し、validationで状態を補完する。
 
 ### Secret / environment defaults
 
@@ -111,8 +125,10 @@ Cloudflareを利用するprojectでは、Cloudflare control plane / resource API
 
 ### Authority Integrity
 
-- PR readinessとmerge authorizationを分離
-- merge method固定やrepository settingの整合からauthorizationを導出しない
+- ticket-class integrationとrelease-class landingを分離する
+- ticket PRはreadiness/quality gate通過後のautonomous landingを標準権限とする
+- `release-* -> main` だけexplicit user authorizationを要求し、ticket権限をreleaseへ伝播させない
+- merge method固定やrepository settingの整合からrelease authorizationを導出しない
 - release/product/irreversible decisionは定義済みauthority boundaryへ従う
 
 ### Evidence Integrity
@@ -140,7 +156,7 @@ Cloudflareを利用するprojectでは、Cloudflare control plane / resource API
 ### Progress
 
 - 自明なimplementation decisionを不要にoperatorへ返さない
-- review/validation完了後はauthorization等の実blockerがなければ次stateへ進める
+- review/validation完了後のticket workは不要なpermission待ちで停止せず、landing -> Issue close -> safe branch cleanupまで進める。release mergeだけはexplicit authorizationを実blockerとして扱う
 - safety mechanismがdelivery deadlockを作る場合はOperating Modelをre-evaluateする
 
 ## Deviation
