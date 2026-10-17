@@ -51,6 +51,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0011.md` — agent policyをeval可能なexecutable contractとして扱うpolicy evaluation model。
 - `ADR-0012.md` — release mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
 - `ADR-0027.md` — autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary。
+- `ADR-0028.md` — 初期化promptをroutingに縮約し、英語版を廃止。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。

@@ -18,11 +18,9 @@
 
 ### Initialization prompt
 
-新規または既存 project で通常の `/init` 相当処理と同時に、用途に応じて次の prompt を渡してください。
+新規または既存 project で通常の `/init` 相当処理と同時に [`PROMPT.ja.md`](./PROMPT.ja.md) を渡してください。prompt は初期化手順と profile / Skill へのroutingだけを持ち、詳細ruleの正本は profile / Skill です。
 
-- [`PROMPT.ja.md`](./PROMPT.ja.md) — 初期化手順。詳細ruleは profile / Skill を正本とし、prompt は routing だけを持つ。
-
-初期化時だけ包括的な prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
+初期化時だけ prompt で repository を調査し、日常運用では短い root contract + project-local Agent Skills へ progressive disclosure することを目的とします。
 
 ### Install Agent Skills with `bunx skills` / `npx skills`
 
@@ -123,7 +121,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0026.md
+│  │  └─ ADR-0001.md ... ADR-0028.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -158,6 +156,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0011`](./docs/adr/ADR-0011.md) — Agent policy を eval 可能な executable contract として扱う policy evaluation model。
 - [`ADR-0012`](./docs/adr/ADR-0012.md) — release PR mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
 - [`ADR-0027`](./docs/adr/ADR-0027.md) — autonomous ticket landing、Issue close、branch cleanup、guarded release merge boundary。
+- [`ADR-0028`](./docs/adr/ADR-0028.md) — 初期化promptをroutingに縮約し、英語版を廃止。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。

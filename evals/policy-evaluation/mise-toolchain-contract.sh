@@ -31,13 +31,9 @@ must_contain "$PROFILE" 'mise unavailable/incompatible時は同等のversion/rep
 must_contain "$PROFILE" 'bounded version request + committed mise lockfile'
 must_contain "$PROFILE" '`mise install --locked`'
 
-must_contain "$PROMPT_JA" '### Project toolchain / bootstrap default'
+# PROMPT holds routing only; the profile is the canonical source checked above.
+must_contain "$PROMPT_JA" 'organization/profiles/release-driven-solo.md'
 must_contain "$PROMPT_JA" '`mise install`'
-must_contain "$PROMPT_JA" 'canonical version sourceが既にある場合、mise側へ独立した競合pinを追加しない'
-must_contain "$PROMPT_JA" 'bounded version request + committed mise lockfile'
-must_contain "$PROMPT_JA" '`mise install --locked`'
-must_contain "$PROMPT_JA" 'arbitraryなhost-global toolへsilent fallbackしない'
-must_contain "$PROMPT_JA" 'miseはPracticeでありConstitutionではない'
 
 
 must_contain "$ONBOARDING" 'project-local toolchain bootstrap: mise'

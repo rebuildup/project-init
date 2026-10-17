@@ -36,9 +36,8 @@ must_match "$SKILL" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
 must_match "$SKILL" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
 must_contain "$SKILL" 'methodを暗黙選択せず `merge` を明示'
 
-must_match "$PROMPT_JA" 'allow_merge_commit[[:space:]]*=[[:space:]]*true'
-must_match "$PROMPT_JA" 'allow_squash_merge[[:space:]]*=[[:space:]]*false'
-must_match "$PROMPT_JA" 'allow_rebase_merge[[:space:]]*=[[:space:]]*false'
+# PROMPT holds routing only; the profile is the canonical source checked above.
+must_contain "$PROMPT_JA" 'organization/profiles/release-driven-solo.md'
 
 must_contain "$CONTRIB" 'current release-driven profileではGitHub Pull Requestをmerge commitでlandします。'
 must_contain "$ADR" 'current release-driven profileでGitHub Pull Requestをlandする場合、標準methodは **merge commit** のみとする。'

@@ -26,11 +26,9 @@ must_contain "$PROFILE" 'explicit compatibility fallback'
 must_contain "$PROFILE" 'silent fallbackにしない'
 must_contain "$PROFILE" 'Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない'
 
-must_contain "$PROMPT_JA" '### Cloudflare CLI default'
-must_contain "$PROMPT_JA" 'primary CLIを `cf`'
-must_contain "$PROMPT_JA" '`cf cli search`'
-must_contain "$PROMPT_JA" 'Wranglerをexplicit compatibility fallbackとして残す'
-must_contain "$PROMPT_JA" 'tool update / initialization reconciliation時に `cf` capabilityを再確認'
+# PROMPT holds routing only; the profile is the canonical source checked above.
+must_contain "$PROMPT_JA" 'organization/profiles/release-driven-solo.md'
+must_contain "$PROMPT_JA" 'Cloudflare CLI（`cf`）'
 
 
 must_contain "$ADR" 'Wrangler examples trigger capability discovery, not automatic adoption'

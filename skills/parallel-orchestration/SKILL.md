@@ -226,6 +226,8 @@ standaloneでticket PRを扱うAgentはreadiness/quality gate通過後に自律l
 
 Reviewer inputはclean candidate snapshotへpinする。
 
+Reviewerが見るのは、requested scopeの網羅、decision precedenceとの整合、correctness、regression risk、required verification levelに対するtest adequacy、validation evidenceがcurrent SHAのものか、hidden coupling、target release / stack predecessorとの整合である。
+
 PR review contextには最低限:
 
 - linked Issue / acceptance criteria
@@ -247,6 +249,8 @@ recovered CoordinatorはSupervisorからchildを再発見し、running/completed
 GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。Ready ticket PRの未landing、land済みopen Issue、merged/landed後のstale ticket branchもdriftとしてrepairする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とし、release PRをautonomous ticket landingへ含めない。
 
 ## Fallback
+
+isolated sandbox同士なら同じfileを触ること自体は直列化の理由にならない。直列化やdependencyが必要なのは、same interfaceの非互換変更、same generated artifact、same external mutable resourceを扱う場合である。
 
 true isolationが使えない場合、shared mutable workspaceで並列実装しない。read-only researchの並列化または安全な直列実装へ縮退する。
 

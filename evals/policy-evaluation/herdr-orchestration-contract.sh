@@ -25,9 +25,9 @@ must_contain "$PROFILE" 'Herdrをoptional adaptive Supervisor runtimeとして�
 must_contain "$PROFILE" 'smallest useful fan-out'
 must_contain "$PROFILE" 'agent数自体をoptimization targetにしない'
 
-must_contain "$PROMPT_JA" '### Adaptive agent orchestration'
+# PROMPT holds routing only; the Skills checked below are canonical.
+must_contain "$PROMPT_JA" '`parallel-orchestration`'
 must_contain "$PROMPT_JA" '`herdr-runtime`'
-must_contain "$PROMPT_JA" '多数決ではなくevidence / measurement / validation'
 
 must_contain "$PARALLEL" '## Adaptive fan-out / fan-in'
 must_contain "$PARALLEL" '**competitive exploration**'

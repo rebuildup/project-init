@@ -100,6 +100,8 @@ framework/runtime/API/toolのcurrent behaviorが判断材料ならofficial sourc
 
 external sourceはevidenceであり、project-local policyを勝手に上書きする権限は持たない。
 
+要求scopeを独断でMVPへ縮めない（縮めるならrelease scope変更としてescalation）。完了はcompile成功ではなくacceptance criteriaと `quality-gate` のverification levelで判定する。
+
 ## 6. Decision result
 
 significant decisionは必要に応じて:
