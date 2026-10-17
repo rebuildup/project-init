@@ -61,3 +61,7 @@ pdf	anthropics/skills	skills/pdf/SKILL.md	document-formats	default	auto	Propriet
 skill-selection	rebuildup/project-init	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	project-initの正本
 yomiyasu	nanaism/yomiyasu	skills/yomiyasu/SKILL.md	prose-japanese	reference	auto	MIT	skimmed	1bc21f9	2026-10-17	AIが書いた日本語を構造から推敲する。SKILL.md単体で約110KBあり、起動のたびに重い。意味保持などの考え方はwriting-skillsのnatural-japaneseへ取り込む（writing-skills#30）
 idea-discovery	rebuildup/project-init	skills/idea-discovery/SKILL.md	ideation	default	auto	MIT	read	self	2026-10-17	長い探究から残った仮説にもとづく。発火場面を狭く絞ったガードレール。直接答えた場合との比較評価は未実施
+orca-frontend	rebuildup/project-init	skills/orca-frontend/SKILL.md	workspace-frontend	default	auto	MIT	read	self	2026-10-17	Orcaを使うprojectだけで使う。lifecycle・正本・orchestration stateをOrcaに持たせない
+orca-cli	stablyai/orca	skills/orca-cli/SKILL.md	workspace-frontend	watch	auto	MIT	skimmed	38131048	2026-10-17	Orca実行中だけ動くdiscovery stub。Orcaのbuildと版を合わせるため、machine単位でOrcaのupdaterに任せる。projectのlockには入れない
+orchestration	stablyai/orca	skills/orchestration/SKILL.md	supervisor-runtime	alternative	auto	MIT	skimmed	38131048	2026-10-17	OrcaのRun / Task / Dispatch。experimentalで、stateはtelemetryとして扱う。herdr-runtimeと同じworkerを管理させない
+orca-per-workspace-env	stablyai/orca	skills/orca-per-workspace-env/SKILL.md	execution-isolation	alternative	auto	MIT	skimmed	38131048	2026-10-17	workspaceごとのVM / container / SSH hostをOrcaが作る。sandbox-runtimeの担当を置き換えるかは比較してから決める

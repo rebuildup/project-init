@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026, ADR-0031
 
 ## Purpose
 
@@ -62,6 +62,8 @@
 - mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する
 - WSL/Linux worktree frontend: Worktrunk
 - Worktrunk unavailable/incompatible時: native Git worktree fallback
+- worktreeのsetup / teardown / port決定はrepository-controlledな入口に置き、Worktrunk・Orca・plain gitのどのfrontendからも同じ入口を呼ぶ
+- Orcaは任意のUI / agent terminal frontendとして併用できる。Orcaのworkspace・orchestration stateはSoTにせず、Orcaなしでも同じ状態を作れることを保つ（`orca-frontend`）
 - Rust/Cargo projectではconcurrent worktree間で`target-dir` / `build.build-dir`を共有せず、Cargo registry/git cacheと必要に応じたbounded `sccache`を共有候補とする
 - short-lived agent worktreeのincremental compilationはreuse期間とdisk footprintを見て`CARGO_INCREMENTAL=0`を選べる。long-lived interactive checkoutへ機械的に伝播させない
 - Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyは`--require-include` + repository-controlled `.worktreeinclude` allowlistを必須とし、承認済みnon-secret cache pathだけを対象にする。reflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する

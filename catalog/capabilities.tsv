@@ -32,3 +32,4 @@ workspace-lifecycle	single	worktreeを作業単位に使う	worktreeの作成・
 release-planning	single	release planningのcontrol planeを使う	release goal / health / portfolio
 skill-selection	single	always	導入するSkillを能力ごとに選び、lockと採否を記録する
 ideation	single	既存の延長ではない根本的に新しい発想を求められた	候補の順位づけではなく、一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する
+workspace-frontend	multi	worktreeやagent terminalをUIのfrontendで扱う	worktree一覧・agent terminal・diff review等のUI。lifecycleの正本にはしない

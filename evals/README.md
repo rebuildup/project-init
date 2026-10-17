@@ -42,6 +42,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 - `policy-evaluation/merge-method-contract.sh` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
 - `policy-evaluation/mise-toolchain-contract.sh` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / onboardingに定義され、promptからprofileへroutingされ、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
 - `policy-evaluation/herdr-orchestration-contract.sh` — adaptive fan-out / fan-in、Herdr Supervisor routing、telemetry/admission境界、Constitution layer separationを確認するdeterministic check
+- `policy-evaluation/worktree-lifecycle-contract.sh` — Worktrunk（`.config/wt.toml`）とOrca（`orca.yaml`）が同じ `mise run worktree:*` を呼ぶこと、frontend固有のtemplateや `.worktreeinclude` のglobを使わないこと、`scripts/worktree/` がbranchごとに決まった値を返し何度実行しても同じ状態になることを確認するdeterministic check
 - `policy-evaluation/vendored-skills-contract.sh` — `skills-lock.json` で導入した外部Skillのfileがcommitされ、内容がlockの `computedHash` と一致し、`skills/` で同名を公開していないことを確認するdeterministic check。`writing-discipline` のevalは正本の rebuildup/writing-skills にある
 - `policy-evaluation/skill-catalog-contract.sh` — `catalog/` の能力一覧と候補記録の形式、single能力の担当が1つであること、routerを担当にしないこと、自作Skillの記録漏れ、promptから `skill-selection` へのroutingを確認するdeterministic check
 - `policy-evaluation/cloudflare-cli-contract.sh` — Cloudflare projectで`cf` primary / Wrangler explicit fallbackがprofile / ADRに定義され、promptからprofileへroutingされ、provider-specific tool名がConstitutionへ漏れないことを確認するdeterministic check
@@ -63,6 +64,7 @@ bash evals/policy-evaluation/herdr-orchestration-contract.sh
 bash evals/policy-evaluation/cloudflare-cli-contract.sh
 bash evals/policy-evaluation/skill-catalog-contract.sh
 bash evals/policy-evaluation/vendored-skills-contract.sh
+bash evals/policy-evaluation/worktree-lifecycle-contract.sh
 bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
 bash evals/interaction-discipline/controls.sh

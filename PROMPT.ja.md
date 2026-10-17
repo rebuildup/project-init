@@ -53,7 +53,8 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
-| Worktrunk、Rust / Cargoのbuild cache | `worktree-workflow` |
+| Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |
+| Orcaをfrontendとして併用する場合 | `orca-frontend` |
 | quality gate、verification level、CI | `quality-gate` |
 | 不変条件と最小十分な保証手段 | `correctness-assurance` |
 | 脆弱性情報の取り込みと優先度 | `security-maintenance` |
@@ -95,6 +96,7 @@ root contractに書くもの:
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
+- worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。project-initの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
 - 下のhouse ruleのうち、そのprojectに該当するもの
 - 能力ごとの担当表：採用したSkill（外部Skillを含む）と使う場面。手動起動のSkillはpathも書く
 

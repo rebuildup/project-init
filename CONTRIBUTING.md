@@ -334,6 +334,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/worktree-workflow/SKILL.md`
 - `skills/skill-selection/SKILL.md`
 - `skills/idea-discovery/SKILL.md`
+- `skills/orca-frontend/SKILL.md`
 
 `catalog/candidates.tsv` は許可リストではなく評価の記録です。Skillを評価したら、実際に読んだrevisionと日付で記録を更新してください。`single` の能力に `default` を2つ置かないでください。外部packのrouterは `excluded` にします。Skillを `skills/` に追加した場合は、`candidates.tsv` にも記録を足してください（`skill-catalog-contract.sh` が検査します）。
 
