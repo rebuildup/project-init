@@ -370,6 +370,8 @@ IssueのDone条件:
 
 independent ticketでは通常のticket PR mergeがそのままtarget release trunkへのlandingになる。readiness/quality gateを満たしreal blockerがなければ、追加のuser merge authorizationを待たずmerge commitでlandingする。
 
+GitHub native stacked PR等のplatform featureは実装手段として使えるが、policy semanticsをpreview feature固有の挙動に依存させない。
+
 native stacked PRもticket-classとして自律landingできる。stackはbottom（trunkに最も近いPR）からdependency順に扱い、実際にlandingするcontiguous setの各ticketがacceptance criteria / review / current-SHA validationを満たしていることを確認する。mid-stack PRだけをintermediate predecessor branchへ孤立してmergeしたものをDone boundaryとして扱わない。
 
 native stack landingを使えずordinary nested PRへfallbackする場合、例えば `124 -> 123` の通常mergeはintermediate integrationにすぎない。#124のchangesがtarget `release-x-y-z` へ到達するまでIssue #124をclose/Doneにしない。
@@ -425,7 +427,7 @@ release PR:
 - included Issues/PRs
 - breaking changes
 - migration notes
-- release判断に必要なverification scope / evidence
+- release判断に必要なverification scope / evidence。CIのあるrepositoryではnative checksを正本とし、本文にはreaderが再確認に必要な時だけpointerを置く。CIのないrepositoryでは、検証したSHAと、controlを再実行するcommandを書く
 - durable known limitations
 - version/release metadata
 

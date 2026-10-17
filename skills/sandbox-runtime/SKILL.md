@@ -114,5 +114,6 @@ clone
 - credential boundary
 - resource/lifecycle cleanup
 - durable result extraction / recovery
+- snapshotの永続性、suspend / resume、provider喪失時の復旧、remote artifactの耐久性（create / destroyの費用だけで比べない）
 
 同等以上ならprovider implementationは自由に置換できる。単なるworktree分離をruntime isolationのproofとして扱わない。

@@ -16,9 +16,21 @@ must_contain() {
   grep -Fq "$text" "$R/$file" || fail "$file missing: $text"
 }
 
+# Require one line of the prompt that routes a domain to its canonical source.
+must_route() {
+  local file=$1; shift
+  local line
+  line=$(grep -F -- "$1" "$R/$file" || true)
+  shift
+  local fragment
+  for fragment in "$@"; do
+    line=$(printf '%s\n' "$line" | grep -F -- "$fragment" || true)
+  done
+  [ -n "$line" ] || fail "$file has no line routing this domain to: $*"
+}
+
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 ONBOARDING="skills/onboarding/SKILL.md"
 ADR="docs/adr/ADR-0022.md"
 CONSTITUTION="constitution/CONSTITUTION.md"
@@ -32,21 +44,11 @@ must_contain "$PROFILE" 'mise unavailable/incompatible時は同等のversion/rep
 must_contain "$PROFILE" 'bounded version request + committed mise lockfile'
 must_contain "$PROFILE" '`mise install --locked`'
 
-must_contain "$PROMPT_JA" '### Project toolchain / bootstrap default'
+# PROMPT holds routing only; the profile is the canonical source checked above.
+must_contain "$PROMPT_JA" 'organization/profiles/release-driven-solo.md'
+must_route "$PROMPT_JA" 'mise' 'tool default' 'profile'
 must_contain "$PROMPT_JA" '`mise install`'
-must_contain "$PROMPT_JA" 'canonical version sourceが既にある場合、mise側へ独立した競合pinを追加しない'
-must_contain "$PROMPT_JA" 'bounded version request + committed mise lockfile'
-must_contain "$PROMPT_JA" '`mise install --locked`'
-must_contain "$PROMPT_JA" 'arbitraryなhost-global toolへsilent fallbackしない'
-must_contain "$PROMPT_JA" 'miseはPracticeでありConstitutionではない'
 
-must_contain "$PROMPT_EN" '### Project toolchain / bootstrap default'
-must_contain "$PROMPT_EN" '`mise install`'
-must_contain "$PROMPT_EN" 'do not add an independent conflicting mise pin'
-must_contain "$PROMPT_EN" 'a bounded version request plus a committed mise lockfile'
-must_contain "$PROMPT_EN" '`mise install --locked`'
-must_contain "$PROMPT_EN" 'never silently fall back to arbitrary host-global tools'
-must_contain "$PROMPT_EN" 'mise is a Practice, not a Constitutional invariant'
 
 must_contain "$ONBOARDING" 'project-local toolchain bootstrap: mise'
 must_contain "$ONBOARDING" '`mise exec -- ...` / `mise run <task>`'

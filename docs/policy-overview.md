@@ -17,8 +17,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 
 ## Files
 
-- `PROMPT.ja.md` — 日本語版の初期化prompt本体。
-- `PROMPT.en.md` — 英語版。同じoperational semanticsを定義。
+- `PROMPT.ja.md` — 初期化prompt。初期化手順と正本へのroutingだけを持つ。
 - `skills/parallel-orchestration/SKILL.md` — adaptive fan-out / fan-in、subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/herdr-runtime/SKILL.md` — Herdrをoptional Supervisor/session Practiceとして使うagent-driven orchestration adapter。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
@@ -52,6 +51,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0011.md` — agent policyをeval可能なexecutable contractとして扱うpolicy evaluation model。
 - `ADR-0012.md` — release mergeのexplicit human-authorization boundary。ticket PRへの一律適用はADR-0027でsuperseded。
 - `ADR-0027.md` — autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary。
+- `ADR-0028.md` — 初期化promptをroutingに縮約し、英語版を廃止。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。
@@ -514,7 +514,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 
 ## Usage
 
-新規または既存projectで通常の `/init` 相当処理と同時に `PROMPT.ja.md` または `PROMPT.en.md` を渡してください。
+新規または既存projectで通常の `/init` 相当処理と同時に `PROMPT.ja.md` を渡してください。
 
 初期化agentは全文をroot agent fileへコピーせず:
 

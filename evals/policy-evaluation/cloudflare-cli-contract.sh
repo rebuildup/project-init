@@ -14,9 +14,21 @@ must_contain() {
   grep -Fq "$text" "$R/$file" || fail "$file missing: $text"
 }
 
+# Require one line of the prompt that routes a domain to its canonical source.
+must_route() {
+  local file=$1; shift
+  local line
+  line=$(grep -F -- "$1" "$R/$file" || true)
+  shift
+  local fragment
+  for fragment in "$@"; do
+    line=$(printf '%s\n' "$line" | grep -F -- "$fragment" || true)
+  done
+  [ -n "$line" ] || fail "$file has no line routing this domain to: $*"
+}
+
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
-PROMPT_EN="PROMPT.en.md"
 ADR="docs/adr/ADR-0026.md"
 CONSTITUTION="constitution/CONSTITUTION.md"
 
@@ -27,17 +39,10 @@ must_contain "$PROFILE" 'explicit compatibility fallback'
 must_contain "$PROFILE" 'silent fallbackにしない'
 must_contain "$PROFILE" 'Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない'
 
-must_contain "$PROMPT_JA" '### Cloudflare CLI default'
-must_contain "$PROMPT_JA" 'primary CLIを `cf`'
-must_contain "$PROMPT_JA" '`cf cli search`'
-must_contain "$PROMPT_JA" 'Wranglerをexplicit compatibility fallbackとして残す'
-must_contain "$PROMPT_JA" 'tool update / initialization reconciliation時に `cf` capabilityを再確認'
+# PROMPT holds routing only; the profile is the canonical source checked above.
+must_route "$PROMPT_JA" 'Cloudflare CLI（`cf`）' 'tool default' 'profile'
+must_contain "$PROMPT_JA" 'Cloudflare CLI（`cf`）'
 
-must_contain "$PROMPT_EN" '### Cloudflare CLI default'
-must_contain "$PROMPT_EN" 'use `cf` as the primary CLI'
-must_contain "$PROMPT_EN" '`cf cli search`'
-must_contain "$PROMPT_EN" 'explicit compatibility fallback'
-must_contain "$PROMPT_EN" 're-check `cf` capability during tool upgrades and initialization reconciliation'
 
 must_contain "$ADR" 'Wrangler examples trigger capability discovery, not automatic adoption'
 must_contain "$ADR" 'Wrangler is an explicit compatibility fallback'

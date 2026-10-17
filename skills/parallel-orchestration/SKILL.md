@@ -156,6 +156,8 @@ durable workerでは上記に加えて、`recovery_boundary`、durable checkpoin
 
 dependency / durable GitHub deliveryを使わない短命taskでは該当しないfieldはnull/omittedでよい。
 
+`budget` にはresource / cost / timeoutに加えて、childがさらにspawnできる深さと数の上限を含める。上限のないrecursive spawn（fork bomb）やunbounded costを作らない。
+
 `filesystem_policy` / `network_policy` はSupervisorが実際にenforceする境界を表す。policy enforcementが別のruntime/provider設定で行われる場合も、spawn contractにはそのpolicy IDまたは解決済みpolicyを記録し、worker inputと実際のsandbox制約が追跡可能でなければならない。
 
 ## Durable branch contract
@@ -226,6 +228,8 @@ standaloneでticket PRを扱うAgentはreadiness/quality gate通過後に自律l
 
 Reviewer inputはclean candidate snapshotへpinする。
 
+Reviewerが見るのは、requested scopeの網羅、decision precedenceとの整合、correctness / architecture consistency、regression risk、required verification levelに対するtest adequacy、validation evidenceがcurrent SHAのものか、hidden coupling、sandbox / runtimeでの再現性、target release / stack predecessorとの整合、PR metadataとIssue linkageの整合、関係する場合はrecovery / checkpointとの整合である。
+
 PR review contextには最低限:
 
 - linked Issue / acceptance criteria
@@ -247,6 +251,8 @@ recovered CoordinatorはSupervisorからchildを再発見し、running/completed
 GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。Ready ticket PRの未landing、land済みopen Issue、merged/landed後のstale ticket branchもdriftとしてrepairする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とし、release PRをautonomous ticket landingへ含めない。
 
 ## Fallback
+
+isolated sandbox同士なら同じfileを触ること自体は直列化の理由にならない。直列化やdependencyが必要なのは、same interfaceの非互換変更、same generated artifact、same external mutable resourceを扱う場合である。
 
 true isolationが使えない場合、shared mutable workspaceで並列実装しない。read-only researchの並列化または安全な直列実装へ縮退する。
 
