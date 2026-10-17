@@ -125,7 +125,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0030.md
+│  │  └─ ADR-0001.md ... ADR-0031.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -141,6 +141,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ interaction-discipline/
    ├─ linear-release-control/
    ├─ onboarding/
+   ├─ orca-frontend/
    ├─ parallel-orchestration/
    ├─ policy-evaluation/
    ├─ quality-gate/
@@ -164,6 +165,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0028`](./docs/adr/ADR-0028.md) — 初期化promptをroutingに縮約し、英語版を廃止。
 - [`ADR-0029`](./docs/adr/ADR-0029.md) — 能力の一覧と候補記録による、再現可能なSkill選定。
 - [`ADR-0030`](./docs/adr/ADR-0030.md) — writing-disciplineをwriting-skillsへ一本化し、導入した複製をhashで検査する。
+- [`ADR-0031`](./docs/adr/ADR-0031.md) — worktree lifecycleをfrontendから独立させ、Orcaを任意のfrontendとして併用する。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
@@ -202,6 +204,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
 - `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
 - `idea-discovery` — 既存の延長ではない発想を求められた時に、候補の順位づけではなく一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する（仮説段階）
+- `orca-frontend` — Orcaを任意のworktree / agent terminal frontendとして併用し、lifecycle・作業の正本・orchestration stateをOrcaに依存させない
 - `skill-selection` — 能力ごとに担当Skillを1つ決め、外部Skillを個別に導入して `skills-lock.json` と採否を記録する
 
 ## Core principle

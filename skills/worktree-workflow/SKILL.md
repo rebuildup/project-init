@@ -117,6 +117,26 @@ url = "http://localhost:{{ branch | hash_port }}"
 
 例のplaceholderをそのままcommitしてはいけない。Vite / Next.js / backend CLI / env-based server等、実際のcommand semanticsへ変換する。
 
+## Frontend independence
+
+worktreeを作るfrontendはWorktrunk以外（Orca、plain git等）も使われる。frontendごとにsetupが違うと、同じbranchでも作り方によって状態がずれる。そのため、作成・削除時の処理はfrontendに書かず、repository-controlledな入口（例：`mise run worktree:setup` / `mise run worktree:teardown`）に置く。frontendはその入口を呼ぶだけにする。
+
+```toml
+# .config/wt.toml
+[pre-start]
+setup = "mise run worktree:setup"
+
+[pre-remove]
+teardown = "mise run worktree:teardown"
+```
+
+- portなどworktreeごとの値は、frontendのtemplate（`hash_port` 等）ではなく入口の中でbranch名から決める。
+- 入口は何度実行しても同じ状態になるようにする。どのfrontendから、何回呼ばれても壊れないためである。
+- `.worktreeinclude` はliteralなpathだけで書く。globはOrcaが無視する。
+- 全frontendで使える入口がなければ、plain gitで作ったworktreeで手動実行できる形にする。
+
+Orcaを併用する手順は `orca-frontend` Skillを参照する。
+
 ## Rust / Cargo build output and cache
 
 Rust/Cargo projectでは、`target/`肥大化をworktree lifecycle上の明示的なresource concernとして扱う。ただし容量削減のためにcorrectness-sensitiveなmutable build outputを共有してはいけない。詳細なdecisionはADR-0024に従う。

@@ -53,7 +53,8 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
-| Worktrunk、Rust / Cargoのbuild cache | `worktree-workflow` |
+| Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |
+| Orcaをfrontendとして併用する場合 | `orca-frontend` |
 | quality gate、verification level、CI | `quality-gate` |
 | 不変条件と最小十分な保証手段 | `correctness-assurance` |
 | 脆弱性情報の取り込みと優先度 | `security-maintenance` |
