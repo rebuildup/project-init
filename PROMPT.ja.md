@@ -61,7 +61,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | secret value（Infisical） | `secrets-management` |
 | 中断からの復旧、checkpoint、fencing、外部side effect | `agent-recovery` |
 | fresh contributorが会話履歴なしで始められるdocs、`.tmp/` `.reference/` dotenv | `onboarding` |
-| README / ADR / Issue / PR / commit等、残る文章を書く時 | `writing-discipline` |
+| README / ADR / Issue / PR / commit等、残る文章を書く時 | `writing-discipline`（rebuildup/writing-skills） |
 | userとのやりとり、質問の絞り方、blockerの見せ方 | `interaction-discipline` |
 | policy自体の評価、context budget | `policy-evaluation` |
 | 導入するSkillの選定（外部Skillを含む） | `skill-selection` |

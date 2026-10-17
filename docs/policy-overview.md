@@ -33,7 +33,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/correctness-assurance/SKILL.md` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計。
 - `skills/policy-evaluation/SKILL.md` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard。
 - `skills/design-refinement/SKILL.md` — 実装前evidence-first design / unknown分解 / scope-risk調整 / trade-off documentation。
-- `skills/writing-discipline/SKILL.md` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline。
+- `writing-discipline` — reader-oriented writing。正本は rebuildup/writing-skills。このrepositoryは `.claude/skills/writing-discipline/` にlock付きで導入している。
 - `skills/interaction-discipline/SKILL.md` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing。
 - `skills/skill-selection/SKILL.md` — 能力ごとの担当Skillの選定、外部Skillの個別導入、`skills-lock.json` と採否の記録。
 - `catalog/capabilities.tsv` / `catalog/candidates.tsv` — 能力の一覧と、Skill候補の評価記録。
@@ -55,6 +55,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0027.md` — autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary。
 - `ADR-0028.md` — 初期化promptをroutingに縮約し、英語版を廃止。
 - `ADR-0029.md` — 能力の一覧と候補記録による、再現可能なSkill選定。
+- `ADR-0030.md` — writing-disciplineをwriting-skillsへ一本化し、導入した複製をhashで検査する。
 - `ADR-0013.md` — WSL/Linuxのworktree運用をWorktrunkへ集約するdefault layer採用。
 - `ADR-0014.md` — GitHub execution stateをcanonicalとしたままLinearをoptional release control planeとして導入する境界。
 - `ADR-0015.md` — advisory maintenanceとactive source auditの責務分離、coverage-led security audit、independent verification。

@@ -11,7 +11,6 @@ security-audit	rebuildup/project-init	skills/security-audit/SKILL.md	security-au
 secrets-management	rebuildup/project-init	skills/secrets-management/SKILL.md	secrets	default	auto	MIT	read	self	2026-10-17	project-initの正本
 agent-delivery-estimation	rebuildup/project-init	skills/agent-delivery-estimation/SKILL.md	estimation	default	auto	MIT	read	self	2026-10-17	project-initの正本
 onboarding	rebuildup/project-init	skills/onboarding/SKILL.md	onboarding	default	auto	MIT	read	self	2026-10-17	project-initの正本
-writing-discipline	rebuildup/project-init	skills/writing-discipline/SKILL.md	prose-artifact	default	auto	MIT	read	self	2026-10-17	project-initの正本
 interaction-discipline	rebuildup/project-init	skills/interaction-discipline/SKILL.md	interaction-style	default	auto	MIT	read	self	2026-10-17	project-initの正本
 policy-evaluation	rebuildup/project-init	skills/policy-evaluation/SKILL.md	policy-evaluation	default	auto	MIT	read	self	2026-10-17	project-initの正本
 herdr-runtime	rebuildup/project-init	skills/herdr-runtime/SKILL.md	supervisor-runtime	default	auto	MIT	read	self	2026-10-17	Herdrを使う場合のSupervisor adapter
@@ -19,7 +18,7 @@ sandbox-runtime	rebuildup/project-init	skills/sandbox-runtime/SKILL.md	execution
 worktree-workflow	rebuildup/project-init	skills/worktree-workflow/SKILL.md	workspace-lifecycle	default	auto	MIT	read	self	2026-10-17	Worktrunkを使う場合のworktree lifecycleとRust build cache
 linear-release-control	rebuildup/project-init	skills/linear-release-control/SKILL.md	release-planning	default	auto	MIT	read	self	2026-10-17	Linearでrelease planningをする場合
 natural-japanese	rebuildup/writing-skills	skills/natural-japanese/SKILL.md	prose-japanese	default	auto	MIT	skimmed	7ba09d1	2026-10-17	writing-disciplineの上に重ねる日本語の自然さ。lintはuvでPythonを実行する。比較評価は未実施
-writing-discipline	rebuildup/writing-skills	skills/writing-discipline/SKILL.md	prose-artifact	alternative	auto	MIT	read	7ba09d1	2026-10-17	project-init版と内容がずれた複製。正本の一本化が済むまでproject-init版を使う
+writing-discipline	rebuildup/writing-skills	skills/writing-discipline/SKILL.md	prose-artifact	default	auto	MIT	read	a11bb3b	2026-10-17	writing-skillsが正本。どのprojectでも必要になる
 skill-authoring	rebuildup/writing-skills	skills/skill-authoring/SKILL.md	skill-authoring	default	auto	MIT	skimmed	7ba09d1	2026-10-17	Skillをprose artifactとして書くための指針
 design-intent	rebuildup/design-skills	skills/design-intent/SKILL.md	visual-design	default	auto	MIT	read	342d709	2026-10-17	visual directionを実装前に固めるbrief。design-skills内で最も単独で機能する
 *	rebuildup/design-skills	skills	visual-design	watch	auto	MIT	skimmed	342d709	2026-10-17	82 Skillの網羅型で、descriptionから正しいSkillを選べるか未検証。Inspect→Extract→Translate→Implement→Verifyの核へ再編予定
@@ -60,3 +59,4 @@ xlsx	anthropics/skills	skills/xlsx/SKILL.md	document-formats	default	auto	Propri
 pptx	anthropics/skills	skills/pptx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
 pdf	anthropics/skills	skills/pdf/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
 skill-selection	rebuildup/project-init	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	project-initの正本
+yomiyasu	nanaism/yomiyasu	skills/yomiyasu/SKILL.md	prose-japanese	reference	auto	MIT	skimmed	1bc21f9	2026-10-17	AIが書いた日本語を構造から推敲する。SKILL.md単体で約110KBあり、起動のたびに重い。意味保持などの考え方はwriting-skillsのnatural-japaneseへ取り込む（writing-skills#30）
