@@ -35,6 +35,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/design-refinement/SKILL.md` — 実装前evidence-first design / unknown分解 / scope-risk調整 / trade-off documentation。
 - `writing-discipline` — reader-oriented writing。正本は rebuildup/writing-skills。このrepositoryは `.claude/skills/writing-discipline/` にlock付きで導入している。
 - `skills/interaction-discipline/SKILL.md` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing。
+- `skills/idea-discovery/SKILL.md` — 既存の延長ではない発想の進め方と、発見と後付けの正当化を区別する確認（仮説段階）。
 - `skills/skill-selection/SKILL.md` — 能力ごとの担当Skillの選定、外部Skillの個別導入、`skills-lock.json` と採否の記録。
 - `catalog/capabilities.tsv` / `catalog/candidates.tsv` — 能力の一覧と、Skill候補の評価記録。
 - `skills/linear-release-control/SKILL.md` — Linearをoptional release planning / health / portfolio control planeとして使う契約（採用時のみ）。
@@ -474,6 +475,7 @@ full promptを読むのは初回初期化とpolicy再構成時だけです。
 - `linear-release-control`
 - `worktree-workflow`
 - `skill-selection`
+- `idea-discovery`
 
 project固有のarchitecture / UI / release / debugging等は必要に応じて追加します。
 

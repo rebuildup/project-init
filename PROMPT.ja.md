@@ -64,6 +64,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | README / ADR / Issue / PR / commit等、残る文章を書く時 | `writing-discipline`（rebuildup/writing-skills） |
 | userとのやりとり、質問の絞り方、blockerの見せ方 | `interaction-discipline` |
 | policy自体の評価、context budget | `policy-evaluation` |
+| 既存の延長ではない発想を求められた時 | `idea-discovery` |
 | 導入するSkillの選定（外部Skillを含む） | `skill-selection` |
 
 mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofileに定義されています。そのprojectで実際に意味がある場合だけ導入してください。使っていないtoolをpolicy上の形式だけで追加しないでください。
