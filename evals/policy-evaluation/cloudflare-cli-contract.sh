@@ -14,6 +14,19 @@ must_contain() {
   grep -Fq "$text" "$R/$file" || fail "$file missing: $text"
 }
 
+# Require one line of the prompt that routes a domain to its canonical source.
+must_route() {
+  local file=$1; shift
+  local line
+  line=$(grep -F -- "$1" "$R/$file" || true)
+  shift
+  local fragment
+  for fragment in "$@"; do
+    line=$(printf '%s\n' "$line" | grep -F -- "$fragment" || true)
+  done
+  [ -n "$line" ] || fail "$file has no line routing this domain to: $*"
+}
+
 PROFILE="organization/profiles/release-driven-solo.md"
 PROMPT_JA="PROMPT.ja.md"
 ADR="docs/adr/ADR-0026.md"
@@ -27,7 +40,7 @@ must_contain "$PROFILE" 'silent fallbackにしない'
 must_contain "$PROFILE" 'Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない'
 
 # PROMPT holds routing only; the profile is the canonical source checked above.
-must_contain "$PROMPT_JA" 'organization/profiles/release-driven-solo.md'
+must_route "$PROMPT_JA" 'Cloudflare CLI（`cf`）' 'tool default' 'profile'
 must_contain "$PROMPT_JA" 'Cloudflare CLI（`cf`）'
 
 
