@@ -427,7 +427,7 @@ release PR:
 - included Issues/PRs
 - breaking changes
 - migration notes
-- release判断に必要なverification scope / evidence
+- release判断に必要なverification scope / evidence。CIのあるrepositoryではnative checksを正本とし、本文にはreaderが再確認に必要な時だけpointerを置く。CIのないrepositoryでは、検証したSHAと、controlを再実行するcommandを書く
 - durable known limitations
 - version/release metadata
 
