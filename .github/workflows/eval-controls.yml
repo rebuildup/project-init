@@ -5,6 +5,10 @@ on:
       - 'evals/**'
       - 'skills/**'
       - 'organization/**'
+      - 'catalog/**'
+      - '.claude/skills/**'
+      - 'skills-lock.json'
+      - 'PROMPT.ja.md'
       - '.gitattributes'
       - '.github/workflows/eval-controls.yml'
   push:
@@ -24,7 +28,6 @@ jobs:
           for suite in \
             policy-evaluation \
             interaction-discipline \
-            writing-discipline \
             linear-release-control \
             skills-cli-materialization; do
             echo "::group::evals/$suite"

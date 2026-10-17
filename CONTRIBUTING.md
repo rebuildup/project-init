@@ -323,7 +323,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/quality-gate/SKILL.md`
 - `skills/engineering-decisions/SKILL.md`
 - `skills/design-refinement/SKILL.md`
-- `skills/writing-discipline/SKILL.md`
+- `writing-discipline`（rebuildup/writing-skillsから導入。`.claude/skills/` の複製は直接編集せず、`bunx skills update` で更新する）
 - `skills/interaction-discipline/SKILL.md`
 - `skills/security-audit/SKILL.md`
 - `skills/secrets-management/SKILL.md`

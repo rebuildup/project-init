@@ -46,6 +46,13 @@ problems=$(awk -F '\t' '
   }' "$CAP" "$CAND")
 [ -z "$problems" ] || fail "$problems"
 
+# Capabilities needed by every project must have a standard owner.
+problems=$(awk -F '\t' '
+  FNR == NR { if (FNR > 1 && $3 == "always") always[$1] = 1; next }
+  FNR > 1 && $5 == "default" { owned[$4] = 1 }
+  END { for (c in always) if (!(c in owned) && c != "routing") print "capability " c " is needed always but has no default" }' "$CAP" "$CAND")
+[ -z "$problems" ] || fail "$problems"
+
 # In-repository candidates must point at Skills that exist.
 while IFS=$'\t' read -r skill source path _rest; do
   [ "$source" = "rebuildup/project-init" ] || continue

@@ -7,6 +7,14 @@ description: projectの初期化や再整備で、どのAgent Skillを導入す�
 
 Skillの導入を「良さそうなものを足す」作業にしない。目的は、projectに必要な能力ごとに、衝突しない担当を1つずつ決めることである。
 
+## Skillはガードレールである
+
+Skillは、agentが的外れな方向へ失敗するのを防ぐガードレールとして導入する。「当てはまるかもしれないから使う」ものではない。
+
+- 発火する場面が明確で、その場面に**ちょうど当てはまる**Skillだけを採用する。少しでも関係しそうなら起動する、という広いtriggerのSkillは採らない。
+- 手順の量は、防ぐ失敗の大きさに比例させる。短い作業を長い儀式に変えるSkill（小さな修正にも毎回TDDや対話式のbrainstormingを強制するもの等）は採らないか、条件を絞った起動にする。
+- 良いSkillは、防ぐ失敗の型と、その場面でだけ効く判断基準を短く持つ。一般的な心得の網羅は、agentが既定でできることの繰り返しになりやすい。
+
 project-initには、選定の材料となる2つの表がある。
 
 - `catalog/capabilities.tsv` — 能力の一覧。`scope` が `single` の能力は担当を1つに絞り、`multi` は併用してよい。`needed_when` はその能力が必要になる条件。
@@ -37,7 +45,8 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 - **routerではないか**：「応答の前に必ずSkillを確認せよ」「このpackのplaybookに従え」のように入口を握るSkillは導入しない。入口はprojectのroot contractだけが持つ。pack内の個別Skillは部品として使える。
 - **前提が合うか**：特定のIDE・plugin・pack固有の設定を前提にしていないか。userの承認待ちで自律実行を止めないか。
 - **出所と条件**：maintainer、license、更新状況、外部への通信やcommand実行の有無を確認する。licenseが再配布を禁じるSkillは、repositoryへcopyしない。
-- **費用**：常時読まれる量と、起動時に読む量。小さな修正にも重い手順を強制しないか。
+- **triggerの精度**：descriptionが、起動すべき場面とそうでない場面を区別できるか。他のSkillのdescriptionと同じ場面を奪い合わないか。
+- **費用**：常時読まれる量と、起動時に読む量。防ぐ失敗に比べて重すぎないか。
 
 迷う場合は、同じtaskをSkillあり・なしで実行して比べる（`policy-evaluation` の比較評価）。
 
@@ -47,6 +56,8 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。
 - `--copy` で導入し、導入されたSkillのfileと `skills-lock.json` を両方commitする。`skills-lock.json` だけでは再現にならないためである。2026-10時点の `skills experimental_install` は、lockの `computedHash` と照合せずに配布元の現在の内容を取得し、導入先も `.agents/skills/` に固定される。
 - 更新は `bunx skills update` で行い、Skill fileのdiffをPRで確認してから取り込む。配布元の変更を、確認せずに取り込まないためである。
+- 導入した複製は直接編集しない。複製の内容は `computedHash`（各fileの相対pathと中身を、pathの大文字小文字を区別しない順に連結したsha256）と一致し続ける必要がある。project-initの `evals/policy-evaluation/vendored-skills-contract.sh` と同じ検査をprojectのquality gateに入れる。直したい点があれば、正本へPRを出す。
+- 配布元がtagを付けているなら、`https://github.com/<owner>/<repo>/tree/<tag>` で導入してlockの `ref` をtagに固定する。commit SHAは `ref` に使えない。
 - licenseが再配布を禁じるSkillはcommitしない。`skills-lock.json` にだけ記録し、必要な環境で導入する。
 - `disable-model-invocation: true` のSkill（`candidates.tsv` の `invocation` が `manual`）は、agentが自動では起動しない。採用する場合は、root contractの能力表に「この場面ではこのpathを読む」と明記する。
 

@@ -125,7 +125,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0029.md
+│  │  └─ ADR-0001.md ... ADR-0030.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -148,8 +148,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ security-audit/
    ├─ security-maintenance/
    ├─ skill-selection/
-   ├─ worktree-workflow/
-   └─ writing-discipline/
+   └─ worktree-workflow/
 ```
 
 ## Documentation
@@ -163,6 +162,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0027`](./docs/adr/ADR-0027.md) — autonomous ticket landing、Issue close、branch cleanup、guarded release merge boundary。
 - [`ADR-0028`](./docs/adr/ADR-0028.md) — 初期化promptをroutingに縮約し、英語版を廃止。
 - [`ADR-0029`](./docs/adr/ADR-0029.md) — 能力の一覧と候補記録による、再現可能なSkill選定。
+- [`ADR-0030`](./docs/adr/ADR-0030.md) — writing-disciplineをwriting-skillsへ一本化し、導入した複製をhashで検査する。
 - [`ADR-0013`](./docs/adr/ADR-0013.md) — WSL/Linux の worktree 運用を Worktrunk へ集約する default layer 採用。
 - [`ADR-0014`](./docs/adr/ADR-0014.md) — GitHub execution state を canonical としたまま Linear を optional release control plane として導入する境界。
 - [`ADR-0015`](./docs/adr/ADR-0015.md) — advisory maintenance と active source audit を分離し、coverage-led security auditを標準化する判断。
@@ -196,7 +196,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
-- `writing-discipline` — reader-oriented writing / 作業contextから独立したartifactへの再構成 / Select-Compose-Reread pipeline
+- `writing-discipline` — reader-oriented writing。正本は [rebuildup/writing-skills](https://github.com/rebuildup/writing-skills) で、このrepositoryは `.claude/skills/` にlock付きで導入している
 - `interaction-discipline` — agent ownership / blocker presentation / one-question escalation / tangent defer / persistent prose routing
 - `linear-release-control` — Linear を標準 release planning / health / portfolio control plane として使う契約
 - `worktree-workflow` — Worktrunk を WSL/Linux の標準 worktree 操作 layer として使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle
