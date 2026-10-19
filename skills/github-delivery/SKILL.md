@@ -90,23 +90,15 @@ readiness reportでは `ruleset enforced` と `merge-executor policy enforced` �
 
 ## Weekly planning / adaptive release batching
 
-planning checkpointの標準は **1週間**。1 release train = 1 target semantic version = 1 release integration branchだが、1 sprint = 1 releaseとは限らない。週次境界ではreleaseを必ずpublishせず、早期releaseまたは複数週への持ち越しを判断する（ADR-0032）。
+週次はplanning checkpointであり公開日ではない。1 release train = 1 target version = 1 release branchを維持し、週内の早期release・複数週への持ち越しを許容する（ADR-0032）。
 
-version選択は公開する変更の意味・互換性・release intentを優先する。production/stable=major、通常の機能release=minor、小規模調整=patchを既定の出発点とするが、週次の経過だけでminor/patchを強制しない。explicit user version / external ecosystem / compatibility contractがあればそれを優先する。
+versionは変更の意味・互換性・user指定に従う。major/minor/patchは公開意図から選び、週次境界だけでbumpしない。
 
 canonical format:
 
 `release-<major>-<minor>-<patch>`
 
-例:
-
-- `release-0-1-0`
-- `release-0-2-0`
-- `release-1-0-0`
-
-release branchは新しいrelease trainを開始する時に `main` のrelease基準commitから作成する。release単位と週次計画を無理に1:1にしない。緊急patchでも`main`を直接変更せず、target patch release branch -> `main` のrelease PRを使用する。
-
-候補作成の判断は、admitted scope・変更面/依存・利用者への価値・未公開の滞留・release-only CI/deploy実測・障害/復旧リスクで行う。変更ファイル数/PR数だけで判断せず、project-local閾値・根拠が不明ならunknownと記録する。候補確定とfreeze、次releaseへのretarget、SHAの再検証については [adaptive-release-batching.md](./references/adaptive-release-batching.md) を参照する。週次はreview checkpointであり自動merge/公開許可ではない。
+release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由する。候補はscope・公開価値・滞留・変更リスク・release-only実測コストで判定し、PR数だけで決めない。freezeとcarry-overは [adaptive-release-batching.md](./references/adaptive-release-batching.md) に従う。
 
 ### Delivery forecast / capacity
 
@@ -171,7 +163,7 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 11. ticket-class PRをdependency順にmerge commitで自律landingし、target release trunkへの到達を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、dependent PRをreconcileしたうえでsafeならlanded ticket branchを削除する。
 13. repository stateをsweepし、PRなしticket branch / Ready未landing ticket PR / land済みopen Issue / merged後残存ticket branchを修復する。
-14. 週次またはproject-local triggerでrelease reviewを行い `hold | candidate | blocked` を記録する。candidateならscope/current release SHAをfreezeして候補外ticketのlandingを保留し、release branch全体のapplicable gateをcurrent SHAで検証する。候補変更時は再検証し、PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
+14. 週次またはproject-local triggerでrelease review（hold/candidate/blocked）。candidateならscope/SHAをfreeze、候補外landingを保留し、current SHAでrelease gateを実行する。候補変更時は再検証し、Linearをreconcileする。
 15. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
 16. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
 17. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
