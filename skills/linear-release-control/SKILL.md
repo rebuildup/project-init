@@ -38,7 +38,7 @@ Linearの値からGitHub execution stateを推測しない。矛盾時はGitHub 
 
 ### Project
 
-`1 release train = 1 Linear Project` をdefaultにする。release trainは複数週次planning checkpointを跨げる。同じ週に複数のreleaseを行ってもProjectはversion/release decision単位で管理し、sprintと1:1にしない。
+`1 release train = 1 Linear Project`。週次計画とreleaseは1:1にせず、Projectはversion単位で管理する。
 
 同じversion / release date / release decisionを共有する複数repositoryは1 Projectへまとめてよい。独立versionなら分ける。
 
@@ -68,7 +68,7 @@ release-level checkpointだけに使う。
 
 ### Cycle
 
-defaultでは使わない。週次planning checkpointをLinear Cycleと二重化しない。release cadenceは可変であり、必要なiteration metricだけCycleを導入する。
+defaultでは週次planningをCycleへ重複登録しない。release cadenceは可変。
 
 次の場合のみ検討する:
 
@@ -95,7 +95,7 @@ code changeのscope / acceptance criteriaはGitHub Issueへ置き、Linear Issue
 
 ### Start
 
-1. target version / release goal / target date（分かる場合）を確認する。週次checkpointはリリース期限や強制公開日と同一視しない。
+1. version / goal / 分かる場合のrelease dateを確認する。週次境界は自動公開日ではない。
 2. Linear Projectを作成または既存Projectをreconcileする。
 3. relevant repositories / release docsをresourceとしてlinkする。
 4. GitHubでrelease branchを作成する。
@@ -106,8 +106,8 @@ code changeのscope / acceptance criteriaはGitHub Issueへ置き、Linear Issue
 1. implementationはGitHub Issue / ticket PRで追跡する。
 2. LinearへPR本文・CI log・review discussionを複製しない。
 3. release判断へ影響するblockerだけProject / Linear Issueへ反映する。
-4. 週次または変更量/滞留/緊急性のtriggerで、GitHubのintegrated scopeとCI/deploy実測からrelease review（hold / candidate / blocked）を記録する。公開価値・release-only費用・最古未公開変更・リスクを併記し、PR/ファイル数だけで判定しない。
-5. candidate選択時はfreeze対象SHA/scope、次releaseへのcarry-over、validationとexplicit release authorizationの状態をGitHubのrelease PRに紐付ける。Linearはdecision/healthを表示するのみで第二のSoTにしない。
+4. 週次/変更量/滞留/緊急性でreview（hold/candidate/blocked）。GitHub scopeと公開価値・リスク・滞留・release-only CI/deploy実測を使い、PR数だけで判断しない。
+5. candidateならGitHub PRにfreeze SHA/scope、carry-over、validation、明示承認を記録。Linearはhealthのみ投影する。
 6. Project UpdateはGitHub actual stateを確認してから作成する。
 
 Project Updateの標準内容:
@@ -116,7 +116,7 @@ Project Updateの標準内容:
 - completed / integrated highlights
 - current blockers
 - release gate state
-- next checkpoint / decision（週次reviewとpublication deadlineを区別）
+- next checkpoint / decision
 - canonical evidence links
 
 ### Completion
