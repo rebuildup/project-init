@@ -33,6 +33,7 @@ jobs:
             policy-evaluation \
             interaction-discipline \
             linear-release-control \
+            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"
