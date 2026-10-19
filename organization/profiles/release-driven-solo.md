@@ -2,7 +2,7 @@
 
 - Status: Current default
 - Constitutional authority: none; this profile must refine the Constitution
-- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026, ADR-0031
+- Related: ADR-0004, ADR-0008, ADR-0012, ADR-0013, ADR-0016, ADR-0018, ADR-0022, ADR-0023, ADR-0024, ADR-0025, ADR-0026, ADR-0031, ADR-0032
 
 ## Purpose
 
@@ -28,10 +28,12 @@
 
 ### Delivery defaults
 
-- normal sprint cadence: 1 week
-- production/stable release intent: major bump default
-- normal sprint release intent: minor bump default
-- within-sprint / post-introduction adjustment: patch bump default
+- normal planning / review cadence: 1 week (publication cadenceは可変)
+- 1 release train = 1 version = 1 integration branch。複数planning windowへの継続・同じ週の早期releaseを許容する
+- versionは公開する変更のcontract / release intentで決める（major / minor / patch）。週次経過だけでbumpを強制しない
+- release candidate review: change scope/risk、value/urgency、unpublished wait、release-only CI/deploy実測で hold / candidate / blocked を記録し、project-local thresholdは根拠を示す
+- release candidate freeze: scope/current SHAを固定し、候補外ticketのlandingを短期間保留。ticket実装/レビューは継続し、候補外は次releaseへretargetする
+- freeze中のSHA変更はaffected validationを失効させて再実行する。candidate readyだけではmainへのrelease mergeを承認しない
 - top-level durable work: GitHub Issue
 - ticket branch: Issue number only
 - independent ticket PR: target release branch
@@ -48,7 +50,7 @@
 - repository merge settings: `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false`
 - squash merge / rebase mergeは使用しない。branch-local `git rebase` はstack maintenance等のbranch mechanicsとして別扱い
 - stacked/native landingはmerge commit semanticsを保持できる場合だけ使用する
-- ticket landingはADR-0027に従い自律実行し、release-class `release-* -> main` landingだけADR-0012/ADR-0027のexplicit authorization boundaryを維持する
+- ticket landingはADR-0027に従い自律実行する（candidate freeze中の一時停止を除く）。release-class `release-* -> main` landingだけADR-0012/ADR-0027のexplicit authorization boundaryを維持する
 
 ### Workspace/runtime defaults
 

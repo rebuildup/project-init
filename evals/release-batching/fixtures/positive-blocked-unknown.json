@@ -1,0 +1,20 @@
+{
+  "trigger": "weekly",
+  "outcome": "blocked",
+  "stage": "collecting",
+  "basis": {
+    "scope": "unknown",
+    "value": "non-urgent",
+    "waiting": "two days",
+    "change_risk": "localized",
+    "release_cost": "unknown"
+  },
+  "admission_passed": false,
+  "candidate_sha": null,
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}

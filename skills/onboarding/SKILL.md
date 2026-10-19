@@ -35,7 +35,7 @@ project規模に合わせて最小限に構成する。
 - `docs/architecture.md`: system boundaries / dependency direction / data flow
 - `docs/development.md`: bootstrap / run / test / validation
 - `docs/troubleshooting.md`: recurring failure / diagnosis
-- `docs/release.md`: weekly release sprint / version / deployment
+- `docs/release.md`: planning / release batching / deployment
 - `docs/security.md`: security maintenance / reporting when appropriate
 - `docs/recovery.md`: checkpoint / recovery / external side-effect workflow when complexity justifies it
 - ADR directory
@@ -135,7 +135,7 @@ root agent instruction / CONTRIBUTING / development docsから、canonical polic
 
 ## 7. GitHub workflow guide
 
-通常sprintが1週間で、1 sprint = 1 target semantic version = 1 release branchであることを明示する。
+週次planningと可変releaseを区別し、1 release train = 1 version = 1 branch、candidate freeze、明示的release承認を説明する。
 
 independent ticket:
 
