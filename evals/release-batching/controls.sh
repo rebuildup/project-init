@@ -43,7 +43,7 @@ require skills/github-delivery/SKILL.md '## Weekly planning / adaptive release b
 require skills/github-delivery/SKILL.md 'references/adaptive-release-batching.md'
 require skills/github-delivery/references/adaptive-release-batching.md 'hold | candidate | blocked'
 require skills/linear-release-control/SKILL.md 'release cadenceは可変'
-require docs/adr/ADR-0032.md 'explicit user authorization'
+require docs/adr/ADR-0032.md 'user authorization'
 
 if [ "$RC" -eq 0 ]; then
   echo "release-batching controls OK"
