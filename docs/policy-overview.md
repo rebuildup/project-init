@@ -21,7 +21,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/parallel-orchestration/SKILL.md` — adaptive fan-out / fan-in、subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/herdr-runtime/SKILL.md` — Herdrをoptional Supervisor/session Practiceとして使うagent-driven orchestration adapter。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/github-delivery/SKILL.md` — Issues / weekly release sprint / stacked PR / PR state lifecycle / release integration。release planning control planeはLinear。
+- `skills/github-delivery/SKILL.md` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle / release integration。release planning control planeはLinear。
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
@@ -495,7 +495,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。
-- sprintごとに `release-x-y-z` integration branchを使用する。
+- release trainごとに `release-x-y-z` integration branchを使用し、週次planningとversion/release公開のタイミングを分離する。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable branch = 1 ticket PRを基本とする。
 - independent PRはrelease branch、same-release linear hard dependencyはpredecessor branchへstack可能。
