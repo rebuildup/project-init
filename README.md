@@ -80,11 +80,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 ## Delivery model
 
-標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
+標準deliveryはGitHub IssuesとPull Requestsを中心とし、**1週間のplanning checkpointと適応的なrelease batching** を組み合わせます。週次終了は自動リリースのtriggerではありません。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
 
 - `main` = released/integrated source state
 - `release-x-y-z` = target version integration branch
-- version bump default: production/stable release = major、通常sprint = minor、sprint内または導入後の微調整 = patch
+- version bumpはrelease intent・互換性・公開する変更の意味から決定する（通常のmajor/minor/patchを参考とし、sprint境界だけではbumpしない）
+- release train = target version + release branch。複数週次checkpointへの持ち越しや早期リリースを許容し、変更量・公開価値・滞留・release-onlyコストで候補化を判断する
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
@@ -97,7 +98,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - PRなしticket branch / Ready未landing PR / land済みopen Issue / merged後残存branchをrecovery/completion時にrepairする
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開き、release PRだけはexplicit user authorizationなしにmergeしない
 
-詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0032`](./docs/adr/ADR-0032.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
 ## Repository layout
 
