@@ -37,11 +37,11 @@ def check(data):
     authorized = field("release_authorized")
     authorized_sha = field("authorized_sha")
 
-    if trigger not in TRIGGERS:
+    if not isinstance(trigger, str) or trigger not in TRIGGERS:
         failures.append("invalid release review trigger")
-    if outcome not in OUTCOMES:
+    if not isinstance(outcome, str) or outcome not in OUTCOMES:
         failures.append("invalid review outcome")
-    if stage not in STAGES:
+    if not isinstance(stage, str) or stage not in STAGES:
         failures.append("invalid candidate stage")
 
     if not isinstance(basis, dict):
@@ -66,7 +66,7 @@ def check(data):
     if outcome == "candidate":
         if admitted is not True:
             failures.append("candidate requires admitted scope")
-        if isinstance(basis, dict) and basis.get("scope", "").strip().lower() == "unknown":
+        if isinstance(basis, dict) and isinstance(basis.get("scope"), str) and basis["scope"].strip().lower() == "unknown":
             failures.append("candidate scope cannot be unknown")
         if stage not in ("frozen", "verified"):
             failures.append("candidate needs a frozen or verified stage")
