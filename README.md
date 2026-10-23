@@ -197,6 +197,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
 - `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
+- `code-naming` — シンボル・ファイル・ディレクトリの命名を参照箇所、意味の区別、冗長性、規約、互換性から判断
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
 - `writing-discipline` — reader-oriented writing。正本は [rebuildup/writing-skills](https://github.com/rebuildup/writing-skills) で、このrepositoryは `.claude/skills/` にlock付きで導入している

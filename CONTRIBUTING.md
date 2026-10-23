@@ -331,6 +331,7 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 - `skills/onboarding/SKILL.md`
 - `skills/agent-recovery/SKILL.md`
 - `skills/correctness-assurance/SKILL.md`
+- `skills/code-naming/SKILL.md`
 - `skills/worktree-workflow/SKILL.md`
 - `skills/skill-selection/SKILL.md`
 - `skills/idea-discovery/SKILL.md`
