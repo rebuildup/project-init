@@ -6,6 +6,7 @@ quality-gate	rebuildup/project-init	skills/quality-gate/SKILL.md	quality-gate	de
 design-refinement	rebuildup/project-init	skills/design-refinement/SKILL.md	design-before-build	default	auto	MIT	read	self	2026-10-17	project-initの正本
 engineering-decisions	rebuildup/project-init	skills/engineering-decisions/SKILL.md	engineering-decisions	default	auto	MIT	read	self	2026-10-17	project-initの正本
 correctness-assurance	rebuildup/project-init	skills/correctness-assurance/SKILL.md	correctness	default	auto	MIT	read	self	2026-10-17	project-initの正本
+code-naming	rebuildup/project-init	skills/code-naming/SKILL.md	code-naming	default	auto	MIT	read	self	2026-10-23	新規実装とリネームで参照箇所の明確さ・意味の区別・互換性を判断する正本
 security-maintenance	rebuildup/project-init	skills/security-maintenance/SKILL.md	security-advisory	default	auto	MIT	read	self	2026-10-17	project-initの正本
 security-audit	rebuildup/project-init	skills/security-audit/SKILL.md	security-audit	default	auto	MIT	read	self	2026-10-17	project-initの正本
 secrets-management	rebuildup/project-init	skills/secrets-management/SKILL.md	secrets	default	auto	MIT	read	self	2026-10-17	project-initの正本
