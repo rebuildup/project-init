@@ -464,15 +464,11 @@ budgetはworkflow設計の代替ではない。
 
 ### 8.11 反復テストの適応的な頻度制御
 
-初期化・再整備時は、テスト選択・既存キャッシュ・反復実行の履歴を調べる。まずframework-nativeの差分実行・キャッシュを評価し、重複しない場合に限り開発中の任意workerチェックへ頻度制御をopt-inで追加する。
+初期化・再整備時は既存runnerの差分実行とcacheを優先して調査する。必要であれば、**決定的な任意workerテスト**だけに履歴ベースの頻度減衰をopt-inで導入する（[実装例と適用条件](../../templates/quality/README.md)、ADR-0033）。
 
-- 連続成功では次回実行までの要求回数を漸増してよい。ただし検証入力・command・環境の同一性を確認できる決定的なチェックだけに限定し、上限と強制再実行経路を持つ。
-- 変更、失敗、不明な依存、履歴欠損・破損は実行へ倒す。未実行を成功と表現しない。
-- required worker verification、ticket integration、CI、release、security/native/device/E2E等の必須検証は頻度制御で省略しない。延期とverified evidenceを異なる機械可読結果とし、deferredをgreen gateにしない。
-- 状態はworkerごとのmutable境界に保存し、別worker/環境への無根拠な流用をしない。入力にignored/generated fileや外部状態が混じる場合は延期を禁止する。
-- project-local quality profileに、対象チェック、入力範囲、environment identity、上限、退出コード、強制実行入口、測定・撤去条件を記録する。
+検証入力・環境・commandの同一性が不明、または変更・失敗・履歴欠損時は実行する。延期は成功ではない。required worker / integration / CI / release / security / native / deviceのgateは減衰によって省略しない。
 
-テストランナーへ組み込む必要はない。外付けの参照実装・設定例は [templates/quality](../../templates/quality/README.md) にある。初期化先では既存runnerの能力と依存関係を確認し、必要なファイル・entry pointを実際にmaterializeする（ADR-0033）。
+quality profileに対象check、入力・環境の識別、最大間隔、強制実行入口、延期結果、測定・撤去条件を残す。状態はworkerごとに隔離し、他の環境へ流用しない。
 
 ## 9. Worker gate
 
