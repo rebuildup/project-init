@@ -71,3 +71,15 @@ test('missing inputs cannot be cached', t => {
   for (let i = 0; i < 3; i++) assert.equal(f.call().status, 0);
   assert.equal(f.count(), 3);
 });
+
+test('out-of-range state cannot indefinitely postpone verification', t => {
+  const f = fixture(t);
+  assert.equal(f.call().status, 0);
+  assert.equal(f.call().status, 0);
+  const path = join(f.dir, '.tmp/adaptive-tests/state.json');
+  const state = JSON.parse(readFileSync(path, 'utf8'));
+  state.checks.unit.remaining = 999;
+  writeFileSync(path, JSON.stringify(state));
+  assert.equal(f.call().status, 0);
+  assert.equal(f.count(), 3);
+});
