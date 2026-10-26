@@ -54,7 +54,7 @@ try {
 } catch { /* Missing or corrupt state always forces execution. */ }
 const previous = state.checks[check.id];
 if (adaptive && fingerprint && previous?.fingerprint === fingerprint && previous?.passed === true &&
-    Number.isInteger(previous.remaining) && previous.remaining > 1 &&
+    Number.isInteger(previous.remaining) && previous.remaining > 1 && previous.remaining <= previous.interval &&
     Number.isInteger(previous.interval) && previous.interval >= 1 && previous.interval <= check.maxInterval) {
   previous.remaining -= 1;
   persist();
