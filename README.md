@@ -78,6 +78,10 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 >
 > 新規 project の初期構築には `PROMPT.ja.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
 
+### Adaptive test scheduling
+
+開発中の任意・反復テストを変更状態と成功履歴から選択的に実行するPracticeは [quality-gate](./skills/quality-gate/SKILL.md) で定義します。フレームワーク非依存の参照実装、設定例、適用条件は [templates/quality](./templates/quality/README.md) を参照してください。必須のCI・統合・リリース検証は省略しません。
+
 ## Delivery model
 
 標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
