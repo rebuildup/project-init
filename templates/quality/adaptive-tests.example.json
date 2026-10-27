@@ -15,6 +15,7 @@
         "quality/adaptive-tests.json"
       ],
       "maxInterval": 8,
+      "required": false,
       "allowDefer": false
     }
   ]

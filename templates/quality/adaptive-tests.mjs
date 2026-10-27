@@ -25,6 +25,9 @@ if (matches.length !== 1) throw new Error('Check must exist exactly once');
 const check = matches[0];
 if (!Array.isArray(check.command) || check.command.length === 0 || check.command.some((s) => typeof s !== 'string' || !s)) throw new Error('Invalid command');
 if (!Array.isArray(check.inputs) || check.inputs.length === 0 || check.inputs.some((s) => typeof s !== 'string' || !s)) throw new Error('Explicit Git input pathspecs required');
+if (typeof check.required !== 'boolean') throw new Error('required must be explicitly true or false');
+if (check.required && check.allowDefer === true) throw new Error('required checks cannot allow deferral');
+if (check.allowDefer !== true && check.allowDefer !== false) throw new Error('allowDefer must be a boolean');
 if (!Number.isInteger(check.maxInterval) || check.maxInterval < 1 || check.maxInterval > 64) throw new Error('maxInterval must be in [1, 64]');
 
 const statePath = resolve(options.state || '.tmp/adaptive-tests/state.json');
@@ -32,8 +35,14 @@ const adaptive = check.allowDefer === true && options.context === 'worker' && Bo
 let fingerprint = null;
 if (adaptive) {
   try {
-    const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', ...check.inputs], { encoding: 'buffer' });
-    const files = [...new Set(out.toString('utf8').split('\0').filter(Boolean))].sort();
+    const matches = new Set();
+    for (const input of check.inputs) {
+      const out = execFileSync('git', ['ls-files', '-z', '--cached', '--others', '--exclude-standard', '--', input], { encoding: 'buffer' });
+      const resolved = out.toString('utf8').split('\0').filter(Boolean);
+      if (resolved.length === 0) throw new Error('Unresolved required input pathspec: ' + input);
+      for (const file of resolved) matches.add(file);
+    }
+    const files = [...matches].sort();
     if (files.length > 0) {
       const digest = createHash('sha256');
       digest.update(JSON.stringify({ version: VERSION, command: check.command, inputs: check.inputs, environment: options.environment, platform: process.platform, arch: process.arch, runtime: process.version, bun: process.versions.bun || null }));
@@ -48,9 +57,10 @@ if (adaptive) {
   }
 }
 let state = { version: VERSION, checks: {} };
+const isRecord = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
 try {
   const saved = JSON.parse(readFileSync(statePath, 'utf8'));
-  if (saved.version === VERSION && saved.checks && typeof saved.checks === 'object') state = saved;
+  if (isRecord(saved) && saved.version === VERSION && isRecord(saved.checks)) state = saved;
 } catch { /* Missing or corrupt state always forces execution. */ }
 const previous = state.checks[check.id];
 if (adaptive && fingerprint && previous?.fingerprint === fingerprint && previous?.passed === true &&
@@ -69,9 +79,15 @@ const succeeded = !run.error && run.status === 0;
 if (run.error) console.error('[adaptive-test] ' + run.error.message);
 if (adaptive && fingerprint) {
   if (succeeded) {
-    const interval = previous?.passed && previous.fingerprint === fingerprint ? Math.min(previous.interval * 2, check.maxInterval) : 1;
+    const interval = previous?.passed && previous.fingerprint === fingerprint &&
+      Number.isInteger(previous.interval) && previous.interval >= 1 && previous.interval <= check.maxInterval
+      ? Math.min(previous.interval * 2, check.maxInterval) : 1;
     state.checks[check.id] = { fingerprint, passed: true, interval, remaining: interval };
   } else state.checks[check.id] = { fingerprint, passed: false, interval: 1, remaining: 1 };
+  persist();
+} else if ((!succeeded || (adaptive && !fingerprint)) && Object.hasOwn(state.checks, check.id)) {
+  // A failed or untrusted run invalidates reusable success history.
+  delete state.checks[check.id];
   persist();
 }
 console.log('[adaptive-test] ' + (succeeded ? 'VERIFIED' : 'FAILED') + ' ' + check.id);
