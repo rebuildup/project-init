@@ -21,7 +21,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/parallel-orchestration/SKILL.md` — adaptive fan-out / fan-in、subagent分解・snapshot/result統合・stack-ready dependency execution。
 - `skills/herdr-runtime/SKILL.md` — Herdrをoptional Supervisor/session Practiceとして使うagent-driven orchestration adapter。
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
-- `skills/github-delivery/SKILL.md` — Issues / weekly release sprint / stacked PR / PR state lifecycle / release integration。release planning control planeはLinear。
+- `skills/github-delivery/SKILL.md` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle / release integration。release planning control planeはLinear。
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
@@ -65,6 +65,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `ADR-0016.md` — Linear標準化、release version intent、main protection baseline、Worktrunk default。
 - `ADR-0017.md` — Constitution / Operating Model / Practice / Skillの階層化とrefinement-based governance。
 - `ADR-0018.md` — current release-driven profileのPR landingをmerge commitへ固定し、repository merge settingsをreconcileする方針。
+- `ADR-0032.md` — 週次planningとproduction releaseを分離し、変更量・公開価値・滞留・実測コストによる適応的release候補選択。
 - `ADR-0022.md` — miseをproject-local toolchain/bootstrapの標準Practiceとして採用し、reproducibilityとnative version sourceとの責務境界を定義する方針。
 - `ADR-0023.md` — application secret valueをInfisicalへ集約するcurrent secret-management Practice。
 - `ADR-0024.md` — Rust/Cargo worktreeのmutable build output隔離、reflink seed、sccache、cleanup/profile tuningの標準Practice。
@@ -86,7 +87,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- GitHub IssuesとPull Requestsによるweekly ticket-driven release sprint workflow。release planning control planeはLinearのいずれか一方を明示（SoTではない）
+- GitHub IssuesとPull Requestsによるweekly planning / adaptive release batching workflow。release planning control planeはLinearのいずれか一方を明示（SoTではない）
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + PR state lifecycleとPR metadata management
 - public repositoryのprotected `main` / release-only main integration
@@ -153,9 +154,7 @@ Docker Desktopは必須前提にしません。
 
 ## GitHub agile delivery
 
-通常sprintは **1週間** です。
-
-1 sprint = 1 target semantic version = 1 release integration branchを維持します。
+通常のplanning / review checkpointは **1週間** です。1 release train = 1 target semantic version = 1 release integration branchを維持しつつ、複数週への継続や週内の早期releaseを許容します。週次境界を本番公開の自動triggerとしません。
 
 independent tickets:
 
@@ -180,7 +179,7 @@ main
 意味:
 
 - `main`: リリース済み・統合済みsource state
-- `release-x-y-z`: そのversionを目標とするweekly sprint integration branch / stack trunk
+- `release-x-y-z`: そのversionを目標とするrelease train integration branch / stack trunk
 - `<issue-number>`: 1 ticketのdurable branch
 - GitHub Issue dependency metadata: canonical dependency SoT
 - stacked PR: Issue dependency graphのlinear pathをGit/PR topologyへprojectionしたもの
@@ -189,7 +188,7 @@ main
 標準ライフサイクル:
 
 ```text
-Weekly Version / Release Goal
+Weekly Planning / Release Goal
         ↓
 release-x-y-z
         ↓
@@ -217,6 +216,10 @@ target release trunk reached
         ↓
 Issue close + safe ticket branch cleanup
         ↓
+Release review (hold / candidate / blocked)
+        ↓
+Candidate scope/SHA freeze + carry-over
+        ↓
 Release-wide verification
         ↓
 release PR Ready
@@ -238,7 +241,8 @@ Release complete
 - short-lived nested subtaskはSupervisor taskでよい
 - Linearをrelease planning / health / portfolio control planeとして使い、GitHub Projectsは標準運用へ導入しない
 - 通常sprintは1週間
-- sprintはtarget semantic versionで識別する。production/stable releaseはmajor、通常sprintはminor、sprint内または導入後の微調整はpatchをdefault bumpとする
+- planning windowとrelease versionは独立。versionはrelease intent・互換性・公開する変更の意味で判断し、週次経過だけでminor/patchを強制しない
+- release reviewではscope/依存/変更面/公開価値/最古の未公開変更/release-only CI・deploy実測/障害リスクを評価し、candidate freezeと次releaseへのcarry-overを管理する
 - release branch formatは `release-<major>-<minor>-<patch>`
 - ticket branch formatはIssue番号だけ: `123`
 - branch名へ `issue/` prefixやslug/titleを入れない
@@ -262,7 +266,7 @@ Release complete
 - native stacked PRではcontiguous groupのtarget release trunk landingをDone boundaryとして扱う
 - release branchが`main`とzero-diffの間だけDraft release PRは不要。first meaningful integrated difference直後にDraft release PRを開く
 - release PRはbulk/autonomous ticket landingとauto-mergeから除外する
-- sprint完了時にrelease branch全体を検証し、current interactionで対象release PR/actionへのexplicit user authorizationがある場合だけ`release-x-y-z -> main` PRをmergeする
+- 週次またはproject-local triggerでrelease reviewし、candidate選択後にscope/current SHAをfreezeしてrelease branch全体を検証する。freeze中は候補外ticketの自律landingを保留し、SHA変更時はaffected validationを再実行する。current interactionで対象release PR/actionへのexplicit user authorizationがある場合だけ`release-x-y-z -> main` PRをmergeする
 - PR landing methodはmerge commitに固定し、squash merge / rebase mergeは使用しない。branch-local `git rebase` は別のbranch mechanicsとして許可する
 - release PR mergeとpublication completeを分離し、project-local contractで定義したtag / GitHub Release / package / deploy等をpublish後にprovider/APIから再取得してexpected release SHAとの一致を確認する
 - CI/release healthはcombined statusの色ではなく、quality profileが要求するsemantic check identityがcurrent candidate SHAに存在してsuccessしているかで判定する
@@ -491,7 +495,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - `main`をreleased source stateとする。
 - public repositoryでは`main`をprotected branch/rulesetで保護し、direct push/editを禁止してrelease branchからのPRのみを正規更新経路にする。
 - 通常sprintは1週間。
-- sprintごとに `release-x-y-z` integration branchを使用する。
+- release trainごとに `release-x-y-z` integration branchを使用し、週次planningとversion/release公開のタイミングを分離する。
 - ticket branchはIssue番号だけを使用する。
 - 1 top-level Issue = 1 durable branch = 1 ticket PRを基本とする。
 - independent PRはrelease branch、same-release linear hard dependencyはpredecessor branchへstack可能。

@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'evals/**'
+      - 'docs/adr/**'
+      - 'templates/quality/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -38,6 +40,7 @@ jobs:
             policy-evaluation \
             interaction-discipline \
             linear-release-control \
+            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"

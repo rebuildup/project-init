@@ -81,9 +81,9 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - `main`をreleased source stateとして維持しているか
 - public repositoryで`main` protection/rulesetが有効か
 - public repositoryで`main`へのdirect push/editが禁止され、release branchからのrelease PRだけが正規更新経路になっているか
-- sprintとtarget release versionが1:1で対応しているか
+- release trainとtarget version / release branchが1:1で対応し、週次planning cadenceとrelease頻度を混同していないか
 - 通常sprint cadenceが1週間で維持されているか
-- `release-x-y-z`をsprint integration branchとして維持しているか
+- `release-x-y-z`をrelease train integration branchとして維持しているか
 - ticket branchがIssue番号だけになっているか
 - active durable ticket branchにpublished remote head + PRが存在し、incompleteならDraft、readiness条件を満たしていればReadyになっているか
 - branch作成 -> first meaningful commit -> remote publish -> remote head SHA確認 -> immediate PR作成が一つの開始手順になっているか
@@ -153,9 +153,10 @@ ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡
 - `main`へのdirect push / direct web edit / force push / deletionを通常運用で禁止する
 - `main`への正規delivery pathは current `release-x-y-z -> main` release PRだけとする
 - required approving review countは0、conversation resolutionは必須、required status checksは既定で空とし、存在しないcheck名を固定しない。merge executorは`base=main`なら`head=current release-*`を要求する
-- 通常sprint = 1週間
-- 1 sprint = 1 target semantic version。production/stable=major、通常sprint=minor、微調整=patch
-- sprint integration branch = `release-<major>-<minor>-<patch>`
+- 週次planning checkpoint = 1週間（production publishを強制しない）
+- 1 release train = 1 target semantic version = 1 release integration branch。versionは公開内容/互換性から決定する
+- candidate選択は変更量・公開価値・滞留・実測CI/deploy cost・リスクを用い、freeze/current SHA/validation/承認を分離する
+- release integration branch = `release-<major>-<minor>-<patch>`
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - ticket branch = `<issue-number>`
 - independent ticket PR base = target release branch
@@ -347,9 +348,9 @@ documented commandsは可能な限りfresh sandbox/CIで検証します。
 
 ### Sprint / release branch
 
-通常sprintは1週間です。
+通常のplanning checkpointは1週間ですが、release頻度は適応的です。週次境界だけでは公開しません。
 
-sprint開始時にtarget versionとrelease dateを決め、`main` から `release-<major>-<minor>-<patch>` を作成します。
+新しいrelease trainの開始時にtarget versionとrelease goalを定義し、`main` から `release-<major>-<minor>-<patch>` を作成します。release dateは計測に基づく見通しまたは明示的なdeadlineがある場合のみ設定します。
 
 release branchが`main`と同一な間はGitHub上PRを作れないため、このzero-diff状態だけはDraft release PRを要求しません。最初のmeaningful integrated differenceが入った直後に `release-x-y-z -> main` のDraft release PRを開きます。
 

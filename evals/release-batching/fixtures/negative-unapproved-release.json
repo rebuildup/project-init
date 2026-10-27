@@ -1,0 +1,20 @@
+{
+  "trigger": "change_limit",
+  "outcome": "candidate",
+  "stage": "verified",
+  "basis": {
+    "scope": "admitted independent feature",
+    "value": "ready for users",
+    "waiting": "one week",
+    "change_risk": "bounded interface changes",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "release_gate_passed": true,
+  "ticket_landing_requested": false,
+  "release_merge_requested": true,
+  "release_authorized": false,
+  "authorized_sha": null
+}
