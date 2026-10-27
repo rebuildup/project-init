@@ -30,8 +30,9 @@ if (check.required && check.allowDefer === true) throw new Error('required check
 if (check.allowDefer !== true && check.allowDefer !== false) throw new Error('allowDefer must be a boolean');
 if (!Number.isInteger(check.maxInterval) || check.maxInterval < 1 || check.maxInterval > 64) throw new Error('maxInterval must be in [1, 64]');
 
+const adaptive = check.allowDefer === true && !check.required && options.context === 'worker' && Boolean(options.environment) && !options.force && !process.env.CI;
+if (adaptive && !options.state) throw new Error('Adaptive worker checks require an isolated --state path');
 const statePath = resolve(options.state || '.tmp/adaptive-tests/state.json');
-const adaptive = check.allowDefer === true && options.context === 'worker' && Boolean(options.environment) && !options.force && !process.env.CI;
 let fingerprint = null;
 if (adaptive) {
   try {

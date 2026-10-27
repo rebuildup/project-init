@@ -17,7 +17,7 @@ function fixture(t, allowDefer = true) {
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ version: 1, checks: [{ id: 'unit', command: [process.execPath, 'runner.cjs'], inputs: ['src.txt', 'runner.cjs', 'config.json'], maxInterval: 8, required: false, allowDefer }] }));
   execFileSync('git', ['add', '.gitignore', 'src.txt', 'runner.cjs', 'config.json'], { cwd: dir });
   function call(extra = [], env = {}) {
-    return spawnSync(process.execPath, [scheduler, '--config', 'config.json', '--check', 'unit', '--context', 'worker', '--environment', 'dev', ...extra], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } });
+    return spawnSync(process.execPath, [scheduler, '--config', 'config.json', '--check', 'unit', '--context', 'worker', '--environment', 'dev', '--state', '.tmp/adaptive-tests/state.json', ...extra], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } });
   }
   const count = () => { try { return readFileSync(join(dir, '.tmp/runs'), 'utf8').length; } catch { return 0; } };
   return { dir, call, count };
@@ -70,6 +70,18 @@ test('missing inputs cannot be cached', t => {
   writeFileSync(join(f.dir, 'config.json'), JSON.stringify(config));
   for (let i = 0; i < 3; i++) assert.equal(f.call().status, 0);
   assert.equal(f.count(), 3);
+});
+
+test('adaptive workers must specify isolated state ownership', t => {
+  const f = fixture(t);
+  const result = spawnSync(process.execPath, [
+    scheduler, '--config', 'config.json', '--check', 'unit',
+    '--context', 'worker', '--environment', 'dev'
+  ], { cwd: f.dir, encoding: 'utf8', env: { ...process.env, CI: '' } });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /isolated --state path/);
+  assert.equal(f.count(), 0);
+  assert.equal(f.call().status, 0);
 });
 
 test('partial pathspec matches never permit deferral', t => {
