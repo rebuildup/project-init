@@ -10,6 +10,7 @@ debugging	single	コードがある	再現できる失敗のloopを作り、原�
 tdd	single	test基盤がある	失敗するtestを先に書く進め方
 code-review	multi	コードがある	diffを基準や仕様と照らして確認する観点
 correctness	single	重要な不変条件を持つ処理がある	不変条件の抽出と最小十分な保証手段の設計
+code-naming	single	コードの命名・リネーム・命名レビューを行う	利用箇所での明確さ、意味の区別、冗長性、命名規約、外部契約を判断する
 security-advisory	single	外部dependencyがある	脆弱性情報の取り込みと優先度
 security-audit	single	未知のsecurity defectを能動的に探すことを選んだ	coverageを明示した探索と独立検証
 secrets	single	application / serviceがsecretを使う	secret valueの保管、注入、権限
