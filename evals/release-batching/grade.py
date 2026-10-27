@@ -77,7 +77,7 @@ def check(data):
             normalized = value.strip().lower()
             if normalized in ("", "unknown", "n/a", "na", "none", "not measured", "unavailable", "?"):
                 return False
-            return re.fullmatch(r"\\d+\\s+(?:files?|prs?|commits?|changes?)(?:\\s+changed)?", normalized) is None
+            return re.fullmatch(r"\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?", normalized) is None
 
         if isinstance(basis, dict) and not any(substantive(basis.get(n)) for n in ("value", "waiting", "change_risk", "release_cost")):
             failures.append("candidate requires substantive non-count evidence")
