@@ -132,6 +132,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 └─ skills/
    ├─ agent-delivery-estimation/
    ├─ agent-recovery/
+   ├─ code-naming/
    ├─ correctness-assurance/
    ├─ design-refinement/
    ├─ engineering-decisions/
