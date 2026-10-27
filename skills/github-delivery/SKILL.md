@@ -34,7 +34,7 @@ PR landing前にcurrent PRを再取得し、actual head/baseから **ticket-clas
 - current ticket/release integration topologyに属する
 - 通常はticket branch -> target `release-*`、またはdependent ticket -> immediate predecessor ticket branch
 
-ticket-class PRはper-PR user merge authorizationを要求しない。acceptance criteria、current-SHA validation、blocking review/conversation、staleness等のapplicable readiness/quality gateを満たしreal blockerがなければ、Agent/Coordinatorはready-to-mergeで停止せずlandingまで進める。
+ticket-class PRはper-PR user merge authorizationを要求しない。acceptance criteria、current-SHA validation、blocking review/conversation、staleness等のapplicable readiness/quality gateを満たしreal blockerがなければ、Agent/Coordinatorはready-to-mergeで停止せずlandingまで進める。ただしrelease candidate freeze中は同じrelease trunkへの候補外ticketの自律landingを保留し、実装・reviewは継続できる（ADR-0032）。
 
 standaloneではAgent / subagent / Coordinator / Supervisorがticket landingを実行できる。parallel-orchestration下でshared durable integration stateへのordered landingが必要な場合はCoordinator / Supervisorがlandingを実行し、worker/subagentはvalidated candidateをhandoffする。
 
@@ -88,33 +88,17 @@ readiness reportでは `ruleset enforced` と `merge-executor policy enforced` �
 
 初期化時にrepositoryのmain protection/rulesetを実際に確認する。設定変更権限がある場合は上記baselineへ作成・修復し、権限がない場合は差分をblockerとして報告する。
 
-## Weekly release sprint
+## Weekly planning / adaptive release batching
 
-通常のsprint期間は **1週間** とする。
+週次はplanning checkpointであり公開日ではない。1 release train = 1 target version = 1 release branchを維持し、週内の早期release・複数週への持ち越しを許容する（ADR-0032）。
 
-1 sprint = 1 target semantic version = 1 release integration branchを維持する。
-
-version選択は次をdefaultとし、単に「何versionにするか」を毎回userへ聞かない。
-
-- production/stable release boundary: **major** bump
-- 通常のsprint release: **minor** bump
-- sprint内の微調整、またはそのsprint導入後の追加調整: **patch** bump
-
-external ecosystem / compatibility contract / user指定versionと衝突する場合だけ、その制約を優先して判断する。
+versionは変更の意味・互換性・user指定に従う。major/minor/patchは公開意図から選び、週次境界だけでbumpしない。
 
 canonical format:
 
 `release-<major>-<minor>-<patch>`
 
-例:
-
-- `release-0-1-0`
-- `release-0-2-0`
-- `release-1-0-0`
-
-release branchはsprint開始時に `main` のrelease基準commitから作成する。
-
-緊急patchや明示的なrelease判断では1週間から外れてよいが、通常planning cadenceは1週間を基準とする。patchでも`main`を直接変更せず、target patch release branch -> `main` のrelease PRを使用する。
+release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由する。候補はscope・公開価値・滞留・変更リスク・release-only実測コストで判定し、PR数だけで決めない。freezeとcarry-overは [adaptive-release-batching.md](./references/adaptive-release-batching.md) に従う。
 
 ### Delivery forecast / capacity
 
@@ -166,8 +150,8 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 
 ## Sprint / release cycle
 
-1. release intentからversion bump（production/stable=major、通常sprint=minor、微調整=patch）を決め、1週間のsprint windowを置く。release dateや中長期commitmentを置く場合は `agent-delivery-estimation` のevidence-backed forecastまたは明示的な外部deadlineと区別する。
-2. `release-x-y-z` branchを `main` から作成する。
+1. 週次planning windowを置き、release intent / scopeとtarget versionを決める。release dateは `agent-delivery-estimation` のevidence-backed forecastまたは外部deadlineと区別する。週次終了自体はpublication triggerにしない。
+2. 新しいrelease trainの開始時に `release-x-y-z` branchを `main` から作成する。
 3. sprint goalを定義する。
 4. Ready ticketを選択する。
 5. dependency / stack候補 / capacityを確認する。中長期capacity判断では `agent-delivery-estimation` のcurrent evidence / bottleneck / forecast statusを参照する。
@@ -179,12 +163,12 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 11. ticket-class PRをdependency順にmerge commitで自律landingし、target release trunkへの到達を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、dependent PRをreconcileしたうえでsafeならlanded ticket branchを削除する。
 13. repository stateをsweepし、PRなしticket branch / Ready未landing ticket PR / land済みopen Issue / merged後残存ticket branchを修復する。
-14. release branch全体を検証し、release PRをready-to-mergeへ持っていく。GitHub evidenceからLinear release Project health / updateをreconcileする。
+14. 週次またはproject-local triggerでrelease review（hold/candidate/blocked）。candidateならscope/SHAをfreeze、候補外landingを保留し、current SHAでrelease gateを実行する。候補変更時は再検証し、Linearをreconcileする。
 15. explicit release-merge authorizationがなければrelease merge前で停止する。authorizationがある場合だけrelease PRを `merge` methodで `main` へmergeし、merge commit / resulting `main` SHAを確認する。
 16. project-local release contractに従い、version tag / GitHub Release / package / deploy / store artifact等のpublication処理を実行する。release PR mergeだけでrelease completeとしない。
 17. publication artifactをprovider/APIから再取得し、expected version・expected release SHA・draft/prerelease state・artifact availabilityを検証する。publicationが欠落・stale・別SHAならrelease blockerとして閉じるまで継続する。
 18. publication/post-release verification完了後、safeならmerged release branchを削除する。
-19. 未完了ticketは次releaseへ明示的に再計画する。
+19. 候補外の未完了ticket/stackは次releaseへ明示的にretarget/rebaseし、dependencyとvalidationをreconcileする。release後はpublication済み `main` を基準に次のrelease trainを開始する。
 
 ## Release publication invariant
 
@@ -409,13 +393,13 @@ intended baseを安全に復元できない等、本当に解けない場合だ�
 
 ## Release integration
 
-release branchは複数ticketの統合結果を保持するsprint integration lineである。
+release branchは複数ticketの統合結果を保持するrelease train integration lineであり、1週間のplanning windowと1:1ではない。
 
-release branchはsprint開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
+release branchはrelease train開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
 Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
 
-release完了前にrelease branch上でfull applicable quality gateを実行する。
+release候補を選択しscope/current SHAをfreezeした後、release branch上でfull applicable quality gateを実行する。freeze中の新規ticket landingは禁止し、修正でSHAが変わった場合はapplicable gateを再実行する（[candidate review](./references/adaptive-release-batching.md)）。
 
 release PR:
 
@@ -463,7 +447,7 @@ conditional minimum sequence:
 
 複数release unitを持つprojectではauthoritative version sourceまたはunitごとのversion policyを明示する。
 
-weekly release branch modelとtag releaseは競合しない。release branch/PRがsource delivery、tag/publishがartifact deliveryに使われる場合、両者が同じintended version/SHAを指すことを検証する。
+adaptive release branch modelとtag releaseは競合しない。release branch/PRがsource delivery、tag/publishがartifact deliveryに使われる場合、両者が同じintended version/SHAを指すことを検証する。
 
 ## Multi-agent integration
 

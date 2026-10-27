@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'evals/**'
+      - 'docs/adr/**'
+      - 'templates/quality/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -24,6 +26,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Test adaptive scheduler
+        run: node --test evals/adaptive-tests/scheduler.test.mjs
       - name: Run deterministic controls
         shell: bash
         run: |
@@ -33,6 +40,7 @@ jobs:
             policy-evaluation \
             interaction-discipline \
             linear-release-control \
+            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"

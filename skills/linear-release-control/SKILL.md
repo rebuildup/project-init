@@ -38,7 +38,7 @@ Linearの値からGitHub execution stateを推測しない。矛盾時はGitHub 
 
 ### Project
 
-`1 release train = 1 Linear Project` をdefaultにする。
+`1 release train = 1 Linear Project`。週次計画とreleaseは1:1にせず、Projectはversion単位で管理する。
 
 同じversion / release date / release decisionを共有する複数repositoryは1 Projectへまとめてよい。独立versionなら分ける。
 
@@ -68,7 +68,7 @@ release-level checkpointだけに使う。
 
 ### Cycle
 
-defaultでは使わない。weekly release sprintとLinear Cycleを二重化しない。
+defaultでは週次planningをCycleへ重複登録しない。release cadenceは可変。
 
 次の場合のみ検討する:
 
@@ -95,7 +95,7 @@ code changeのscope / acceptance criteriaはGitHub Issueへ置き、Linear Issue
 
 ### Start
 
-1. target version / release goal / target dateを確認する。
+1. version / goal / 分かる場合のrelease dateを確認する。週次境界は自動公開日ではない。
 2. Linear Projectを作成または既存Projectをreconcileする。
 3. relevant repositories / release docsをresourceとしてlinkする。
 4. GitHubでrelease branchを作成する。
@@ -106,7 +106,9 @@ code changeのscope / acceptance criteriaはGitHub Issueへ置き、Linear Issue
 1. implementationはGitHub Issue / ticket PRで追跡する。
 2. LinearへPR本文・CI log・review discussionを複製しない。
 3. release判断へ影響するblockerだけProject / Linear Issueへ反映する。
-4. Project UpdateはGitHub actual stateを確認してから作成する。
+4. 週次/変更量/滞留/緊急性でreview（hold/candidate/blocked）。GitHub scopeと公開価値・リスク・滞留・release-only CI/deploy実測を使い、PR数だけで判断しない。
+5. candidateならGitHub PRにfreeze SHA/scope、carry-over、validation、明示承認を記録。Linearはhealthのみ投影する。
+6. Project UpdateはGitHub actual stateを確認してから作成する。
 
 Project Updateの標準内容:
 

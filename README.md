@@ -78,13 +78,18 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 >
 > 新規 project の初期構築には `PROMPT.ja.md` を使用し、その後の日常運用で必要な Skill を `bunx skills` または `npx skills` から導入する、という役割分担を想定しています。
 
+### Adaptive test scheduling
+
+開発中の任意・反復テストを変更状態と成功履歴から選択的に実行するPracticeは [quality-gate](./skills/quality-gate/SKILL.md) で定義します。フレームワーク非依存の参照実装、設定例、適用条件は [templates/quality](./templates/quality/README.md) を参照してください。必須のCI・統合・リリース検証は省略しません。
+
 ## Delivery model
 
-標準deliveryはGitHub IssuesとPull Requestsを中心とした **1週間のrelease sprint** です。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
+標準deliveryはGitHub IssuesとPull Requestsを中心とし、**1週間のplanning checkpointと適応的なrelease batching** を組み合わせます。週次終了は自動リリースのtriggerではありません。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
 
 - `main` = released/integrated source state
 - `release-x-y-z` = target version integration branch
-- version bump default: production/stable release = major、通常sprint = minor、sprint内または導入後の微調整 = patch
+- version bumpはrelease intent・互換性・公開する変更の意味から決定する（通常のmajor/minor/patchを参考とし、sprint境界だけではbumpしない）
+- release train = target version + release branch。複数週次checkpointへの持ち越しや早期リリースを許容し、変更量・公開価値・滞留・release-onlyコストで候補化を判断する
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
 - Issue dependency graph = canonical dependency SoT
 - independent ticket PRはtarget release branchへ向ける
@@ -97,7 +102,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - PRなしticket branch / Ready未landing PR / land済みopen Issue / merged後残存branchをrecovery/completion時にrepairする
 - release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを開き、release PRだけはexplicit user authorizationなしにmergeしない
 
-詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
+詳細は [`skills/github-delivery/SKILL.md`](./skills/github-delivery/SKILL.md)、[`ADR-0032`](./docs/adr/ADR-0032.md)、[`ADR-0008`](./docs/adr/ADR-0008.md)、[`CONTRIBUTING.md`](./CONTRIBUTING.md) を参照してください。
 
 ## Repository layout
 
@@ -132,6 +137,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 └─ skills/
    ├─ agent-delivery-estimation/
    ├─ agent-recovery/
+   ├─ code-naming/
    ├─ correctness-assurance/
    ├─ design-refinement/
    ├─ engineering-decisions/
@@ -187,7 +193,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 - `parallel-orchestration` — Worker / Supervisor role、attempt-class routing、subagent 分解・snapshot/result・stack-ready dependency 統合
 - `sandbox-runtime` — isolated runtime と cross-platform portability
-- `github-delivery` — Issues / weekly release sprint / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
+- `github-delivery` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
@@ -197,6 +203,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `onboarding` — fresh contributor 向け documentation 設計
 - `agent-recovery` — session/sandbox/context 中断からの durable recovery
 - `correctness-assurance` — 正しい答えを作る前提 / 不変条件・事前/事後条件の抽出 / 型・静的解析・runtime assertion・テスト・property/differential testing・formal verification・reviewからの最小十分な保証手段設計
+- `code-naming` — シンボル・ファイル・ディレクトリの命名を参照箇所、意味の区別、冗長性、規約、互換性から判断
 - `policy-evaluation` — execution profile / cold review / deterministic vs latent eval / context-budget model / policy regression guard
 - `design-refinement` — 実装前 evidence-first design / unknown 分解 / scope-risk 調整 / trade-off documentation
 - `writing-discipline` — reader-oriented writing。正本は [rebuildup/writing-skills](https://github.com/rebuildup/writing-skills) で、このrepositoryは `.claude/skills/` にlock付きで導入している

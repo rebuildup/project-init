@@ -462,6 +462,14 @@ budgetはworkflow設計の代替ではない。
 4.通常利用 + 合理的headroomにbudgetを設定
 5. usage spike時は「回数」ではなくrunner/job単位で再計測
 
+### 8.11 反復テストの適応的な頻度制御
+
+初期化・再整備時は既存runnerの差分実行とcacheを優先して調査する。必要であれば、**決定的な任意workerテスト**だけに履歴ベースの頻度減衰をopt-inで導入する（[実装例と適用条件](../../templates/quality/README.md)、ADR-0033）。
+
+検証入力・環境・commandの同一性が不明、または変更・失敗・履歴欠損時は実行する。延期は成功ではない。required worker / integration / CI / release / security / native / deviceのgateは減衰によって省略しない。
+
+quality profileに対象check、入力・環境の識別、最大間隔、強制実行入口、延期結果、測定・撤去条件を残す。状態はworkerごとに隔離し、他の環境へ流用しない。
+
 ## 9. Worker gate
 
 workerは担当scopeの高速feedbackを得る。

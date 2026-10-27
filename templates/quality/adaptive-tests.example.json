@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "id": "unit",
+      "command": [
+        "bun",
+        "test"
+      ],
+      "inputs": [
+        "src",
+        "test",
+        "package.json",
+        "bun.lock",
+        "quality/adaptive-tests.json"
+      ],
+      "maxInterval": 8,
+      "required": false,
+      "allowDefer": false
+    }
+  ]
+}
