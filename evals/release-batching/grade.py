@@ -5,6 +5,7 @@ This verifies invariants; it does not decide when release value outweighs cost,
 verify that input claims are true, or authorize any external side effect.
 """
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -68,11 +69,23 @@ def check(data):
             failures.append("candidate requires admitted scope")
         if isinstance(basis, dict) and isinstance(basis.get("scope"), str) and basis["scope"].strip().lower() == "unknown":
             failures.append("candidate scope cannot be unknown")
+        # A candidate may be considered with unknown costs, but not solely
+        # from changed-file, PR, or commit counts with no non-count evidence.
+        def substantive(value):
+            if not isinstance(value, str):
+                return False
+            normalized = value.strip().lower()
+            if normalized in ("", "unknown", "n/a", "na", "none", "not measured", "unavailable", "?"):
+                return False
+            return re.fullmatch(r"\\d+\\s+(?:files?|prs?|commits?|changes?)(?:\\s+changed)?", normalized) is None
+
+        if isinstance(basis, dict) and not any(substantive(basis.get(n)) for n in ("value", "waiting", "change_risk", "release_cost")):
+            failures.append("candidate requires substantive non-count evidence")
         if stage not in ("frozen", "verified"):
             failures.append("candidate needs a frozen or verified stage")
 
     if stage in ("frozen", "verified"):
-        if not isinstance(candidate_sha, str) or not candidate_sha.strip():
+        if not isinstance(candidate_sha, str) or re.fullmatch(r"(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})", candidate_sha) is None:
             failures.append("freeze requires an immutable candidate SHA")
         if ticket_landing is True:
             failures.append("candidate freeze forbids unrelated ticket landing")

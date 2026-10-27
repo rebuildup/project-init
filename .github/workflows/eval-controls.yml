@@ -3,6 +3,8 @@ on:
   pull_request:
     paths:
       - 'evals/**'
+      - 'docs/adr/**'
+      - 'templates/quality/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'

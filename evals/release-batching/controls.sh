@@ -26,6 +26,7 @@ expect positive-authorized-release PASS
 expect positive-blocked-unknown PASS
 expect negative-weekly-auto-merge FAIL
 expect negative-counts-only FAIL
+expect negative-mutable-ref FAIL
 expect negative-stale-validation FAIL
 expect negative-freeze-ticket-landing FAIL
 expect negative-unadmitted-candidate FAIL

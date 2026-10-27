@@ -10,11 +10,11 @@
     "release_cost": "measured release-only gate"
   },
   "admission_passed": true,
-  "candidate_sha": "candidate-a",
-  "validated_sha": "old-sha",
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
   "release_gate_passed": true,
   "ticket_landing_requested": false,
   "release_merge_requested": true,
   "release_authorized": true,
-  "authorized_sha": "candidate-a"
+  "authorized_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 }

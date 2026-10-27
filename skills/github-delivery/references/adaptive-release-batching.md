@@ -46,10 +46,10 @@ approval_state: not_requested | requested | authorized
 ## 3. Freeze・terminal verification・handoff
 
 1. `candidate` を選んだらCoordinatorがscope、freeze owner、current release trunk SHAを記録し、同じtrunkへの**新規ticket landingだけ**一時保留。非対象ticketの実装/PR reviewは継続できる。
-2. release candidate scopeに含めないin-flight ticketは次release branchへretarget/rebaseし、stack dependency、remote head、PR metadata、fresh validationを整合する。freeze解除で旧候補に滑り込ませない。
+2. release candidate scopeに含めないin-flight ticketはcarry-overとしてowner・依存関係・保留理由を記録し、旧candidateへのlandingを保留する。次release branchが存在する前にretargetしない。freeze解除で旧候補に滑り込ませない。
 3. frozen SHAに対してrelease-applicable integration / E2E / smoke / packaging / publication前のsemantic gateを実行。failure時は問題を修正するため明示的にunfreeze/re-scope、変更SHAでrequired gateを再実行する。
 4. release PRのreview/qualityが完成しても明示的user release authorizationがない場合はReadyで停止する。承認があればauthorization対象SHAを再取得して検証し、release PRをmerge commitでmainへ入れる。
-5. project-local publication artifactをpublish /再取得/ identity verificationする。次release trainはpublish後のmainから開始する。freezeが長期化・複数releaseが競合する場合はrelease coordinatorが明示的に整合し、平行publicationを暗黙許可しない。
+5. project-local publication artifactをpublish /再取得/ identity verificationする。次release trainはpublish後のmainから開始する。次branch作成後にcarry-over ticketをretarget/rebaseし、stack dependency、remote head、PR metadataを整合して変更後のSHAでfresh validationを実行する。freezeが長期化・複数releaseが競合する場合はrelease coordinatorが明示的に整合し、平行publicationを暗黙許可しない。
 
 ## 4. Calibration / recovery
 

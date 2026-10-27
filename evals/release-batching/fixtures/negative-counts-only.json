@@ -3,10 +3,14 @@
   "outcome": "candidate",
   "stage": "frozen",
   "basis": {
-    "scope": "12 files changed"
+    "scope": "12 files changed",
+    "value": "unknown",
+    "waiting": "unknown",
+    "change_risk": "unknown",
+    "release_cost": "unknown"
   },
   "admission_passed": true,
-  "candidate_sha": "candidate-a",
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
   "validated_sha": null,
   "release_gate_passed": false,
   "ticket_landing_requested": false,
