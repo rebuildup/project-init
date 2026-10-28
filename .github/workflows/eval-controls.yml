@@ -5,6 +5,7 @@ on:
       - 'evals/**'
       - 'docs/adr/**'
       - 'templates/quality/**'
+      - 'templates/agent-routing/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -31,6 +32,8 @@ jobs:
           node-version: '22'
       - name: Test adaptive scheduler
         run: node --test evals/adaptive-tests/scheduler.test.mjs
+      - name: Test delegated agent routing
+        run: node --test templates/agent-routing/dispatch.test.mjs
       - name: Run deterministic controls
         shell: bash
         run: |

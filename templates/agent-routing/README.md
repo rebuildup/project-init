@@ -13,3 +13,4 @@
 この entrypoint は **自発的な委譲選択の保証にはなりません**。生成した root contract と harness 側の tool permission/hook で、roleに対応しないネイティブ委譲を制限してください。CLIが存在しない環境やHerdrの検出に失敗した場合は `blocked` とし、ユーザーが認可していない代替経路を使用しないでください。
 
 テスト: `node --test dispatch.test.mjs`。外部の認証・Herdr・Piを実際に動かすE2Eは対象マシンで別途実施し、通過するまで運用readyとはしません。
+Claude Code でnative delegationを停止したい場合は、`claude-settings.example.json` の `hooks.PreToolUse` をproject-local `.claude/settings.json` へ競合なく統合し、`claude-guard.mjs` を指定した `scripts/agent-routing/` へ置いてください。このhookは `Agent` / `Task` 呼び出しのみ拒否し、任意のBash経由での別CLI起動は防げません。一般のread/searchやnative observational helperにも影響するため、project固有の許可境界と合わせて導入してください。実際のprojectへの自動配布はまだ未実装です。

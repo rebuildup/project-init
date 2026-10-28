@@ -33,3 +33,14 @@ test('plan requires no installed agent/herdr binary',()=>{
   assert.equal(child.status,0,child.stderr);
   assert.equal(JSON.parse(child.stdout).provider,'openrouter-free');
 });
+
+test('native Claude Agent/Task tool invocations are rejected by hook',()=>{
+  for (const tool_name of ['Agent','Task']) {
+    const child=spawnSync(process.execPath,[join(here,'claude-guard.mjs')],{encoding:'utf8',input:JSON.stringify({tool_name})});
+    assert.equal(child.status,0,child.stderr);
+    assert.equal(JSON.parse(child.stdout).hookSpecificOutput.permissionDecision,'deny');
+  }
+  const allowed=spawnSync(process.execPath,[join(here,'claude-guard.mjs')],{encoding:'utf8',input:JSON.stringify({tool_name:'Read'})});
+  assert.equal(allowed.status,0);
+  assert.equal(allowed.stdout,'');
+});
