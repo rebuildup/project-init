@@ -1,0 +1,18 @@
+{
+  "roles": {
+    "implementation": {
+      "supervisor": "herdr",
+      "harness": "pi",
+      "provider": "minimax",
+      "fallback": "none",
+      "nativeSubagents": "deny"
+    },
+    "review": {
+      "supervisor": "herdr",
+      "harness": "pi",
+      "provider": "openrouter-free",
+      "fallback": "none",
+      "nativeSubagents": "deny"
+    }
+  }
+}

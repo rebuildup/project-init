@@ -76,14 +76,6 @@ project-init logical capabilityからHerdrへmappingする場合のcurrent shape
 
 特にcancelは `ctrl+c` を送っただけで完了とみなさない。process/agent stateとdurable side effectをreconcileし、durable Workerならfencing ownershipを更新してからreplacement attemptをadmitする。
 
-## Provider-constrained launch via unified `agent`
-
-project-local routeが `agent <harness> <provider>` を要求する場合、`herdr agent start --kind <harness>` だけでは同等ではない。後者は標準バイナリを起動し、dotfilesのprovider-scoped Infisical injectionを通らない。**先にrouteを解決してproviderをpin**し、Herdr paneの中で正本launcherを実行する。
-
-現行Herdrでは`workspace create --no-focus`が返した`root_pane.pane_id`に対し`pane run <pane_id> "agent pi openrouter-free"`のように実行できる。Herdrが実行中のPiを検知した後、`agent get` / `agent rename` / `agent prompt` / `agent read`で観測する。起動検知やagentの`idle`はprovider/modelの実応答検証ではない。詳しくは`templates/agent-routing/`を参照する。
-
-`agent`/Herdr/認証が欠ける場合はblocked。代替provider、native実行、無断従量課金へのsilent fallbackは禁止する。tool permission / hooksによる強制はruntime固有であり、Skill指示そのものをenforcementと誤認しない。使用不能時に同じmutable attemptを別machineへ二重起動しない。
-
 ## Agent-driven Supervisor loop
 
 Herdr-managedなCoordinator / Supervisor agentは、`HERDR_ENV=1` を確認したうえでHerdr CLI/APIからsibling top-level Workerを起動・委譲・回収してよい。fan-out判断は `parallel-orchestration` のadaptive policyに従い、Herdr paneを増やすこと自体を目的にしない。

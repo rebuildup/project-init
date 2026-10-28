@@ -72,9 +72,7 @@
 - worktree自体をruntime isolation proofとして扱わない
 - cross-boundary / judgment-heavy workで独立したtop-level workが複数ある場合、Herdrをoptional adaptive Supervisor runtimeとして使用できる
 - fan-outはsmallest useful fan-outから開始し、Ready work / uncertainty / WIP / resource / human-review / CI bottleneckを見て増減する。agent数自体をoptimization targetにしない
-- 単独で済む軽量taskに不要な委譲を増やさない。external delegationが必要なroleについてはproject-localでresolved routeを先に固定し、Herdrと統一`agent` launcherが利用可能な場合はその経路を使う。provider/budgetの分離が必要な委譲をnative subagentで代替しない
-- native subagentはroute制約のない短命な観測・探索作業に限り選択可能。既存のproject-local delegation policyがexternal Workerを指定するroleではnative subagentをdefaultにしない
-- 現在のroute選択・起動preflight・fail-closedの参照実装は`templates/agent-routing/`。モデル・credentialの定義は引き続きdotfilesの統一`agent` launcherをSoTとし、project-initに複製しない
+- short-lived helperはnative subagentを優先し、independent lifecycle / mutable ownership / background continuity / provider separation / human attachが必要なworkだけtop-level Workerへ昇格する
 - implementation workerのmutable runtimeは適切に分離する
 - parent/child handoffはimmutable identityへpinする
 
