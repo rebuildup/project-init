@@ -52,6 +52,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | 中長期の見積もり | `agent-delivery-estimation` |
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
+| top-level委譲時のharness/provider経路選択と強制 | `parallel-orchestration`、`herdr-runtime`、`templates/agent-routing/` |
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
 | Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |
 | Orcaをfrontendとして併用する場合 | `orca-frontend` |
@@ -96,6 +97,7 @@ root contractに書くもの:
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
+- top-level agent委譲を行うprojectでは、`templates/agent-routing/` のroute契約と起動CLIをproject-localにmaterializeする。runtime / provider を同じroot contractへ直接hardcodeせず、task roleと設定ファイルへのpointerだけを記す。無断provider fallbackやnative subagent置換を禁止する境界も指す
 - worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。project-initの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
 - 下のhouse ruleのうち、そのprojectに該当するもの
 - 能力ごとの担当表：採用したSkill（外部Skillを含む）と使う場面。手動起動のSkillはpathも書く
