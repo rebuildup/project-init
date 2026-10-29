@@ -5,7 +5,7 @@ import { normalizeSnapshot, resolveLayout, planPlacement } from './layout.mts';
 const root='/work/project';
 const worker='/work/project-wt/134';
 const opts={functionName:'implementation',cwd:worker,projectRoot:root,name:'impl134',layout:{}};
-const empty={result:{workspaces:[],tabs:[],panes:[],agents:[]}};
+const empty={result:{workspaces:[] as {workspace_id:string; label?:string}[],tabs:[],panes:[],agents:[]}};
 const active={result:{
   workspaces:[{workspace_id:'w1',label:'project'}],
   tabs:[{tab_id:'w1:t1',workspace_id:'w1',label:'Ctrl',pane_count:1},
@@ -15,7 +15,7 @@ const active={result:{
          {pane_id:'w1:p3',tab_id:'w1:t2',workspace_id:'w1',cwd:'/work/project-wt/133'}],
   agents:[{name:'impl133',pane_id:'w1:p3'}],
 }};
-const clone=<T>(x: T): T=>structuredClone(x);
+const clone=<T,>(x: T): T=>structuredClone(x);
 test('first worker plans one project workspace, not an attempt-scoped workspace',()=>{
   assert.deepEqual(planPlacement(empty,opts),{action:'create-workspace',workspaceLabel:'project',
     tabLabel:'Work',cwd:worker,projectRoot:root,function:'implement'});
