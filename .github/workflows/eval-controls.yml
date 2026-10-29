@@ -13,6 +13,8 @@ on:
       - 'PROMPT.ja.md'
       - 'scripts/**'
       - 'mise.toml'
+      - 'package.json'
+      - 'tsconfig.json'
       - 'orca.yaml'
       - '.config/**'
       - '.gitattributes'
@@ -28,9 +30,14 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '22.18.0'
+      - uses: oven-sh/setup-bun@v2
+      - name: Install TypeScript tooling
+        run: bun install --no-save
+      - name: Typecheck TypeScript scripts
+        run: bun run typecheck
       - name: Test adaptive scheduler
-        run: node --test evals/adaptive-tests/scheduler.test.mjs
+        run: bun run test:adaptive
       - name: Run deterministic controls
         shell: bash
         run: |
