@@ -101,8 +101,10 @@ export async function run(argv: string[]): Promise<unknown> {
     const cwd=resolve(args.cwd);
     const projectRoot=resolve(args['project-root'] ?? discoverProjectRoot(cwd));
     if (!existsSync(cwd) || !existsSync(projectRoot)) fail('workspace/project root does not exist');
-    if (!isRecord(config) || !isRecord(config.roles) || !isRecord(config.roles[args.role])) fail('invalid routing config');
-    const configuredFunction = config.roles[args.role].function;
+    if (!isRecord(config) || !isRecord(config.roles)) fail('invalid routing config');
+    const selectedRole = config.roles[args.role];
+    if (!isRecord(selectedRole)) fail('invalid routing config');
+    const configuredFunction = selectedRole.function;
     if (configuredFunction !== undefined && typeof configuredFunction !== 'string') fail('invalid execution function');
     const functionName = configuredFunction ?? args.role;
     return locked(projectRoot, async () => {
@@ -118,6 +120,7 @@ export async function run(argv: string[]): Promise<unknown> {
       let pane: string | undefined;
       let workspace: string | undefined = decision.workspace;
       if (decision.action==='create-workspace') {
+        if (!decision.workspaceLabel || !decision.tabLabel) fail('invalid workspace placement plan');
         const ws=call('herdr',['workspace','create','--cwd',projectRoot,
           '--label',decision.workspaceLabel,'--no-focus'],true);
         workspace=ws?.result?.workspace?.workspace_id;
