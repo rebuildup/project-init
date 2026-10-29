@@ -5,23 +5,37 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+type CommandResult = { result?: { workspace?: { workspace_id?: string }; root_pane?: { pane_id?: string }; agent?: unknown } };
+interface Route {
+  role: string;
+  supervisor: 'herdr';
+  harness: string;
+  provider: string;
+  fallback: 'none';
+  nativeSubagents: 'deny';
+}
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
 const NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const ROUTE = /^[a-z][a-z0-9-]*$/;
 const PANE = /^[\w:-]+$/;
 const MAX_TIMEOUT = 300000;
-function fail(message) { throw new Error(message); }
-function call(binary, args, json = false) {
+function fail(message: string): never { throw new Error(message); }
+function call(binary: string, args: string[], json: true): CommandResult;
+function call(binary: string, args: string[], json?: false): string;
+function call(binary: string, args: string[], json = false): CommandResult | string {
   const out = spawnSync(binary, args, { encoding: 'utf8', shell: false, timeout: MAX_TIMEOUT });
   if (out.error || out.status !== 0) fail(binary + ' ' + (args[0] ?? '') + ': ' + (out.error?.message ?? out.stderr?.trim() ?? 'command failed'));
   if (!json) return out.stdout.trim();
-  try { return JSON.parse(out.stdout); } catch { fail(binary + ': malformed JSON response'); }
+  try { return JSON.parse(out.stdout) as CommandResult; } catch { fail(binary + ': malformed JSON response'); }
 }
-export function resolveRoute(config, role) {
-  if (!config || typeof config !== 'object' || Array.isArray(config)) fail('invalid routing config');
+export function resolveRoute(config: unknown, role: string): Route {
+  if (!isRecord(config)) fail('invalid routing config');
   if (typeof role !== 'string' || !NAME.test(role)) fail('invalid role');
-  if (!config.roles || !Object.hasOwn(config.roles, role)) fail('role not configured: ' + role);
+  if (!isRecord(config.roles) || !Object.hasOwn(config.roles, role)) fail('role not configured: ' + role);
   const selected = config.roles[role];
-  if (!selected || typeof selected !== 'object' || Array.isArray(selected)) fail('invalid role route');
+  if (!isRecord(selected)) fail('invalid role route');
   if (selected.supervisor !== 'herdr') fail('unsupported supervisor; no native fallback');
   if (typeof selected.harness !== 'string' || !ROUTE.test(selected.harness)) fail('invalid harness');
   if (typeof selected.provider !== 'string' || !ROUTE.test(selected.provider)) fail('invalid provider');
@@ -31,10 +45,10 @@ export function resolveRoute(config, role) {
   return {role, supervisor:'herdr', harness:selected.harness, provider:selected.provider,
     fallback:'none', nativeSubagents:'deny'};
 }
-export function parseArgs(argv) {
+export function parseArgs(argv: string[]): Record<string, string> {
   const [command, ...rest] = argv;
-  if (!['plan','start','prompt','read'].includes(command)) fail('usage: dispatch.mjs <plan|start|prompt|read> --config FILE [--role ROLE] [--cwd PATH] [--name NAME] [--target PANE] [--message-file FILE]');
-  const opts = {command};
+  if (!['plan','start','prompt','read'].includes(command)) fail('usage: dispatch.mts <plan|start|prompt|read> --config FILE [--role ROLE] [--cwd PATH] [--name NAME] [--target PANE] [--message-file FILE]');
+  const opts: Record<string, string> = {command};
   const allowed = new Set(['config','role','cwd','name','target','message-file']);
   if (rest.length % 2) fail('flag missing value');
   for (let i=0;i<rest.length;i+=2) {
@@ -51,9 +65,9 @@ export function parseArgs(argv) {
   if (opts.name && !NAME.test(opts.name)) fail('invalid agent name');
   return opts;
 }
-export async function run(argv) {
+export async function run(argv: string[]): Promise<unknown> {
   const args=parseArgs(argv);
-  const config=JSON.parse(readFileSync(resolve(args.config),'utf8'));
+  const config: unknown = JSON.parse(readFileSync(resolve(args.config),'utf8'));
   if (args.command==='plan') return resolveRoute(config,args.role);
   if (args.command==='start') {
     const route=resolveRoute(config,args.role);
@@ -88,7 +102,7 @@ export async function run(argv) {
 }
 if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
   run(process.argv.slice(2)).then(value=>console.log(JSON.stringify(value,null,2)),error=>{
-    console.error('agent-routing: '+error.message);
+    console.error('agent-routing: '+(error instanceof Error ? error.message : String(error)));
     process.exitCode=1;
   });
 }

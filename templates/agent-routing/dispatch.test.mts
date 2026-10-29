@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { resolveRoute, parseArgs } from './dispatch.mjs';
+import { resolveRoute, parseArgs } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
@@ -29,18 +29,18 @@ test('command validation rejects unknown flags',()=>{
   assert.throws(()=>parseArgs(['start','--config','x','--role','review','--cwd','.','--name','test','--model','paid']),/invalid/);
 });
 test('plan requires no installed agent/herdr binary',()=>{
-  const child=spawnSync(process.execPath,[join(here,'dispatch.mjs'),'plan','--config',join(here,'agent-routing.example.json'),'--role','review'],{encoding:'utf8',env:{PATH:'/nonexistent'}});
+  const child=spawnSync(process.execPath,[join(here,'dispatch.mts'),'plan','--config',join(here,'agent-routing.example.json'),'--role','review'],{encoding:'utf8',env:{PATH:'/nonexistent'}});
   assert.equal(child.status,0,child.stderr);
   assert.equal(JSON.parse(child.stdout).provider,'openrouter-free');
 });
 
 test('native Claude Agent/Task tool invocations are rejected by hook',()=>{
   for (const tool_name of ['Agent','Task']) {
-    const child=spawnSync(process.execPath,[join(here,'claude-guard.mjs')],{encoding:'utf8',input:JSON.stringify({tool_name})});
+    const child=spawnSync(process.execPath,[join(here,'claude-guard.mts')],{encoding:'utf8',input:JSON.stringify({tool_name})});
     assert.equal(child.status,0,child.stderr);
     assert.equal(JSON.parse(child.stdout).hookSpecificOutput.permissionDecision,'deny');
   }
-  const allowed=spawnSync(process.execPath,[join(here,'claude-guard.mjs')],{encoding:'utf8',input:JSON.stringify({tool_name:'Read'})});
+  const allowed=spawnSync(process.execPath,[join(here,'claude-guard.mts')],{encoding:'utf8',input:JSON.stringify({tool_name:'Read'})});
   assert.equal(allowed.status,0);
   assert.equal(allowed.stdout,'');
 });

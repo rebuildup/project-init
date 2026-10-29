@@ -48,7 +48,7 @@ jobs:
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
-        run: node --test templates/agent-routing/dispatch.test.mjs
+        run: node --test templates/agent-routing/dispatch.test.mts
       - name: Run deterministic controls
         shell: bash
         run: |
