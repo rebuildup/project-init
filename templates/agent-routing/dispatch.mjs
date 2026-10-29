@@ -6,13 +6,21 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { planPlacement } from './layout.mjs';
-import { resolve } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const ROUTE = /^[a-z][a-z0-9-]*$/;
 const PANE = /^[\w:-]+$/;
 const MAX_TIMEOUT = 300000;
+export function discoverProjectRoot(cwd) {
+  const run=spawnSync('git',['-C',cwd,'rev-parse','--path-format=absolute','--git-common-dir'],
+    {encoding:'utf8',timeout:10000});
+  if (run.status!==0) return cwd; // Non-Git workspace: cwd is the explicit project identity.
+  const common=resolve(run.stdout.trim());
+  if (basename(common)!=='.git') fail('nonstandard Git common directory; specify --project-root');
+  return dirname(common); // Main checkout for linked Worktrunk/Git worktrees.
+}
 async function locked(root, fn) {
   const id=createHash('sha256').update(root).digest('hex').slice(0,24);
   const lock=join(tmpdir(),'project-init-herdr-'+id+'.lock');
@@ -75,7 +83,7 @@ export async function run(argv) {
   if (args.command==='start') {
     const route=resolveRoute(config,args.role);
     const cwd=resolve(args.cwd);
-    const projectRoot=resolve(args['project-root'] ?? cwd);
+    const projectRoot=resolve(args['project-root'] ?? discoverProjectRoot(cwd));
     if (!existsSync(cwd) || !existsSync(projectRoot)) fail('workspace/project root does not exist');
     const functionName=config.roles[args.role].function ?? args.role;
     return locked(projectRoot, async () => {
