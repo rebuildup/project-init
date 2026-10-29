@@ -85,7 +85,9 @@
         "i",
         "mise leaked into Constitution"
       ]
-    ]
+    ],
+    "matches": [],
+    "files": []
   },
   "cloudflare-cli-contract": {
     "contains": [
@@ -149,7 +151,9 @@
         "i",
         "Cloudflare-specific tooling leaked into Constitution"
       ]
-    ]
+    ],
+    "matches": [],
+    "files": []
   },
   "herdr-orchestration-contract": {
     "contains": [
@@ -239,6 +243,232 @@
         "\\bHerdr\\b",
         "i",
         "Herdr leaked into Constitution"
+      ]
+    ],
+    "matches": [],
+    "files": []
+  },
+  "merge-method-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "PR landing method: merge commit only"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "methodを暗黙選択せず `merge` を明示"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "current release-driven profileではGitHub Pull Requestをmerge commitでlandします。"
+      ],
+      [
+        "docs/adr/ADR-0018.md",
+        "current release-driven profileでGitHub Pull Requestをlandする場合、標準methodは **merge commit** のみとする。"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "merge method",
+        "`github-delivery`",
+        "profile"
+      ]
+    ],
+    "matches": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_merge_commit\\s*=\\s*true"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_squash_merge\\s*=\\s*false"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_rebase_merge\\s*=\\s*false"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_merge_commit\\s*=\\s*true"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_squash_merge\\s*=\\s*false"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_rebase_merge\\s*=\\s*false"
+      ]
+    ],
+    "files": [],
+    "forbid": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "organization/profiles/release-driven-solo.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "organization/profiles/release-driven-solo.md contains conflicting repository merge settings"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "skills/github-delivery/SKILL.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "skills/github-delivery/SKILL.md contains conflicting repository merge settings"
+      ],
+      [
+        "PROMPT.ja.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "PROMPT.ja.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "PROMPT.ja.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "PROMPT.ja.md contains conflicting repository merge settings"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "CONTRIBUTING.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "CONTRIBUTING.md contains conflicting repository merge settings"
+      ]
+    ]
+  },
+  "constitutional-contract": {
+    "contains": [
+      [
+        "constitution/CONSTITUTION.md",
+        "Identity Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Authority Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Evidence Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Mutable Ownership Safety"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Organizational Continuity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Canonical Consistency"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Progress"
+      ],
+      [
+        "formal/Organization.tla",
+        "IdentityIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "AuthorityIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "EvidenceIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "MutableOwnershipSafety"
+      ],
+      [
+        "formal/Organization.tla",
+        "OrganizationalContinuity"
+      ],
+      [
+        "formal/Organization.tla",
+        "EventuallyTerminal"
+      ]
+    ],
+    "routes": [],
+    "matches": [],
+    "files": [
+      "constitution/CONSTITUTION.md",
+      "organization/profiles/release-driven-solo.md",
+      "formal/Organization.tla"
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "Worktrunk",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Worktrunk"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Linear",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Linear"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "GitHub",
+        "",
+        "tool/workflow-specific term leaked into Constitution: GitHub"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Codex",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Codex"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Claude",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Claude"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Orca",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Orca"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "release-x-y-z",
+        "",
+        "tool/workflow-specific term leaked into Constitution: release-x-y-z"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Draft PR",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Draft PR"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bmise\\b",
+        "",
+        "tool/workflow-specific term leaked into Constitution: mise"
       ]
     ]
   }
