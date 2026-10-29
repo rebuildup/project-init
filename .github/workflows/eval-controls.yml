@@ -34,6 +34,8 @@ jobs:
         run: node --test evals/adaptive-tests/scheduler.test.mjs
       - name: Test delegated agent routing
         run: node --test templates/agent-routing/dispatch.test.mjs
+      - name: Test role-aware Herdr layout
+        run: node --test templates/agent-routing/layout.test.mjs
       - name: Run deterministic controls
         shell: bash
         run: |
