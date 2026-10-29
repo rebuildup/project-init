@@ -65,11 +65,11 @@ bun evals/policy-evaluation/text-contracts.mts herdr-orchestration-contract
 bun evals/policy-evaluation/text-contracts.mts cloudflare-cli-contract
 bun evals/policy-evaluation/skill-catalog-contract.mts
 bun evals/policy-evaluation/vendored-skills-contract.mts
-bash evals/policy-evaluation/worktree-lifecycle-contract.sh
-bash evals/policy-evaluation/constitutional-refinement-controls.sh
-bash evals/policy-evaluation/controls.sh
+bun evals/policy-evaluation/worktree-lifecycle-contract.sh
+bun evals/policy-evaluation/constitutional-refinement-controls.mts
+bun evals/policy-evaluation/controls.mts
 bun evals/interaction-discipline/controls.mts
-bash evals/policy-evaluation/comparative-controls.sh
+bun evals/policy-evaluation/comparative-controls.mts
 bun evals/linear-release-control/controls.mts
 bun evals/release-batching/controls.mts
 bash evals/skills-cli-materialization/controls.sh
@@ -79,10 +79,10 @@ bun evals/policy-evaluation/context-budget.mts
 fresh agentのanswerを採点:
 
 ```bash
-bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
-bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+bun evals/shared/record-grader.mts grade /path/to/execution-profile-answer.txt
+bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
 bun evals/interaction-discipline/grade.mts /path/to/interaction-answer.txt
-bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
+bun evals/shared/record-grader.mts comparative-grade /path/to/comparative-answer.txt
 bun evals/linear-release-control/grade.mts /path/to/linear-release-answer.txt
 ```
 
@@ -98,7 +98,7 @@ For `constitutional-refinement-scenario.md`, run a fresh agent with only the sce
 Then run:
 
 ```bash
-bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
 ```
 
 The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.sh`.
