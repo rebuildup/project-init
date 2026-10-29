@@ -21,8 +21,8 @@ Claude Code でnative delegationを停止したい場合は、`claude-settings.e
 
 `layout` は `workspaceLabel` (短い表示名)、`preferredPanesPerTab` (既定4、最大6)、`maxTabsPerLane` (既定2)、`overflow` (`queue` / 明示的な `new-tab`) および表示専用 `functionTabs` を持ちます。既定は `Ctrl`・`Work`・`Device` を共有し、Review/Testを独立させる場合だけ `functionTabs` で変更します。
 
-同じprojectへ異なるworktreeのWorkerを配置する場合は **`--project-root` (共通のproject checkout) と `--cwd` (実装worker専用workspace) を分けて指定**してください。初期のCtrl shellをanchorとして保持し、同一プロジェクトのworkspaceを再利用します。project rootが不明、同名workspaceが曖昧、起動名が重複、pane inventoryが不整合なら新規作成せずblockします。必要なら `--workspace-id` を明示します。labelのみで別repoを同一視しません。
+異なるGit worktreeのWorkerは `git rev-parse --git-common-dir` から共通のproject rootを自動検出します。非標準Git構成や明示的に指定する場合は **`--project-root` (共通のproject checkout) と `--cwd` (実装worker専用workspace) を分けて指定**してください。初期のCtrl shellをanchorとして保持し、同一プロジェクトのworkspaceを再利用します。project rootが不明、同名workspaceが曖昧、起動名が重複、pane inventoryが不整合なら新規作成せずblockします。必要なら `--workspace-id` を明示します。labelのみで別repoを同一視しません。
 
 pane容量上限では既定でqueued/blockerとなり、新規tabを増やしません。`overflow: "new-tab"` を明示した場合だけ `Work2` 等を上限まで作成します。手動で配置したpaneの無断移動・削除・focus変更はしません。同時起動をserialiseするlocal lockが残った場合は古いagent/副作用を調べてから手動reconcileします。live resource leaseや複数hostのfencingはLayoutの外側で必須です。
 
-`node --test layout.test.mjs` でplannerのfixture-based regressionを確認します。Herdr実機・各OS/providerのE2E、既存repoへの自動展開はまだ未完了であり、実運用Readyとはしません。
+`node --test layout.test.mjs dispatch.integration.test.mjs` でplannerとmock CLI lifecycleのregressionを確認します。Herdr実機・各OS/providerのE2E、既存repoへの自動展開はまだ未完了であり、実運用Readyとはしません。
