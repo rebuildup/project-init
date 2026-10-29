@@ -3,7 +3,8 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts"
+    "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts",
+    "test:release-batching": "bun evals/release-batching/controls.mts"
   },
   "devDependencies": {
     "@types/node": "22.18.12",
