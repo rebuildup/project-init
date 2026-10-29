@@ -76,22 +76,11 @@ project-init logical capabilityからHerdrへmappingする場合のcurrent shape
 
 特にcancelは `ctrl+c` を送っただけで完了とみなさない。process/agent stateとdurable side effectをreconcileし、durable Workerならfencing ownershipを更新してからreplacement attemptをadmitする。
 
-## Provider-constrained launch via unified `agent`
+## Provider-scoped launch and bounded layout
 
-project-local routeが `agent <harness> <provider>` を要求する場合、`herdr agent start --kind <harness>` だけでは同等ではない。後者は標準バイナリを起動し、dotfilesのprovider-scoped Infisical injectionを通らない。**先にrouteを解決してproviderをpin**し、Herdr paneの中で正本launcherを実行する。
+For a configured provider route, `herdr agent start --kind` does not replace the dotfiles `agent <harness> <provider>` launcher. Resolve route first; run that launcher in a Herdr pane. No silent native/paid/provider fallback. Herdr detection is not evidence of model identity or acceptance.
 
-現行Herdrでは`workspace create --no-focus`が返した`root_pane.pane_id`に対し`pane run <pane_id> "agent pi openrouter-free"`のように実行できる。Herdrが実行中のPiを検知した後、`agent get` / `agent rename` / `agent prompt` / `agent read`で観測する。起動検知やagentの`idle`はprovider/modelの実応答検証ではない。詳しくは`templates/agent-routing/`を参照する。
-
-`agent`/Herdr/認証が欠ける場合はblocked。代替provider、native実行、無断従量課金へのsilent fallbackは禁止する。tool permission / hooksによる強制はruntime固有であり、Skill指示そのものをenforcementと誤認しない。使用不能時に同じmutable attemptを別machineへ二重起動しない。
-
-
-## Role-oriented layout reconciliation
-
-Herdrを使う前に、`organization/execution-functions.md` に従ってactor role、execution function、attempt class、resource ownershipを分ける。1 function = 1 tab / 1 task = 1 workspaceを禁止する。レイアウトは視覚上の整理のみで、review独立性・mutable ownership・recovery fencing・cleanup安全性は既存正本で判定する。
-
-Herdrの `api snapshot` からproject identityと既存タブを調べて再利用し、曖昧な場合は新規作成せずblockする。初期3タブ相当の`Ctrl`/`Work`/`Device`はあくまで表示名。実際に必要な機能のタブだけを作り、pane上限(初期4)を超える場合はキューを優先する。独立Review/Testタブやbounded overflowはproject profileで明示した場合のみ作成する。
-
-Herdr UIの空きpaneや`done`は新規作業への自動再割り当て許可ではない。既存paneの転用、`layout.apply`による稼働中タブ再構築、focusの奪取、live workspaceのcleanupは行わない。手動レイアウト変更は尊重する。参考実装: `templates/agent-routing/layout.mjs`、`dispatch.mjs`。Herdr CLI返却IDにのみ依存し、snapshot/検証失敗を成功扱いしない。
+Use `herdr api snapshot` to reuse an unambiguous project workspace and function tab; do not create a workspace per attempt or a tab per function. Default presentation: `Ctrl`, `Work`, `Device`; default four panes per tab, then queue unless a bounded overflow is configured. Never commandeer an existing terminal, steal focus, or destructively replace live layouts. See `organization/execution-functions.md` and `templates/agent-routing/`. Layout does not grant authority or replace mutable resource leases, recovery fencing or safe cleanup.
 
 ## Agent-driven Supervisor loop
 
