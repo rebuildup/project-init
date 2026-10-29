@@ -40,6 +40,10 @@ jobs:
         run: bun run test:adaptive
       - name: Test TypeScript release batching controls
         run: bun run test:release-batching
+      - name: Test TypeScript interaction and Linear controls
+        run: |
+          bun run test:interaction
+          bun run test:linear
       - name: Run deterministic controls
         shell: bash
         run: |
@@ -47,8 +51,6 @@ jobs:
           failed=0
           for suite in \
             policy-evaluation \
-            interaction-discipline \
-            linear-release-control \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"
