@@ -20,7 +20,9 @@ if (runControls(dir, '../shared/record-grader.mts', [
 ], 'EVAL', ['merge-authorization-grade']) !== 0) failed = true;
 
 const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash', path: string, args: string[]]> = [
+  ['constitutional contract', 'bun', 'text-contracts.mts', ['constitutional-contract']],
   ['merge method contract', 'bun', 'text-contracts.mts', ['merge-method-contract']],
+  ['mise toolchain contract', 'bun', 'text-contracts.mts', ['mise-toolchain-contract']],
   ['Cloudflare CLI contract', 'bun', 'text-contracts.mts', ['cloudflare-cli-contract']],
   ['worktree lifecycle contract', 'bash', 'worktree-lifecycle-contract.sh', []],
   ['vendored skills contract', 'bun', 'vendored-skills-contract.mts', []],
