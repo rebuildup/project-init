@@ -38,8 +38,8 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 ## Current evals
 
-- `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
-- `policy-evaluation/merge-method-contract.sh` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts constitutional-contract` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts merge-method-contract` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
 - `policy-evaluation/text-contracts.mts mise-toolchain-contract` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / onboardingに定義され、promptからprofileへroutingされ、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
 - `policy-evaluation/text-contracts.mts herdr-orchestration-contract` — adaptive fan-out / fan-in、Herdr Supervisor routing、telemetry/admission境界、Constitution layer separationを確認するdeterministic check
 - `policy-evaluation/worktree-lifecycle-contract.sh` — Worktrunk（`.config/wt.toml`）とOrca（`orca.yaml`）が同じ `mise run worktree:*` を呼ぶこと、frontend固有のtemplateや `.worktreeinclude` のglobを使わないこと、`scripts/worktree/` がbranchごとに決まった値を返し何度実行しても同じ状態になることを確認するdeterministic check
@@ -58,8 +58,8 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 controls:
 
 ```bash
-bash evals/policy-evaluation/constitutional-contract.sh
-bash evals/policy-evaluation/merge-method-contract.sh
+bun evals/policy-evaluation/text-contracts.mts constitutional-contract
+bun evals/policy-evaluation/text-contracts.mts merge-method-contract
 bun evals/policy-evaluation/text-contracts.mts mise-toolchain-contract
 bun evals/policy-evaluation/text-contracts.mts herdr-orchestration-contract
 bun evals/policy-evaluation/text-contracts.mts cloudflare-cli-contract
