@@ -89,7 +89,7 @@ export async function run(argv: string[]): Promise<unknown> {
       try { found=JSON.parse(probe.stdout); } catch { fail('Herdr returned malformed agent state'); }
       if (!found?.result?.agent) continue;
       call('herdr',['agent','rename',pane,args.name]);
-      return {...route,pane,workspace:ws.result.workspace?.workspace_id,agent:args.name,detected:true};
+      return {...route,pane,workspace:ws.result?.workspace?.workspace_id,agent:args.name,detected:true};
     }
     fail('pane '+pane+' started but no detectable agent; inspect pane before retry');
   }
