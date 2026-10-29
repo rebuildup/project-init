@@ -53,7 +53,7 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 - `skills-cli-materialization/scenario.md` — Skills CLIによるproject-local Agent Skillのmaterialization contract（discovery / install / frontmatter parseability / global install禁止 / provenance / generated linkの二重追跡防止 / reference完全性）。deterministic check + live end-to-end
 - `linear-release-control/scenario.md` — GitHub / Linear間のsource-of-truth / mirror / worker access / coding session baseline / project mappingのcanonical rule
 - `release-batching/controls.mts` — 週次計画と可変releaseの判断記録を検査するstructural grader。hold / frozen candidate / release authorizedのpositiveと、未承認release・古いSHAのgate・freeze中landing・ファイル数だけの判断等のnegativeを実行する。これはinput evidenceの真実性やrelease価値の優劣を証明しない。
-- `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
+- `policy-evaluation/context-budget.mts` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
 controls:
 
@@ -73,7 +73,7 @@ bash evals/policy-evaluation/comparative-controls.sh
 bun evals/linear-release-control/controls.mts
 bun evals/release-batching/controls.mts
 bash evals/skills-cli-materialization/controls.sh
-bash evals/policy-evaluation/context-budget.sh
+bun evals/policy-evaluation/context-budget.mts
 ```
 
 fresh agentのanswerを採点:
