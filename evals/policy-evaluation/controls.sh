@@ -72,7 +72,7 @@ else
   RC=1
 fi
 
-if catalog_out=$(bash "$R/evals/policy-evaluation/skill-catalog-contract.sh" 2>&1); then
+if catalog_out=$(bun "$R/evals/policy-evaluation/skill-catalog-contract.mts" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "skill catalog contract"
 else
   printf '  FAIL %-34s -> FAIL\n' "skill catalog contract"
