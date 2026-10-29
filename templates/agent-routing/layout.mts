@@ -1,30 +1,67 @@
 // Herdr presentation adapter. Project authority and resource leases live outside the UI.
 import { basename, resolve } from 'node:path';
 
-const DEFAULT_TABS = Object.freeze({
+const DEFAULT_TABS: Readonly<Record<string, string>> = Object.freeze({
   coordinate: 'Ctrl', supervise: 'Ctrl', integrate: 'Ctrl',
   implement: 'Work', refactor: 'Work', fix: 'Work', research: 'Work',
   review: 'Work', verify: 'Work', benchmark: 'Work',
   recover: 'Ctrl', reconcile: 'Ctrl', cleanup: 'Ctrl',
   device: 'Device', serve: 'Device', logs: 'Device',
 });
-const ALIASES = Object.freeze({implementation:'implement', recovery:'recover', verification:'verify'});
+const ALIASES: Readonly<Record<string, string>> = Object.freeze({implementation:'implement', recovery:'recover', verification:'verify'});
 const LABEL = /^[\p{L}\p{N}][\p{L}\p{N} _.-]{0,11}$/u;
-const obj = v => v !== null && typeof v === 'object' && !Array.isArray(v);
-function fail(message) { throw new Error('layout: ' + message); }
-function array(value, name) { if (!Array.isArray(value)) fail('missing/invalid ' + name); return value; }
-function block(reason, extra={}) { return {action:'blocked', reason, ...extra}; }
+export interface PlacementDecision {
+  action: 'blocked' | 'queued' | 'create-workspace' | 'create-tab' | 'split-pane';
+  reason?: string;
+  name?: string;
+  workspace?: string;
+  workspaceLabel?: string;
+  tabLabel?: string;
+  tab?: string;
+  targetPane?: string;
+  direction?: 'right' | 'down';
+  cwd?: string;
+  projectRoot?: string;
+  function?: string;
+}
+interface Workspace { workspace_id: string; label?: string; }
+interface Tab { tab_id: string; workspace_id: string; label: string; pane_count?: number; }
+interface Pane { pane_id: string; tab_id: string; workspace_id: string; cwd?: string; }
+interface Agent { name?: string; agent_name?: string; pane_id?: string; }
+export interface Snapshot {
+  workspaces: Workspace[];
+  tabs: Tab[];
+  panes: Pane[];
+  agents: Agent[];
+}
+interface PlacementOptions {
+  layout?: unknown;
+  functionName: string;
+  cwd: string;
+  projectRoot: string;
+  name: string;
+  workspaceId?: string;
+}
+const obj = (v: unknown): v is Record<string, unknown> => v !== null && typeof v === 'object' && !Array.isArray(v);
+function fail(message: string): never { throw new Error('layout: ' + message); }
+function array<T>(value: unknown, name: string): T[] {
+  if (!Array.isArray(value) || value.some(item => !obj(item))) fail('missing/invalid ' + name);
+  return value as T[];
+}
+function block(reason: string, extra: {name?: string; workspace?: string; tab?: string} = {}): PlacementDecision {
+  return {action:'blocked', reason, ...extra};
+}
 
-export function resolveLayout(config = {}, functionName) {
+export function resolveLayout(config: unknown = {}, functionName: string) {
   if (!obj(config)) fail('layout must be an object');
   const fn = ALIASES[functionName] ?? functionName;
   if (!Object.hasOwn(DEFAULT_TABS, fn)) fail('unknown execution function: ' + functionName);
   const maxPanes = config.preferredPanesPerTab ?? 4;
   const maxTabs = config.maxTabsPerLane ?? 2;
-  if (!Number.isInteger(maxPanes) || maxPanes < 1 || maxPanes > 6) fail('preferredPanesPerTab must be 1..6');
-  if (!Number.isInteger(maxTabs) || maxTabs < 1 || maxTabs > 3) fail('maxTabsPerLane must be 1..3');
+  if (typeof maxPanes !== 'number' || !Number.isInteger(maxPanes) || maxPanes < 1 || maxPanes > 6) fail('preferredPanesPerTab must be 1..6');
+  if (typeof maxTabs !== 'number' || !Number.isInteger(maxTabs) || maxTabs < 1 || maxTabs > 3) fail('maxTabsPerLane must be 1..3');
   const overflow = config.overflow ?? 'queue';
-  if (!['queue','new-tab'].includes(overflow)) fail('overflow must be queue or new-tab');
+  if (overflow !== 'queue' && overflow !== 'new-tab') fail('overflow must be queue or new-tab');
   const overrides = config.functionTabs ?? {};
   if (!obj(overrides) || Object.keys(overrides).some(k => !Object.hasOwn(DEFAULT_TABS, ALIASES[k] ?? k))) fail('unknown functionTabs key');
   const tabLabel = overrides[functionName] ?? overrides[fn] ?? DEFAULT_TABS[fn];
@@ -32,16 +69,17 @@ export function resolveLayout(config = {}, functionName) {
   if (config.workspaceLabel !== undefined && (typeof config.workspaceLabel !== 'string' || !LABEL.test(config.workspaceLabel))) fail('invalid workspace label');
   return {function:fn, tabLabel, workspaceLabel:config.workspaceLabel, maxPanes, maxTabs, overflow};
 }
-export function normalizeSnapshot(response) {
-  const result = response?.result ?? response;
+export function normalizeSnapshot(response: unknown): Snapshot {
+  const result = obj(response) ? (response.result ?? response) : response;
   if (!obj(result)) fail('invalid snapshot');
-  return {workspaces:array(result.workspaces,'workspaces'), tabs:array(result.tabs,'tabs'),
-    panes:array(result.panes,'panes'), agents:array(result.agents,'agents')};
+  return {workspaces:array<Workspace>(result.workspaces,'workspaces'), tabs:array<Tab>(result.tabs,'tabs'),
+    panes:array<Pane>(result.panes,'panes'), agents:array<Agent>(result.agents,'agents')};
 }
-const equalPath = (a,b) => typeof a === 'string' && a.length > 0 && resolve(a) === resolve(b);
+const equalPath = (a: unknown, b: string): boolean => typeof a === 'string' && a.length > 0 && resolve(a) === resolve(b);
 
 // Pure and deterministic: no shell creation, no focus changes, no process teardown.
-export function planPlacement(snapshotInput, {layout, functionName, cwd, projectRoot, name, workspaceId}) {
+export function planPlacement(snapshotInput: unknown,
+  {layout, functionName, cwd, projectRoot, name, workspaceId}: PlacementOptions): PlacementDecision {
   const s = normalizeSnapshot(snapshotInput);
   const cfg = resolveLayout(layout, functionName);
   if (!cwd || !projectRoot || !name) fail('cwd, projectRoot and agent name required');

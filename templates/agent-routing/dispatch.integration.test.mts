@@ -7,7 +7,7 @@ import { join, delimiter } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const here=fileURLToPath(new URL('.',import.meta.url));
-const script=join(here,'dispatch.mjs');
+const script=join(here,'dispatch.mts');
 const mockHerdr=[
   "import {appendFileSync,readFileSync} from 'node:fs';",
   "const a=process.argv.slice(2);",
@@ -22,7 +22,7 @@ const mockHerdr=[
   "  :{};",
   "console.log(JSON.stringify({result}));"
 ].join('\n');
-function execute(existing) {
+function execute(existing: boolean) {
   const dir=mkdtempSync(join(tmpdir(),'herdr-route-'));
   const bin=join(dir,'bin');mkdirSync(bin);
   const root=join(dir,'project'),worker=join(dir,'worker');

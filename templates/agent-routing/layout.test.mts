@@ -1,6 +1,6 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
-import { normalizeSnapshot, resolveLayout, planPlacement } from './layout.mjs';
+import { normalizeSnapshot, resolveLayout, planPlacement } from './layout.mts';
 
 const root='/work/project';
 const worker='/work/project-wt/134';
@@ -15,7 +15,7 @@ const active={result:{
          {pane_id:'w1:p3',tab_id:'w1:t2',workspace_id:'w1',cwd:'/work/project-wt/133'}],
   agents:[{name:'impl133',pane_id:'w1:p3'}],
 }};
-const clone=x=>structuredClone(x);
+const clone=<T>(x: T): T=>structuredClone(x);
 test('first worker plans one project workspace, not an attempt-scoped workspace',()=>{
   assert.deepEqual(planPlacement(empty,opts),{action:'create-workspace',workspaceLabel:'project',
     tabLabel:'Work',cwd:worker,projectRoot:root,function:'implement'});
