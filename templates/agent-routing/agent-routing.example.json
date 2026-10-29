@@ -5,14 +5,28 @@
       "harness": "pi",
       "provider": "minimax",
       "fallback": "none",
-      "nativeSubagents": "deny"
+      "nativeSubagents": "deny",
+      "function": "implement"
     },
     "review": {
       "supervisor": "herdr",
       "harness": "pi",
       "provider": "openrouter-free",
       "fallback": "none",
-      "nativeSubagents": "deny"
+      "nativeSubagents": "deny",
+      "function": "review"
+    }
+  },
+  "layout": {
+    "workspaceLabel": "project",
+    "preferredPanesPerTab": 4,
+    "maxTabsPerLane": 2,
+    "overflow": "queue",
+    "functionTabs": {
+      "review": "Work",
+      "verify": "Work",
+      "recover": "Ctrl",
+      "cleanup": "Ctrl"
     }
   }
 }
