@@ -36,6 +36,12 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 表面shapeが正しくてもcritical invariantを破るanswerはFAILさせます。
 
+## Runtime language selection
+
+Deterministic grader・JSON/TSV validator・文字列契約チェックは TypeScript（`.mts`）を標準とし、Bun で実行する。静的型検査は `bun run typecheck`。既存のpositive/negative/regression fixtureと終了コードを保ったまま移行する。
+
+Bashはシェルそのものが検証対象・起動境界である場合に残す。現在の例外は、`scripts/worktree/setup.sh` / `teardown.sh`（mise/bootstrap以前にも実行するWorktrunk/Orca共通フック）、`policy-evaluation/worktree-lifecycle-contract.sh`（GitとBashによる実worktreeのlifecycle検証）、`skills-cli-materialization/grade.sh` / `controls.sh`（実際のCLI・シェル環境を材料とする統合検証）の計5件。例外を無条件に増やさず、ロジックが増えた場合は再度TSへ分離する。Pythonスクリプトとシェル埋め込みPythonは利用しない。
+
 ## Current evals
 
 - `policy-evaluation/text-contracts.mts constitutional-contract` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
@@ -65,7 +71,7 @@ bun evals/policy-evaluation/text-contracts.mts herdr-orchestration-contract
 bun evals/policy-evaluation/text-contracts.mts cloudflare-cli-contract
 bun evals/policy-evaluation/skill-catalog-contract.mts
 bun evals/policy-evaluation/vendored-skills-contract.mts
-bun evals/policy-evaluation/worktree-lifecycle-contract.sh
+bash evals/policy-evaluation/worktree-lifecycle-contract.sh
 bun evals/policy-evaluation/constitutional-refinement-controls.mts
 bun evals/policy-evaluation/controls.mts
 bun evals/interaction-discipline/controls.mts
@@ -101,4 +107,4 @@ Then run:
 bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
 ```
 
-The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.sh`.
+The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.mts`.
