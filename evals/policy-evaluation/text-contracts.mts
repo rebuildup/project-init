@@ -6,6 +6,8 @@ interface Contract {
   contains: Array<[file: string, text: string]>;
   routes: Array<[file: string, first: string, ...fragments: string[]]>;
   forbid: Array<[file: string, pattern: string, flags: string, message: string]>;
+  matches: Array<[file: string, pattern: string]>;
+  files: string[];
 }
 const repoRoot = resolve(import.meta.dirname, '../..');
 
@@ -17,12 +19,16 @@ export function runContract(name: string): void {
   const all: unknown = JSON.parse(readFileSync(join(import.meta.dirname, 'text-contracts.json'), 'utf8'));
   if (!isRecord(all) || !isRecord(all[name])) throw new Error('Unknown contract: ' + name);
   const raw = all[name];
-  if (!Array.isArray(raw.contains) || !Array.isArray(raw.routes) || !Array.isArray(raw.forbid)) {
+  if (!Array.isArray(raw.contains) || !Array.isArray(raw.routes) || !Array.isArray(raw.forbid) || !Array.isArray(raw.matches) || !Array.isArray(raw.files)) {
     throw new Error('Malformed contract specification: ' + name);
   }
   const contract = raw as unknown as Contract;
   const read = (file: string): string => readFileSync(join(repoRoot, file), 'utf8');
 
+  for (const file of contract.files) read(file);
+  for (const [file, pattern] of contract.matches) {
+    if (!new RegExp(pattern).test(read(file))) throw new Error(file + ' missing pattern: ' + pattern);
+  }
   for (const [file, needle] of contract.contains) {
     if (!read(file).includes(needle)) throw new Error(file + ' missing: ' + needle);
   }
