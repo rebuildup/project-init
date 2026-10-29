@@ -68,9 +68,9 @@ bash evals/policy-evaluation/vendored-skills-contract.sh
 bash evals/policy-evaluation/worktree-lifecycle-contract.sh
 bash evals/policy-evaluation/constitutional-refinement-controls.sh
 bash evals/policy-evaluation/controls.sh
-bash evals/interaction-discipline/controls.sh
+bun evals/interaction-discipline/controls.mts
 bash evals/policy-evaluation/comparative-controls.sh
-bash evals/linear-release-control/controls.sh
+bun evals/linear-release-control/controls.mts
 bun evals/release-batching/controls.mts
 bash evals/skills-cli-materialization/controls.sh
 bash evals/policy-evaluation/context-budget.sh
@@ -81,9 +81,9 @@ fresh agentのanswerを採点:
 ```bash
 bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
 bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
-bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
+bun evals/interaction-discipline/grade.mts /path/to/interaction-answer.txt
 bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
-bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
+bun evals/linear-release-control/grade.mts /path/to/linear-release-answer.txt
 ```
 
 
