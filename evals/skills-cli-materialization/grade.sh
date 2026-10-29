@@ -159,36 +159,9 @@ check_tree() {
   # 6 provenance: parse the lock as JSON and validate each materialized skill.
   [ -f "$root/skills-lock.json" ] \
     || fail "skills-lock.json missing: source/hash provenance is not recoverable"
-  if command -v python3 > /dev/null 2>&1; then
-    py=python3
-  elif command -v python > /dev/null 2>&1; then
-    py=python
-  else
-    fail "Python JSON parser unavailable for skills-lock.json validation"
-  fi
-  lock_n=$("$py" - "$root/skills-lock.json" "${skill_names[@]}" <<'PY'
-import json
-import sys
-try:
-    with open(sys.argv[1], encoding="utf-8") as f:
-        root = json.load(f)
-    skills = root["skills"]
-    wanted = set(sys.argv[2:])
-    if not isinstance(skills, dict) or set(skills) != wanted:
-        raise ValueError("lock entries do not match materialized skills")
-    for name in wanted:
-        entry = skills[name]
-        if not isinstance(entry, dict):
-            raise ValueError(f"{name}: lock entry is not a JSON object")
-        for field in ("source", "skillPath", "computedHash"):
-            if not isinstance(entry.get(field), str) or not entry[field].strip():
-                raise ValueError(f"{name}: lock {field} missing or empty")
-    print(len(skills))
-except (OSError, ValueError, KeyError, TypeError) as exc:
-    print(str(exc), file=sys.stderr)
-    sys.exit(1)
-PY
-  ) || fail "skills-lock.json provenance invalid"
+  command -v bun >/dev/null 2>&1 || fail "Bun is required for skills-lock.json validation"
+  lock_n=$(bun "$D/check-lock.mts" "$root/skills-lock.json" "${skill_names[@]}") \
+    || fail "skills-lock.json provenance invalid"
   note "lock entries: $lock_n"
 
   # 5 project-local means under <project>/.agents/skills, not under

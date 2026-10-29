@@ -1,12 +1,12 @@
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-const scheduler = resolve(import.meta.dirname, '../../templates/quality/adaptive-tests.mjs');
-function fixture(t, allowDefer = true) {
+const scheduler = resolve(import.meta.dirname, '../../templates/quality/adaptive-tests.mts');
+function fixture(t: TestContext, allowDefer = true) {
   const dir = mkdtempSync(join(tmpdir(), 'adaptive-test-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   execFileSync('git', ['init', '-q'], { cwd: dir });
@@ -16,7 +16,7 @@ function fixture(t, allowDefer = true) {
   writeFileSync(join(dir, 'runner.cjs'), "const fs = require('node:fs'); fs.appendFileSync('.tmp/runs','x'); if (fs.existsSync('.tmp/fail')) process.exit(9);");
   writeFileSync(join(dir, 'config.json'), JSON.stringify({ version: 1, checks: [{ id: 'unit', command: [process.execPath, 'runner.cjs'], inputs: ['src.txt', 'runner.cjs', 'config.json'], maxInterval: 8, required: false, allowDefer }] }));
   execFileSync('git', ['add', '.gitignore', 'src.txt', 'runner.cjs', 'config.json'], { cwd: dir });
-  function call(extra = [], env = {}) {
+  function call(extra: string[] = [], env: NodeJS.ProcessEnv = {}) {
     return spawnSync(process.execPath, [scheduler, '--config', 'config.json', '--check', 'unit', '--context', 'worker', '--environment', 'dev', '--state', '.tmp/adaptive-tests/state.json', ...extra], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: '', ...env } });
   }
   const count = () => { try { return readFileSync(join(dir, '.tmp/runs'), 'utf8').length; } catch { return 0; } };
