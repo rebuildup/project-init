@@ -50,9 +50,9 @@ jobs:
       - name: Test delegated agent routing
         run: node --test templates/agent-routing/dispatch.test.mts
       - name: Test role-aware Herdr layout
-        run: node --test templates/agent-routing/layout.test.mjs
+        run: node --test templates/agent-routing/layout.test.mts
       - name: Test Herdr dispatcher with mocked CLI
-        run: node --test templates/agent-routing/dispatch.integration.test.mjs
+        run: node --test templates/agent-routing/dispatch.integration.test.mts
       - name: Run deterministic controls
         shell: bash
         run: |
