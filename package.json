@@ -1,0 +1,12 @@
+{
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts"
+  },
+  "devDependencies": {
+    "@types/node": "22.18.12",
+    "typescript": "5.9.3"
+  }
+}
