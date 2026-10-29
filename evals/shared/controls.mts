@@ -9,10 +9,11 @@ export function runControls(
   grader: string,
   cases: readonly ControlCase[],
   marker: 'EVAL' | 'PLAIN' = 'EVAL',
+  extraArgs: readonly string[] = [],
 ): number {
   let failures = 0;
   for (const [label, fixture, expected] of cases) {
-    const result = spawnSync(process.execPath, [join(directory, grader), join(directory, fixture)], {
+    const result = spawnSync(process.execPath, [join(directory, grader), ...extraArgs, join(directory, fixture)], {
       encoding: 'utf8',
     });
     const output = (result.stdout ?? '') + (result.stderr ?? '');
