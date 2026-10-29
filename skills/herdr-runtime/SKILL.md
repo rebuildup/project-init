@@ -84,6 +84,15 @@ project-local routeが `agent <harness> <provider>` を要求する場合、`her
 
 `agent`/Herdr/認証が欠ける場合はblocked。代替provider、native実行、無断従量課金へのsilent fallbackは禁止する。tool permission / hooksによる強制はruntime固有であり、Skill指示そのものをenforcementと誤認しない。使用不能時に同じmutable attemptを別machineへ二重起動しない。
 
+
+## Role-oriented layout reconciliation
+
+Herdrを使う前に、`organization/execution-functions.md` に従ってactor role、execution function、attempt class、resource ownershipを分ける。1 function = 1 tab / 1 task = 1 workspaceを禁止する。レイアウトは視覚上の整理のみで、review独立性・mutable ownership・recovery fencing・cleanup安全性は既存正本で判定する。
+
+Herdrの `api snapshot` からproject identityと既存タブを調べて再利用し、曖昧な場合は新規作成せずblockする。初期3タブ相当の`Ctrl`/`Work`/`Device`はあくまで表示名。実際に必要な機能のタブだけを作り、pane上限(初期4)を超える場合はキューを優先する。独立Review/Testタブやbounded overflowはproject profileで明示した場合のみ作成する。
+
+Herdr UIの空きpaneや`done`は新規作業への自動再割り当て許可ではない。既存paneの転用、`layout.apply`による稼働中タブ再構築、focusの奪取、live workspaceのcleanupは行わない。手動レイアウト変更は尊重する。参考実装: `templates/agent-routing/layout.mjs`、`dispatch.mjs`。Herdr CLI返却IDにのみ依存し、snapshot/検証失敗を成功扱いしない。
+
 ## Agent-driven Supervisor loop
 
 Herdr-managedなCoordinator / Supervisor agentは、`HERDR_ENV=1` を確認したうえでHerdr CLI/APIからsibling top-level Workerを起動・委譲・回収してよい。fan-out判断は `parallel-orchestration` のadaptive policyに従い、Herdr paneを増やすこと自体を目的にしない。
@@ -119,7 +128,7 @@ remote machineを使う場合はtargetを明示する。machine/server failure�
 1. objective / acceptance criteria / authorityを読む。
 2. ADR-0019に従い observational / mutable / durable attemptを分類する。
 3. mutable attemptなら先にrequired workspace/runtime isolationをmaterializeする。
-4. Herdr workspace/tab/paneを作る。
+4. Herdr snapshotから既存project workspace/tab/paneを調査し、必要なsurfaceだけ作る（capacity超過はqueue/block）。
 5. creation commandが返したJSONのIDを使い、IDを予測しない。
 6. supported top-level agentを `agent start` するか、既存agentをdetect/renameする。
 7. execution attempt metadataへHerdr workspace/pane/agent nameをtransient referenceとして関連付ける。
