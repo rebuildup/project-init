@@ -1,7 +1,11 @@
 #!/usr/bin/env node
 // Strict project-local delegation entrypoint. No implicit provider or harness fallback.
 import { spawnSync } from 'node:child_process';
-import { existsSync, readFileSync } from 'node:fs';
+import { closeSync, existsSync, openSync, readFileSync, unlinkSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { planPlacement } from './layout.mjs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -9,6 +13,18 @@ const NAME = /^[a-z][a-z0-9_-]{0,31}$/;
 const ROUTE = /^[a-z][a-z0-9-]*$/;
 const PANE = /^[\w:-]+$/;
 const MAX_TIMEOUT = 300000;
+async function locked(root, fn) {
+  const id=createHash('sha256').update(root).digest('hex').slice(0,24);
+  const lock=join(tmpdir(),'project-init-herdr-'+id+'.lock');
+  let fd;
+  try { fd=openSync(lock,'wx',0o600); }
+  catch (e) {
+    if(e.code==='EEXIST') fail('concurrent or stale layout lock; inspect existing attempts before retry: '+lock);
+    throw e;
+  }
+  try { return await fn(); }
+  finally { closeSync(fd); unlinkSync(lock); }
+}
 function fail(message) { throw new Error(message); }
 function call(binary, args, json = false) {
   const out = spawnSync(binary, args, { encoding: 'utf8', shell: false, timeout: MAX_TIMEOUT });
@@ -35,7 +51,7 @@ export function parseArgs(argv) {
   const [command, ...rest] = argv;
   if (!['plan','start','prompt','read'].includes(command)) fail('usage: dispatch.mjs <plan|start|prompt|read> --config FILE [--role ROLE] [--cwd PATH] [--name NAME] [--target PANE] [--message-file FILE]');
   const opts = {command};
-  const allowed = new Set(['config','role','cwd','name','target','message-file']);
+  const allowed = new Set(['config','role','cwd','name','target','message-file','project-root','workspace-id']);
   if (rest.length % 2) fail('flag missing value');
   for (let i=0;i<rest.length;i+=2) {
     const flag=rest[i];
@@ -49,6 +65,7 @@ export function parseArgs(argv) {
   if (command==='read' && !opts.target) fail('--target required');
   if (opts.target && !PANE.test(opts.target)) fail('invalid pane target');
   if (opts.name && !NAME.test(opts.name)) fail('invalid agent name');
+  if (opts['workspace-id'] && !PANE.test(opts['workspace-id'])) fail('invalid workspace id');
   return opts;
 }
 export async function run(argv) {
@@ -58,26 +75,62 @@ export async function run(argv) {
   if (args.command==='start') {
     const route=resolveRoute(config,args.role);
     const cwd=resolve(args.cwd);
-    if (!existsSync(cwd)) fail('workspace does not exist: '+cwd);
-    call('agent',['check']); // dotfiles launcher validates its canonical routing config.
-    const ws=call('herdr',['workspace','create','--cwd',cwd,'--label',args.name,'--no-focus'],true);
-    const pane=ws?.result?.root_pane?.pane_id;
-    if (typeof pane!=='string'||!PANE.test(pane)) fail('workspace created but pane ID unavailable; reconcile before retry');
-    // Do not use Herdr agent start --kind: it would bypass the provider-scoped launcher.
-    // Strict bareword validation prevents shell metacharacters in the dispatched command.
-    call('herdr',['pane','run',pane,'agent '+route.harness+' '+route.provider]);
-    // pane.run acknowledgement is not proof of a working agent or the selected model.
-    for(let i=0;i<16;i++){
-      await new Promise(ok=>setTimeout(ok,750));
-      const probe=spawnSync('herdr',['agent','get',pane],{encoding:'utf8',timeout:20000});
-      if (probe.status!==0) continue;
-      let found;
-      try { found=JSON.parse(probe.stdout); } catch { fail('Herdr returned malformed agent state'); }
-      if (!found?.result?.agent) continue;
-      call('herdr',['agent','rename',pane,args.name]);
-      return {...route,pane,workspace:ws.result.workspace?.workspace_id,agent:args.name,detected:true};
-    }
-    fail('pane '+pane+' started but no detectable agent; inspect pane before retry');
+    const projectRoot=resolve(args['project-root'] ?? cwd);
+    if (!existsSync(cwd) || !existsSync(projectRoot)) fail('workspace/project root does not exist');
+    const functionName=config.roles[args.role].function ?? args.role;
+    return locked(projectRoot, async () => {
+      call('agent',['check']);
+      const snapshot=call('herdr',['api','snapshot'],true);
+      const decision=planPlacement(snapshot,{
+        layout:config.layout, functionName, cwd, projectRoot,
+        name:args.name,workspaceId:args['workspace-id'],
+      });
+      if (decision.action==='blocked' || decision.action==='queued') {
+        fail(decision.action + ': ' + decision.reason);
+      }
+      let pane;
+      let workspace=decision.workspace;
+      if (decision.action==='create-workspace') {
+        const ws=call('herdr',['workspace','create','--cwd',projectRoot,
+          '--label',decision.workspaceLabel,'--no-focus'],true);
+        workspace=ws?.result?.workspace?.workspace_id;
+        const controlTab=ws?.result?.tab?.tab_id;
+        const controlPane=ws?.result?.root_pane?.pane_id;
+        if (!workspace || !controlTab || !controlPane) fail('created workspace IDs unavailable; reconcile before retry');
+        // Keep an anchored project-root shell, so project identity survives worker cwd changes.
+        call('herdr',['tab','rename',controlTab,'Ctrl']);
+        if (decision.tabLabel==='Ctrl') {
+          if (cwd!==projectRoot) fail('Ctrl actor requires cwd=projectRoot on initial workspace');
+          pane=controlPane;
+        } else {
+          const tab=call('herdr',['tab','create','--workspace',workspace,'--cwd',cwd,
+            '--label',decision.tabLabel,'--no-focus'],true);
+          pane=tab?.result?.root_pane?.pane_id;
+        }
+      } else if (decision.action==='create-tab') {
+        const tab=call('herdr',['tab','create','--workspace',workspace,'--cwd',cwd,
+          '--label',decision.tabLabel,'--no-focus'],true);
+        pane=tab?.result?.root_pane?.pane_id;
+      } else if (decision.action==='split-pane') {
+        const split=call('herdr',['pane','split',decision.targetPane,'--direction',
+          decision.direction,'--cwd',cwd,'--no-focus'],true);
+        pane=split?.result?.pane?.pane_id;
+      }
+      if (typeof pane!=='string'||!PANE.test(pane)) fail('layout changed but pane ID unavailable; reconcile before retry');
+      // Provider-scoped command; never switch to herdr agent start --kind.
+      call('herdr',['pane','run',pane,'agent '+route.harness+' '+route.provider]);
+      for(let i=0;i<16;i++){
+        await new Promise(ok=>setTimeout(ok,750));
+        const probe=spawnSync('herdr',['agent','get',pane],{encoding:'utf8',timeout:20000});
+        if (probe.status!==0) continue;
+        let found;
+        try { found=JSON.parse(probe.stdout); } catch { fail('Herdr returned malformed agent state'); }
+        if (!found?.result?.agent) continue;
+        call('herdr',['agent','rename',pane,args.name]);
+        return {...route,workspace,pane,agent:args.name,detected:true,placement:decision};
+      }
+      fail('pane '+pane+' started but no detectable agent; inspect pane before retry');
+    });
   }
   if (args.command==='prompt'){
     const message=readFileSync(resolve(args['message-file']),'utf8');
