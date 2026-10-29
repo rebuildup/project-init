@@ -258,7 +258,6 @@ true isolationが使えない場合、shared mutable workspaceで並列実装し
 
 stacked PRを安全に維持できない場合もdependency SoTを壊さず、predecessor merge後に通常ticketとして開始する直列workflowへ縮退する。
 
-
 ## Organizational outcome checks
 
 orchestrationのqualityはfan-out数や特定Supervisor APIではなく、次のoutcomeで確認する。
