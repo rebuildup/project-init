@@ -48,7 +48,7 @@ else
   RC=1
 fi
 
-if cloudflare_cli_out=$(bash "$R/evals/policy-evaluation/cloudflare-cli-contract.sh" 2>&1); then
+if cloudflare_cli_out=$(bun "$R/evals/policy-evaluation/text-contracts.mts" cloudflare-cli-contract 2>&1); then
   printf '  ok   %-34s -> PASS\n' "Cloudflare CLI contract"
 else
   printf '  FAIL %-34s -> FAIL\n' "Cloudflare CLI contract"
@@ -88,7 +88,7 @@ else
   RC=1
 fi
 
-if herdr_out=$(bash "$R/evals/policy-evaluation/herdr-orchestration-contract.sh" 2>&1); then
+if herdr_out=$(bun "$R/evals/policy-evaluation/text-contracts.mts" herdr-orchestration-contract 2>&1); then
   printf '  ok   %-34s -> PASS\n' "Herdr orchestration contract"
 else
   printf '  FAIL %-34s -> FAIL\n' "Herdr orchestration contract"
