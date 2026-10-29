@@ -1,0 +1,245 @@
+{
+  "mise-toolchain-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "project-local toolchain/bootstrap frontend: mise"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise install`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise exec -- ...` / `mise run <task>`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "native canonical version source"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "native canonical version sourceがある場合、mise側へ独立した競合pinを作らない"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "bounded version request + committed mise lockfile"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise install --locked`"
+      ],
+      [
+        "PROMPT.ja.md",
+        "organization/profiles/release-driven-solo.md"
+      ],
+      [
+        "PROMPT.ja.md",
+        "`mise install`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "project-local toolchain bootstrap: mise"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "`mise exec -- ...` / `mise run <task>`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "`mise install --locked`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "external/untrusted PRではmise command実行前にtrust reviewまたはbounded sandboxを必須"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "mise is the default project-local toolchain/bootstrap Practice"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "Do not create competing version authorities"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "mise does not replace system/runtime isolation layers"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "mise",
+        "tool default",
+        "profile"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bmise\\b",
+        "i",
+        "mise leaked into Constitution"
+      ]
+    ]
+  },
+  "cloudflare-cli-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "### Cloudflare CLI defaults"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "primary CLIを `cf`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`cf cli search`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "explicit compatibility fallback"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "silent fallbackにしない"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない"
+      ],
+      [
+        "PROMPT.ja.md",
+        "Cloudflare CLI（`cf`）"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Wrangler examples trigger capability discovery, not automatic adoption"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Wrangler is an explicit compatibility fallback"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Capability is version-sensitive and must be reconciled"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Cloudflare CLI choice stays below the Constitution"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "Cloudflare CLI（`cf`）",
+        "tool default",
+        "profile"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\b(?:cloudflare|wrangler)\\b",
+        "i",
+        "Cloudflare-specific tooling leaked into Constitution"
+      ]
+    ]
+  },
+  "herdr-orchestration-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "Herdrをoptional adaptive Supervisor runtimeとして使用できる"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "smallest useful fan-out"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "agent数自体をoptimization targetにしない"
+      ],
+      [
+        "PROMPT.ja.md",
+        "`parallel-orchestration`"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "## Adaptive fan-out / fan-in"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "**competitive exploration**"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "smallest useful fan-out"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "複数agentの同意だけをcorrectness evidenceにしない"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "## Agent-driven Supervisor loop"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "`HERDR_ENV=1`"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent start"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent prompt"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent read"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "`agent_prompt_stalled`"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Optimize admitted progress, not agent count"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Use four fan-out modes"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Herdr state remains telemetry"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Fan-in is evidence-based"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "Herdr",
+        "`herdr-runtime`"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bHerdr\\b",
+        "i",
+        "Herdr leaked into Constitution"
+      ]
+    ]
+  }
+}
