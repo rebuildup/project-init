@@ -78,11 +78,9 @@ project-init logical capabilityからHerdrへmappingする場合のcurrent shape
 
 ## Provider-constrained launch via unified `agent`
 
-project-local routeが `agent <harness> <provider>` を要求する場合、`herdr agent start --kind <harness>` だけでは同等ではない。後者は標準バイナリを起動し、dotfilesのprovider-scoped Infisical injectionを通らない。**先にrouteを解決してproviderをpin**し、Herdr paneの中で正本launcherを実行する。
+routeで `agent <harness> <provider>` を指定する場合、`herdr agent start --kind` は代用不可。後者はdotfilesのprovider-scoped Infisical injectionを通らない。routeを固定し、`herdr workspace create --no-focus` → `pane run <pane_id> "agent pi openrouter-free"` で正本launcherを実行する。`agent get/rename/prompt/read` は観測用で、起動検知やidleはprovider/model応答の証拠ではない。詳細は `templates/agent-routing/`。
 
-現行Herdrでは`workspace create --no-focus`が返した`root_pane.pane_id`に対し`pane run <pane_id> "agent pi openrouter-free"`のように実行できる。Herdrが実行中のPiを検知した後、`agent get` / `agent rename` / `agent prompt` / `agent read`で観測する。起動検知やagentの`idle`はprovider/modelの実応答検証ではない。詳しくは`templates/agent-routing/`を参照する。
-
-`agent`/Herdr/認証が欠ける場合はblocked。代替provider、native実行、無断従量課金へのsilent fallbackは禁止する。tool permission / hooksによる強制はruntime固有であり、Skill指示そのものをenforcementと誤認しない。使用不能時に同じmutable attemptを別machineへ二重起動しない。
+agent/Herdr/認証が欠ければblocked。native/別provider/無断従量課金へのfallbackは禁止。hooksによる強制はruntime依存で、Skill自体はenforcementではない。mutable attemptを別machineで二重起動しない。
 
 ## Agent-driven Supervisor loop
 
