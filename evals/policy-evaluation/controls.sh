@@ -80,7 +80,7 @@ else
   RC=1
 fi
 
-if budget_out=$(bash "$R/evals/policy-evaluation/context-budget.sh" 2>&1); then
+if budget_out=$(bun "$R/evals/policy-evaluation/context-budget.mts" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "context budget regression"
 else
   printf '  FAIL %-34s -> FAIL\n' "context budget regression"
