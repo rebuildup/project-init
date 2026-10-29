@@ -64,7 +64,7 @@ else
   RC=1
 fi
 
-if vendored_out=$(bash "$R/evals/policy-evaluation/vendored-skills-contract.sh" 2>&1); then
+if vendored_out=$(bun "$R/evals/policy-evaluation/vendored-skills-contract.mts" 2>&1); then
   printf '  ok   %-34s -> PASS\n' "vendored skills contract"
 else
   printf '  FAIL %-34s -> FAIL\n' "vendored skills contract"
