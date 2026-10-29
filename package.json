@@ -3,7 +3,10 @@
   "type": "module",
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts"
+    "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts",
+    "test:release-batching": "bun evals/release-batching/controls.mts",
+    "test:interaction": "bun evals/interaction-discipline/controls.mts",
+    "test:linear": "bun evals/linear-release-control/controls.mts"
   },
   "devDependencies": {
     "@types/node": "22.18.12",

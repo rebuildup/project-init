@@ -36,54 +36,60 @@ graderをquality evidenceとして使う前に、最低限次を確認します�
 
 表面shapeが正しくてもcritical invariantを破るanswerはFAILさせます。
 
+## Runtime language selection
+
+Deterministic grader・JSON/TSV validator・文字列契約チェックは TypeScript（`.mts`）を標準とし、Bun で実行する。静的型検査は `bun run typecheck`。既存のpositive/negative/regression fixtureと終了コードを保ったまま移行する。
+
+Bashはシェルそのものが検証対象・起動境界である場合に残す。現在の例外は、`scripts/worktree/setup.sh` / `teardown.sh`（mise/bootstrap以前にも実行するWorktrunk/Orca共通フック）、`policy-evaluation/worktree-lifecycle-contract.sh`（GitとBashによる実worktreeのlifecycle検証）、`skills-cli-materialization/grade.sh` / `controls.sh`（実際のCLI・シェル環境を材料とする統合検証）の計5件。例外を無条件に増やさず、ロジックが増えた場合は再度TSへ分離する。Pythonスクリプトとシェル埋め込みPythonは利用しない。
+
 ## Current evals
 
-- `policy-evaluation/constitutional-contract.sh` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
-- `policy-evaluation/merge-method-contract.sh` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
-- `policy-evaluation/mise-toolchain-contract.sh` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / onboardingに定義され、promptからprofileへroutingされ、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
-- `policy-evaluation/herdr-orchestration-contract.sh` — adaptive fan-out / fan-in、Herdr Supervisor routing、telemetry/admission境界、Constitution layer separationを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts constitutional-contract` — Constitutionの必須property / layer separation / formal model wiringを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts merge-method-contract` — current release-driven profileのPR landingがmerge commit onlyで、squash/rebase merge無効化とexecutorの`merge`明示が維持されることを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts mise-toolchain-contract` — miseがproject-local toolchain/bootstrap Practiceとしてprofile / onboardingに定義され、promptからprofileへroutingされ、Constitutionへtool名が漏れず、native version authority・fallback境界が維持されることを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts herdr-orchestration-contract` — adaptive fan-out / fan-in、Herdr Supervisor routing、telemetry/admission境界、Constitution layer separationを確認するdeterministic check
 - `policy-evaluation/worktree-lifecycle-contract.sh` — Worktrunk（`.config/wt.toml`）とOrca（`orca.yaml`）が同じ `mise run worktree:*` を呼ぶこと、frontend固有のtemplateや `.worktreeinclude` のglobを使わないこと、`scripts/worktree/` がbranchごとに決まった値を返し何度実行しても同じ状態になることを確認するdeterministic check
-- `policy-evaluation/vendored-skills-contract.sh` — `skills-lock.json` で導入した外部Skillのfileがcommitされ、内容がlockの `computedHash` と一致し、`skills/` で同名を公開していないことを確認するdeterministic check。`writing-discipline` のevalは正本の rebuildup/writing-skills にある
-- `policy-evaluation/skill-catalog-contract.sh` — `catalog/` の能力一覧と候補記録の形式、single能力の担当が1つであること、routerを担当にしないこと、自作Skillの記録漏れ、promptから `skill-selection` へのroutingを確認するdeterministic check
-- `policy-evaluation/cloudflare-cli-contract.sh` — Cloudflare projectで`cf` primary / Wrangler explicit fallbackがprofile / ADRに定義され、promptからprofileへroutingされ、provider-specific tool名がConstitutionへ漏れないことを確認するdeterministic check
+- `policy-evaluation/vendored-skills-contract.mts` — `skills-lock.json` で導入した外部Skillのfileがcommitされ、内容がlockの `computedHash` と一致し、`skills/` で同名を公開していないことを確認するdeterministic check。`writing-discipline` のevalは正本の rebuildup/writing-skills にある
+- `policy-evaluation/skill-catalog-contract.mts` — `catalog/` の能力一覧と候補記録の形式、single能力の担当が1つであること、routerを担当にしないこと、自作Skillの記録漏れ、promptから `skill-selection` へのroutingを確認するdeterministic check
+- `policy-evaluation/text-contracts.mts cloudflare-cli-contract` — Cloudflare projectで`cf` primary / Wrangler explicit fallbackがprofile / ADRに定義され、promptからprofileへroutingされ、provider-specific tool名がConstitutionへ漏れないことを確認するdeterministic check
 - `policy-evaluation/constitutional-refinement-scenario.md` — current Practiceより強いnative mechanismをtool-name complianceで拒否せず、上位guaranteeからrefinement判断できるかを確認するcold scenario
 - `policy-evaluation/execution-profile-scenario.md` — execution profile / deterministic-latent separation / cold review routing
 - `interaction-discipline/scenario.md` — agent ownership / blocker presentation / user escalation / tangent / persistent-writing routing
 - `policy-evaluation/comparative-scenario.md` — condition parity / runner isolation / identity pinning / blind paired judging / release gate / budgeted resumability
 - `skills-cli-materialization/scenario.md` — Skills CLIによるproject-local Agent Skillのmaterialization contract（discovery / install / frontmatter parseability / global install禁止 / provenance / generated linkの二重追跡防止 / reference完全性）。deterministic check + live end-to-end
 - `linear-release-control/scenario.md` — GitHub / Linear間のsource-of-truth / mirror / worker access / coding session baseline / project mappingのcanonical rule
-- `release-batching/controls.sh` — 週次計画と可変releaseの判断記録を検査するstructural grader。hold / frozen candidate / release authorizedのpositiveと、未承認release・古いSHAのgate・freeze中landing・ファイル数だけの判断等のnegativeを実行する。これはinput evidenceの真実性やrelease価値の優劣を証明しない。
-- `policy-evaluation/context-budget.sh` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
+- `release-batching/controls.mts` — 週次計画と可変releaseの判断記録を検査するstructural grader。hold / frozen candidate / release authorizedのpositiveと、未承認release・古いSHAのgate・freeze中landing・ファイル数だけの判断等のnegativeを実行する。これはinput evidenceの真実性やrelease価値の優劣を証明しない。
+- `policy-evaluation/context-budget.mts` — root / always-on instructionsと各conditional Skillをchecked-in baselineに対して測定するdeterministic regression check
 
 controls:
 
 ```bash
-bash evals/policy-evaluation/constitutional-contract.sh
-bash evals/policy-evaluation/merge-method-contract.sh
-bash evals/policy-evaluation/mise-toolchain-contract.sh
-bash evals/policy-evaluation/herdr-orchestration-contract.sh
-bash evals/policy-evaluation/cloudflare-cli-contract.sh
-bash evals/policy-evaluation/skill-catalog-contract.sh
-bash evals/policy-evaluation/vendored-skills-contract.sh
+bun evals/policy-evaluation/text-contracts.mts constitutional-contract
+bun evals/policy-evaluation/text-contracts.mts merge-method-contract
+bun evals/policy-evaluation/text-contracts.mts mise-toolchain-contract
+bun evals/policy-evaluation/text-contracts.mts herdr-orchestration-contract
+bun evals/policy-evaluation/text-contracts.mts cloudflare-cli-contract
+bun evals/policy-evaluation/skill-catalog-contract.mts
+bun evals/policy-evaluation/vendored-skills-contract.mts
 bash evals/policy-evaluation/worktree-lifecycle-contract.sh
-bash evals/policy-evaluation/constitutional-refinement-controls.sh
-bash evals/policy-evaluation/controls.sh
-bash evals/interaction-discipline/controls.sh
-bash evals/policy-evaluation/comparative-controls.sh
-bash evals/linear-release-control/controls.sh
-bash evals/release-batching/controls.sh
+bun evals/policy-evaluation/constitutional-refinement-controls.mts
+bun evals/policy-evaluation/controls.mts
+bun evals/interaction-discipline/controls.mts
+bun evals/policy-evaluation/comparative-controls.mts
+bun evals/linear-release-control/controls.mts
+bun evals/release-batching/controls.mts
 bash evals/skills-cli-materialization/controls.sh
-bash evals/policy-evaluation/context-budget.sh
+bun evals/policy-evaluation/context-budget.mts
 ```
 
 fresh agentのanswerを採点:
 
 ```bash
-bash evals/policy-evaluation/grade.sh /path/to/execution-profile-answer.txt
-bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
-bash evals/interaction-discipline/grade.sh /path/to/interaction-answer.txt
-bash evals/policy-evaluation/comparative-grade.sh /path/to/comparative-answer.txt
-bash evals/linear-release-control/grade.sh /path/to/linear-release-answer.txt
+bun evals/shared/record-grader.mts grade /path/to/execution-profile-answer.txt
+bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
+bun evals/interaction-discipline/grade.mts /path/to/interaction-answer.txt
+bun evals/shared/record-grader.mts comparative-grade /path/to/comparative-answer.txt
+bun evals/linear-release-control/grade.mts /path/to/linear-release-answer.txt
 ```
 
 
@@ -98,7 +104,7 @@ For `constitutional-refinement-scenario.md`, run a fresh agent with only the sce
 Then run:
 
 ```bash
-bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
 ```
 
-The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.sh`.
+The checked-in negative/regression/positive fixtures are exercised by `constitutional-refinement-controls.mts`.

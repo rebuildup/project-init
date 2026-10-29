@@ -90,7 +90,7 @@ Fail the evaluation if the answer:
 Run:
 
 ```bash
-bash evals/policy-evaluation/constitutional-refinement-controls.sh
+bun evals/policy-evaluation/constitutional-refinement-controls.mts
 ```
 
 Expected:
@@ -102,5 +102,5 @@ Expected:
 Grade a fresh-agent answer with:
 
 ```bash
-bash evals/policy-evaluation/constitutional-refinement-grade.sh /tmp/constitutional_refinement_answer.txt
+bun evals/policy-evaluation/constitutional-refinement-grade.mts /tmp/constitutional_refinement_answer.txt
 ```

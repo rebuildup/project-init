@@ -1,0 +1,202 @@
+{
+  "grade": {
+    "heading": "routing",
+    "required": [
+      [
+        "mechanical typo stays solo",
+        "A profile=mechanical space=deterministic execution=solo review=none"
+      ],
+      [
+        "cross-boundary contract change decomposes and cold-reviews",
+        "B profile=cross-boundary space=mixed execution=decompose review=cold"
+      ],
+      [
+        "judgment-heavy design starts evidence-first and cold-reviews",
+        "C profile=judgment-heavy space=latent execution=evidence-first review=cold"
+      ],
+      [
+        "repeated deterministic work is codified",
+        "D profile=mechanical space=deterministic execution=codify review=none"
+      ],
+      [
+        "reviewer sees artifact, not builder reasoning",
+        "reviewer_context=artifact-only"
+      ],
+      [
+        "numeric self-rating is not a gate",
+        "self_rating=not-a-gate"
+      ]
+    ],
+    "forbid": [
+      [
+        "no builder reasoning in cold review",
+        "^reviewer_context=builder-reasoning$"
+      ],
+      [
+        "no numeric/self score as quality gate",
+        "^self_rating=score$"
+      ],
+      [
+        "no unnecessary fan-out for mechanical typo",
+        "^A .*execution=decompose"
+      ],
+      [
+        "no repeated deterministic manual reasoning",
+        "^D .*execution=(solo|decompose|evidence-first)"
+      ]
+    ],
+    "order": true
+  },
+  "comparative-grade": {
+    "heading": "comparative evaluation",
+    "required": [
+      [
+        "condition parity",
+        "parity=same-cases-model-trials-rubric"
+      ],
+      [
+        "runner isolation",
+        "runner=isolated"
+      ],
+      [
+        "identity pinning or recording",
+        "identity=pin-or-record"
+      ],
+      [
+        "blind paired judging",
+        "judge=blind-paired"
+      ],
+      [
+        "deterministic per-group labels",
+        "labels=deterministic-per-group"
+      ],
+      [
+        "critical dimensions cannot regress",
+        "gate=critical-nonregression"
+      ],
+      [
+        "paid runs are budgeted and resumable",
+        "run=budgeted-resumable"
+      ]
+    ],
+    "forbid": [
+      [
+        "no incomparable conditions",
+        "^parity=different-conditions$"
+      ],
+      [
+        "no ambient user config contamination",
+        "^runner=ambient-user-config$"
+      ],
+      [
+        "no implicit model/runtime default",
+        "^identity=implicit-default$"
+      ],
+      [
+        "no named or separate judging",
+        "^judge=named-separate$"
+      ],
+      [
+        "no fixed-position label bias",
+        "^labels=fixed-position$"
+      ],
+      [
+        "no weighted-total-only release gate",
+        "^gate=weighted-total-only$"
+      ],
+      [
+        "no unbounded restart behavior",
+        "^run=unbounded-restart$"
+      ]
+    ],
+    "order": true
+  },
+  "merge-authorization-grade": {
+    "heading": "ticket/release landing",
+    "required": [
+      [
+        "ticket work lands autonomously",
+        "ticket_review_request=autonomous-land"
+      ],
+      [
+        "landed ticket closes Issue",
+        "ticket_issue_reconcile=close-after-trunk-landing"
+      ],
+      [
+        "stale ticket branch is cleaned",
+        "ticket_branch_cleanup=delete-when-unreferenced"
+      ],
+      [
+        "orphan ticket branch gets PR",
+        "orphan_ticket_branch=create-missing-pr"
+      ],
+      [
+        "generic request does not release",
+        "release_generic_request=prepare-only"
+      ],
+      [
+        "release requires explicit authorization",
+        "release_merge=explicit-authorization-required"
+      ],
+      [
+        "explicit release request authorizes release",
+        "explicit_release_request=authorized"
+      ],
+      [
+        "release auto-merge is forbidden",
+        "release_auto_merge=forbidden"
+      ],
+      [
+        "main accepts current release source only",
+        "main_source_guard=current-release-only"
+      ],
+      [
+        "ready ticket stack lands autonomously",
+        "stack_landing=autonomous-when-all-included-ready"
+      ],
+      [
+        "changed release candidate revalidates auth",
+        "changed_release_candidate=revalidate-authorization"
+      ]
+    ],
+    "forbid": [
+      [
+        "ticket must not wait for per-PR permission",
+        "^ticket_review_request=(prepare-only|permission-required|ready-to-merge)$"
+      ],
+      [
+        "landed Issue must not remain open",
+        "^ticket_issue_reconcile=(leave-open|defer|closing-keyword-only)$"
+      ],
+      [
+        "stale ticket branch must not be retained without dependency",
+        "^ticket_branch_cleanup=(keep|defer|manual-only)$"
+      ],
+      [
+        "orphan branch must not be report-only",
+        "^orphan_ticket_branch=(report-only|leave-without-pr)$"
+      ],
+      [
+        "generic cleanup must not merge release",
+        "^release_generic_request=(merge|autonomous-land|authorized)$"
+      ],
+      [
+        "release auto-merge must not be enabled",
+        "^release_auto_merge=(allowed|enabled|authorization-required)$"
+      ],
+      [
+        "main must not accept arbitrary ticket head",
+        "^main_source_guard=(any-pr|ticket-allowed)$"
+      ],
+      [
+        "ticket stack must not require individual user authorization",
+        "^stack_landing=(authorization-required|all-included-prs-authorized|prepare-only)$"
+      ],
+      [
+        "stale release authorization must not be reused",
+        "^changed_release_candidate=(reuse|reuse-blindly|authorized)$"
+      ]
+    ],
+    "order": false
+  }
+}

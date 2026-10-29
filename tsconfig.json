@@ -7,8 +7,14 @@
     "noEmit": true,
     "erasableSyntaxOnly": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node"],
-    "skipLibCheck": true
+    "types": [
+      "node"
+    ],
+    "skipLibCheck": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["templates/quality/**/*.mts", "evals/**/*.mts"]
+  "include": [
+    "templates/quality/**/*.mts",
+    "evals/**/*.mts"
+  ]
 }

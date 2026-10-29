@@ -38,16 +38,21 @@ jobs:
         run: bun run typecheck
       - name: Test adaptive scheduler
         run: bun run test:adaptive
+      - name: Test TypeScript release batching controls
+        run: bun run test:release-batching
+      - name: Test TypeScript interaction and Linear controls
+        run: |
+          bun run test:interaction
+          bun run test:linear
+      - name: Test TypeScript comparative controls
+        run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Run deterministic controls
         shell: bash
         run: |
           set +e
           failed=0
+          bun evals/policy-evaluation/controls.mts || failed=1
           for suite in \
-            policy-evaluation \
-            interaction-discipline \
-            linear-release-control \
-            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"
