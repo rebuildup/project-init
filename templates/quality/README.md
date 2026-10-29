@@ -1,20 +1,22 @@
 # 適応的テストスケジューラー
 
-既存のテストコマンドを置き換えず、開発中の任意検証の実行頻度だけを調整する。adaptive-tests.mjs は Node.js 22 で動作する、依存パッケージ不要の参照実装。各プロジェクトのランナーとGit入力を確認して導入する。
+既存のテストコマンドを置き換えず、開発中の任意検証の実行頻度だけを調整する。adaptive-tests.mts は Bun または Node.js 22.18 以降でビルドなしに動作する、実行時依存パッケージ不要の TypeScript 参照実装。各プロジェクトのランナーとGit入力を確認して導入する。
 
 ## 導入
 
-1. adaptive-tests.mjs を scripts/adaptive-tests.mjs へコピーし、構成例を quality/adaptive-tests.json へコピーする。
+1. adaptive-tests.mts を scripts/adaptive-tests.mts へコピーし、構成例を quality/adaptive-tests.json へコピーする。
 2. 既存の実行コマンドを引数配列で指定し、関連する入力ファイルのGit pathspecと最大実行間隔を設定する。
 3. 各checkの `required` を明示する。必須のcheckは `required: true, allowDefer: false` とし、延期を許可しない。全入力と環境を追跡でき、成功終了が実際のテスト成功（0件成功を含まない）を表す任意checkに限り `required: false, allowDefer: true` にする。外部サービス、時刻、GUI、実機、共有DBなど非決定的な入力を持つチェックは原則対象外。
 4. .tmp/ を .gitignore に登録し、延期可能なworker実行では必ず `--state` でそのworker専用の状態ファイルを渡す（同一worktreeの並列worker間でも共有しない）。非適応実行には既定のstate pathを使用できる。
 5. 必須の validate:fast / validate:integration / validate:release 相当のコマンドは変更せず、反復最適化用のコマンドは別名で公開する。
 
-    node scripts/adaptive-tests.mjs --config quality/adaptive-tests.json --check unit --context worker --environment local-dev-v1 --state .tmp/adaptive-tests/worker-local-1.json
+    bun scripts/adaptive-tests.mts --config quality/adaptive-tests.json --check unit --context worker --environment local-dev-v1 --state .tmp/adaptive-tests/worker-local-1.json
 
 必ず実行して検証するとき:
 
-    node scripts/adaptive-tests.mjs --config quality/adaptive-tests.json --check unit --context integration --force
+    bun scripts/adaptive-tests.mts --config quality/adaptive-tests.json --check unit --context integration --force
+
+Node.js 22.18以降なら同じ引数を `node scripts/adaptive-tests.mts` でも実行できる。Node.js 22.17以前での直接実行は標準サポートしない。型チェックは実行時には行われないため、実装を変更する場合はTypeScriptとNode.js型定義を導入し `tsc --noEmit` を別途実行する。project-init本体では `bun install` 後に `bun run typecheck` を使用する。
 
 context=worker、environment識別子、`required: false`、`allowDefer: true` の全てが揃い、CI環境変数が未設定の場合だけ延期を許す。
 

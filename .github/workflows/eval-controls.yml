@@ -14,6 +14,8 @@ on:
       - 'PROMPT.ja.md'
       - 'scripts/**'
       - 'mise.toml'
+      - 'package.json'
+      - 'tsconfig.json'
       - 'orca.yaml'
       - '.config/**'
       - '.gitattributes'
@@ -30,8 +32,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - uses: oven-sh/setup-bun@v2
+      - name: Install TypeScript tooling
+        run: bun install --no-save
+      - name: Typecheck TypeScript scripts
+        run: bun run typecheck
       - name: Test adaptive scheduler
-        run: node --test evals/adaptive-tests/scheduler.test.mjs
+        run: bun run test:adaptive
+      - name: Test TypeScript release batching controls
+        run: bun run test:release-batching
+      - name: Test TypeScript interaction and Linear controls
+        run: |
+          bun run test:interaction
+          bun run test:linear
+      - name: Test TypeScript comparative controls
+        run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
         run: node --test templates/agent-routing/dispatch.test.mjs
       - name: Run deterministic controls
@@ -39,11 +54,8 @@ jobs:
         run: |
           set +e
           failed=0
+          bun evals/policy-evaluation/controls.mts || failed=1
           for suite in \
-            policy-evaluation \
-            interaction-discipline \
-            linear-release-control \
-            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"

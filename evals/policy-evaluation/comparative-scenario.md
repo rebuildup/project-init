@@ -46,13 +46,13 @@ The eval runner must capture those seven response lines verbatim into `/tmp/comp
 ## Deterministic half
 
 ```bash
-bash evals/policy-evaluation/comparative-grade.sh /tmp/comparative_policy_eval_answer.txt
+bun evals/shared/record-grader.mts comparative-grade /tmp/comparative_policy_eval_answer.txt
 ```
 
 ## Controls
 
 ```bash
-bash evals/policy-evaluation/comparative-controls.sh
+bun evals/policy-evaluation/comparative-controls.mts
 ```
 
 Expected:
