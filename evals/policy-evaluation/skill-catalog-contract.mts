@@ -1,10 +1,13 @@
 #!/usr/bin/env -S bun
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
 const own = 'rebuildup/project-init';
 function fail(message: string): never { throw new Error(message); }
+function isFile(path: string): boolean {
+  try { return statSync(join(root, path)).isFile(); } catch { return false; }
+}
 function lines(path: string): string[][] {
   const rows = readFileSync(join(root, path), 'utf8').split(/\r?\n/);
   if (rows.at(-1) === '') rows.pop();
@@ -57,7 +60,7 @@ function validate(): void {
       }
     }
     if (source === own) {
-      if (!existsSync(join(root, path))) errors.push('candidates.tsv points at missing in-repo Skill: ' + path);
+      if (!isFile(path)) errors.push('candidates.tsv points at missing in-repo Skill: ' + path);
       listed.add(skill);
     }
   }
