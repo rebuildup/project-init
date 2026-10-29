@@ -38,6 +38,8 @@ jobs:
         run: bun run typecheck
       - name: Test adaptive scheduler
         run: bun run test:adaptive
+      - name: Test TypeScript release batching controls
+        run: bun run test:release-batching
       - name: Run deterministic controls
         shell: bash
         run: |
@@ -47,7 +49,6 @@ jobs:
             policy-evaluation \
             interaction-discipline \
             linear-release-control \
-            release-batching \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
             bash "evals/$suite/controls.sh"
