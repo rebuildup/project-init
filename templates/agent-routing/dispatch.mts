@@ -66,7 +66,7 @@ function agentInstance(agent: Record<string,unknown>, pane: string): string {
   }
   // When an agent ID is unavailable, a foreground process group can fence replacement.
   const info=call('herdr',['pane','process-info','--pane',pane],true);
-  const state=info.result;
+  const state:unknown=info.result;
   if(isRecord(state)) {
     const pgid=state.foreground_pgid ?? state.foreground_process_group_id;
     if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return 'pgid:'+pgid;
