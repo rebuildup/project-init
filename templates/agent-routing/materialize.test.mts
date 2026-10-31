@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { materialize } from './materialize.mts';
@@ -41,9 +41,7 @@ test('check mode does not write any files',()=>{
   const project=mkdtempSync(join(tmpdir(),'routing-materialize-'));
   try {
     assert.ok(materialize(project,false,true).changed.length>0);
-    assert.equal(readFileSync(join(import.meta.dirname,'agent-routing.example.json'),'utf8').length>0,true);
-    assert.ok(!readFileSync(join(project,'not-created.txt'),'utf8'));
-  } catch(error) {
-    if(!(error instanceof Error)||!error.message.includes('ENOENT')) throw error;
+    assert.equal(existsSync(join(project,'scripts/agent-routing')),false);
+    assert.equal(existsSync(join(project,'AGENTS.md')),false);
   } finally {rmSync(project,{recursive:true,force:true});}
 });
