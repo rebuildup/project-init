@@ -15,6 +15,7 @@
   },
   "include": [
     "templates/quality/**/*.mts",
-    "evals/**/*.mts"
+    "evals/**/*.mts",
+    "templates/agent-routing/**/*.mts"
   ]
 }

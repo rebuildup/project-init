@@ -5,6 +5,7 @@ on:
       - 'evals/**'
       - 'docs/adr/**'
       - 'templates/quality/**'
+      - 'templates/agent-routing/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -48,6 +49,16 @@ jobs:
           bun run test:linear
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
+      - name: Test delegated agent routing
+        run: node --test templates/agent-routing/dispatch.test.mts
+      - name: Test role-aware Herdr layout
+        run: node --test templates/agent-routing/layout.test.mts
+      - name: Test Herdr dispatcher with mocked CLI
+        run: node --test templates/agent-routing/dispatch.integration.test.mts
+      - name: Test delegation ownership and failure regressions
+        run: node --test templates/agent-routing/routing-regressions.test.mts
+      - name: Test project-local routing materialization
+        run: node --test templates/agent-routing/materialize.test.mts
       - name: Run deterministic controls
         shell: bash
         run: |

@@ -76,6 +76,12 @@ project-init logical capabilityからHerdrへmappingする場合のcurrent shape
 
 特にcancelは `ctrl+c` を送っただけで完了とみなさない。process/agent stateとdurable side effectをreconcileし、durable Workerならfencing ownershipを更新してからreplacement attemptをadmitする。
 
+## Provider-scoped launch and bounded layout
+
+For a configured provider route, `herdr agent start --kind` does not replace the dotfiles `agent <harness> <provider>` launcher. Resolve route first; run that launcher in a Herdr pane. No silent native/paid/provider fallback. Herdr detection is not evidence of model identity or acceptance.
+
+Use `herdr api snapshot` to reuse an unambiguous project workspace and function tab; do not create a workspace per attempt or a tab per function. Default presentation: `Ctrl`, `Work`, `Device`; default four panes per tab, then queue unless a bounded overflow is configured. Never commandeer an existing terminal, steal focus, or destructively replace live layouts. See `organization/execution-functions.md` and `templates/agent-routing/`. Layout does not grant authority or replace mutable resource leases, recovery fencing or safe cleanup.
+
 ## Agent-driven Supervisor loop
 
 Herdr-managedなCoordinator / Supervisor agentは、`HERDR_ENV=1` を確認したうえでHerdr CLI/APIからsibling top-level Workerを起動・委譲・回収してよい。fan-out判断は `parallel-orchestration` のadaptive policyに従い、Herdr paneを増やすこと自体を目的にしない。
@@ -111,7 +117,7 @@ remote machineを使う場合はtargetを明示する。machine/server failure�
 1. objective / acceptance criteria / authorityを読む。
 2. ADR-0019に従い observational / mutable / durable attemptを分類する。
 3. mutable attemptなら先にrequired workspace/runtime isolationをmaterializeする。
-4. Herdr workspace/tab/paneを作る。
+4. Herdr snapshotから既存project workspace/tab/paneを調査し、必要なsurfaceだけ作る（capacity超過はqueue/block）。
 5. creation commandが返したJSONのIDを使い、IDを予測しない。
 6. supported top-level agentを `agent start` するか、既存agentをdetect/renameする。
 7. execution attempt metadataへHerdr workspace/pane/agent nameをtransient referenceとして関連付ける。
