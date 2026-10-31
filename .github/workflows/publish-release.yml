@@ -40,7 +40,7 @@ jobs:
           fi
           tag_type="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.type' 2>/dev/null || true)"
           tag_sha="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)"
-          if [[ -n "$tag_sha" && ( "$tag_type" != commit || "$tag_sha" != "$MERGE_SHA" ) ]]; then
+          if [[ -n "$tag_sha" && "$tag_sha" != null && ( "$tag_type" != commit || "$tag_sha" != "$MERGE_SHA" ) ]]; then
             echo "::error::Existing tag does not directly target the release merge SHA; do not overwrite"
             exit 1
           fi
