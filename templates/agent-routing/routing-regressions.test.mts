@@ -26,6 +26,7 @@ test('canonical alias overrides and inconsistent later lane inventory', () => {
     assert.equal(planPlacement(s,opts).action,'blocked');
     s.result.tabs[2].pane_count=1;
     assert.equal(planPlacement(s,opts).action,'split-pane');
+    assert.throws(()=>resolveLayout({functionTabs:{review:'Build',verify:'Build2'}},'review'),/collides/);
   } finally {rmSync(dir,{recursive:true,force:true});}
 });
 
@@ -40,7 +41,7 @@ const mockHerdr=[
   "  :key==='workspace create'?{workspace:{workspace_id:'w1'},tab:{tab_id:'w1:t1'},root_pane:{pane_id:'w1:p1'}}",
   "  :key==='tab create'?{tab:{tab_id:'w1:t2'},root_pane:{pane_id:'w1:p2'}}",
   "  :key==='pane split'?{pane:{pane_id:'w1:p3'}}",
-  "  :key==='agent get'?{agent:{name:existsSync(process.env.MOCK_NAME)?readFileSync(process.env.MOCK_NAME,'utf8'):'detected'}}",
+  "  :key==='agent get'?{agent:{name:existsSync(process.env.MOCK_NAME)?readFileSync(process.env.MOCK_NAME,'utf8'):'detected',agent_id:existsSync(process.env.MOCK_INSTANCE)?readFileSync(process.env.MOCK_INSTANCE,'utf8'):'instance1'}}",
   "  :key==='agent prompt'?{accepted:true}:{};",
   "console.log(JSON.stringify({result}));",
 ].join('\n');
@@ -60,7 +61,7 @@ function fixture() {
   },layout:{workspaceLabel:'root'}}));
   writeFileSync(join(bin,'herdr'),'#!/usr/bin/env node\n'+mockHerdr+'\n',{mode:0o755});
   writeFileSync(join(bin,'agent'),"#!/usr/bin/env node\nif(process.argv[2]==='check'&&process.env.MOCK_AGENT_FAIL==='1')process.exit(1);\n",{mode:0o755});
-  const env={...process.env,PATH:bin+delimiter+process.env.PATH,MOCK_LOG:log,MOCK_SNAPSHOT:snapshot,MOCK_NAME:join(dir,'name')};
+  const env={...process.env,PATH:bin+delimiter+process.env.PATH,MOCK_LOG:log,MOCK_SNAPSHOT:snapshot,MOCK_NAME:join(dir,'name'),MOCK_INSTANCE:join(dir,'instance')};
   const run=(cmd:string,flags:string[],additionalEnv:NodeJS.ProcessEnv={})=>
     spawnSync(process.execPath,[join(import.meta.dirname,'dispatch.mts'),cmd,'--config',config,...flags],
       {encoding:'utf8',timeout:20000,env:{...env,...additionalEnv}});
@@ -92,6 +93,8 @@ test('atomic reservation stops duplicate start; prompt/read require bound role a
       '--name','worker','--target','w1:p9']);
     assert.notEqual(unknown.status,0);
     assert.ok(!f.commands().some(x=>x[0]==='agent'&&x[1]==='prompt'&&x[2]==='w1:p9'));
+    writeFileSync(join(f.dir,'instance'),'instance2');
+    assert.match(f.run('read',flags).stderr,/agent instance changed/);
     writeFileSync(join(f.dir,'name'),'another');
     assert.match(f.run('read',flags).stderr,/no longer contains the bound live agent/);
   } finally {rmSync(f.dir,{recursive:true,force:true});}

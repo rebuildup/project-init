@@ -42,7 +42,7 @@ export function discoverProjectRoot(cwd: string): string {
 interface AttemptBinding {
   status: 'pending' | 'active';
   role: string; provider: string; harness: string; routeHash: string;
-  projectRoot: string; pane?: string; name: string;
+  projectRoot: string; pane?: string; name: string; instance?: string;
 }
 const routeHash = (route: Route) => createHash('sha256').update(JSON.stringify(route)).digest('hex');
 function bindingPath(root: string, name: string): string {
@@ -56,6 +56,25 @@ function reserveAttempt(path: string, attempt: AttemptBinding): void {
   try { fd=openSync(path,'wx',0o600); }
   catch { fail('attempt name already reserved; inspect live Herdr state before retry: '+attempt.name); }
   try { writeFileSync(fd, JSON.stringify(attempt)+'\n'); } finally { closeSync(fd); }
+}
+function agentInstance(agent: Record<string,unknown>, pane: string): string {
+  // Herdr schemas may expose different stable identity fields.
+  for(const field of ['instance_id','agent_id','session_id']) {
+    const id=agent[field];
+    if((typeof id==='string' && id.length>0) || (typeof id==='number' && Number.isInteger(id)))
+      return field+':'+String(id);
+  }
+  // When an agent ID is unavailable, a foreground process group can fence replacement.
+  const info=call('herdr',['pane','process-info','--pane',pane],true);
+  const state=info.result;
+  if(isRecord(state)) {
+    const pgid=state.foreground_pgid ?? state.foreground_process_group_id;
+    if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return 'pgid:'+pgid;
+    const procs=state.foreground_processes;
+    if(Array.isArray(procs) && isRecord(procs[0]) && typeof procs[0].pid==='number')
+      return 'pid:'+String(procs[0].pid);
+  }
+  fail('stable live agent identity not available; do not prompt unverified pane');
 }
 function verifyAttempt(args: Record<string,string>, route: Route): void {
   if (!args['project-root'] || !args.name) fail('--project-root and --name required for prompt/read');
@@ -71,6 +90,8 @@ function verifyAttempt(args: Record<string,string>, route: Route): void {
   const agent=detected?.result?.agent;
   if (!isRecord(agent) || (agent.name!==args.name && agent.agent_name!==args.name))
     fail('pane no longer contains the bound live agent; reconcile before prompting');
+  if(!attempt.instance || agentInstance(agent,args.target)!==attempt.instance)
+    fail('agent instance changed; reconcile before prompting');
 }
 async function locked<T>(root: string, fn: () => Promise<T>): Promise<T> {
   const id=createHash('sha256').update(root).digest('hex').slice(0,24);
@@ -157,6 +178,8 @@ export async function run(argv: string[]): Promise<unknown> {
       if (decision.action==='blocked' || decision.action==='queued') {
         fail(decision.action + ': ' + decision.reason);
       }
+      if (decision.action==='create-workspace' && decision.tabLabel==='Ctrl' && cwd!==projectRoot)
+        fail('Ctrl actor requires cwd=projectRoot on initial workspace');
       // Reserve before the first Herdr mutation. Failed/uncertain starts remain reserved.
       const attemptPath=bindingPath(projectRoot,args.name);
       const attempt: AttemptBinding={status:'pending',role:route.role,
@@ -207,8 +230,12 @@ export async function run(argv: string[]): Promise<unknown> {
         try { found=JSON.parse(probe.stdout); } catch { fail('Herdr returned malformed agent state'); }
         if (!found?.result?.agent) continue;
         call('herdr',['agent','rename',pane,args.name]);
-        // Binding is deliberately written only after successful rename.
-        writeFileSync(attemptPath,JSON.stringify({...attempt,status:'active',pane})+'\n',{mode:0o600});
+        const renamed=call('herdr',['agent','get',pane],true)?.result?.agent;
+        if(!isRecord(renamed) || (renamed.name!==args.name && renamed.agent_name!==args.name))
+          fail('agent rename could not be verified');
+        const instance=agentInstance(renamed,pane);
+        // Binding is activated only after live identity and rename have been verified.
+        writeFileSync(attemptPath,JSON.stringify({...attempt,status:'active',pane,instance})+'\n',{mode:0o600});
         return {...route,workspace,pane,agent:args.name,detected:true,placement:decision};
       }
       fail('pane '+pane+' started but no detectable agent; inspect pane before retry');

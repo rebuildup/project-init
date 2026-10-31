@@ -68,6 +68,17 @@ export function resolveLayout(config: unknown = {}, functionName: string) {
   const alias = Object.keys(ALIASES).find(key => ALIASES[key] === fn);
   const tabLabel = overrides[functionName] ?? overrides[fn] ?? (alias ? overrides[alias] : undefined) ?? DEFAULT_TABS[fn];
   if (typeof tabLabel !== 'string' || !LABEL.test(tabLabel)) fail('invalid tab label');
+  const effective=(name: string): unknown => {
+    const canonical=ALIASES[name] ?? name;
+    const alias=Object.keys(ALIASES).find(k => ALIASES[k] === canonical);
+    return overrides[name] ?? overrides[canonical] ?? (alias ? overrides[alias] : undefined) ?? DEFAULT_TABS[canonical];
+  };
+  const labels=[...Object.keys(DEFAULT_TABS),...Object.keys(ALIASES)].map(effective);
+  for(const a of labels) for(const b of labels) {
+    if(typeof a==='string' && typeof b==='string' && a!==b &&
+       b.startsWith(a) && /^[2-9]$/.test(b.slice(a.length)))
+      fail('functionTabs label collides with another lane overflow tab');
+  }
   if (config.workspaceLabel !== undefined && (typeof config.workspaceLabel !== 'string' || !LABEL.test(config.workspaceLabel))) fail('invalid workspace label');
   return {function:fn, tabLabel, workspaceLabel:config.workspaceLabel, maxPanes, maxTabs, overflow};
 }
