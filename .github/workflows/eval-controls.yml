@@ -53,6 +53,8 @@ jobs:
         run: node --test templates/agent-routing/layout.test.mts
       - name: Test Herdr dispatcher with mocked CLI
         run: node --test templates/agent-routing/dispatch.integration.test.mts
+      - name: Test delegation ownership and failure regressions
+        run: node --test templates/agent-routing/routing-regressions.test.mts
       - name: Run deterministic controls
         shell: bash
         run: |
