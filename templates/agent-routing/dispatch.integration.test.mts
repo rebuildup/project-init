@@ -18,7 +18,7 @@ const mockHerdr=[
   "  :key==='workspace create'?{workspace:{workspace_id:'w1'},tab:{tab_id:'w1:t1'},root_pane:{pane_id:'w1:p1'}}",
   "  :key==='tab create'?{tab:{tab_id:'w1:t2'},root_pane:{pane_id:'w1:p2'}}",
   "  :key==='pane split'?{pane:{pane_id:'w1:p3'}}",
-  "  :key==='agent get'?{agent:{name:'mock-agent',agent_status:'idle'}}",
+  "  :key==='agent get'?{agent:{name:'impl134',agent_id:'mock-instance-1',agent_status:'idle'}}",
   "  :{};",
   "console.log(JSON.stringify({result}));"
 ].join('\n');
