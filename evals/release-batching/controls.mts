@@ -28,7 +28,7 @@ for (const [label, expected] of cases) {
   const verdict = output.trimEnd().split('\n').at(-1) ?? '';
   const valid = expected === 'PASS'
     ? result.status === 0 && verdict === 'EVAL PASS'
-    : result.status !== 0 && verdict === 'EVAL FAIL';
+    : result.status !== 0 && verdict === 'EVAL FAIL' && /^VIOL /m.test(output);
   if (valid) {
     console.log('  ok  ' + label.padEnd(34) + ' -> ' + verdict);
   } else {

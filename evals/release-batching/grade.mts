@@ -7,7 +7,17 @@ const OUTCOMES = new Set(['hold', 'candidate', 'blocked']);
 const STAGES = new Set(['collecting', 'frozen', 'verified']);
 const NO_EVIDENCE = new Set(['', 'unknown', 'n/a', 'na', 'none', 'not measured', 'unavailable', '?']);
 const SHA = /^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
-const ONLY_COUNTS = /^\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?$/;
+const COUNT_PHRASE = String.raw`\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?`;
+const ONLY_COUNTS = new RegExp(`^${COUNT_PHRASE}(?:\\s*(?:,|;|and|&)\\s*${COUNT_PHRASE})*#!/usr/bin/env -S bun
+import { readFileSync } from 'node:fs';
+
+const BASIS_FIELDS = ['scope', 'value', 'waiting', 'change_risk', 'release_cost'] as const;
+const TRIGGERS = new Set(['weekly', 'change_limit', 'value', 'wait_limit', 'urgent', 'manual']);
+const OUTCOMES = new Set(['hold', 'candidate', 'blocked']);
+const STAGES = new Set(['collecting', 'frozen', 'verified']);
+const NO_EVIDENCE = new Set(['', 'unknown', 'n/a', 'na', 'none', 'not measured', 'unavailable', '?']);
+const SHA = /^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
+);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -67,10 +77,13 @@ export function check(data: unknown): string[] {
   if (outcome === 'hold' && stage !== 'collecting') {
     failures.push('hold cannot freeze/verify a candidate');
   }
+  if (outcome === 'blocked' && stage !== 'collecting') {
+    failures.push('blocked cannot freeze/verify a candidate');
+  }
   if (outcome === 'candidate') {
     if (admitted !== true) failures.push('candidate requires admitted scope');
-    if (isRecord(basis) && typeof basis.scope === 'string' && basis.scope.trim().toLowerCase() === 'unknown') {
-      failures.push('candidate scope cannot be unknown');
+    if (isRecord(basis) && typeof basis.scope === 'string' && NO_EVIDENCE.has(basis.scope.trim().toLowerCase())) {
+      failures.push('candidate scope must be selected');
     }
     if (isRecord(basis) && !['value', 'waiting', 'change_risk', 'release_cost'].some(name => substantive(basis[name]))) {
       failures.push('candidate requires substantive non-count evidence');

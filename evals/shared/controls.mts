@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { accessSync, constants } from 'node:fs';
 import { join } from 'node:path';
 
 export type Expected = 'PASS' | 'FAIL';
@@ -13,7 +14,15 @@ export function runControls(
 ): number {
   let failures = 0;
   for (const [label, fixture, expected] of cases) {
-    const result = spawnSync(process.execPath, [join(directory, grader), ...extraArgs, join(directory, fixture)], {
+    const fixturePath = join(directory, fixture);
+    try {
+      accessSync(fixturePath, constants.R_OK);
+    } catch {
+      console.error('  FAIL ' + label.padEnd(34) + ' -> fixture missing or unreadable: ' + fixturePath);
+      failures++;
+      continue;
+    }
+    const result = spawnSync(process.execPath, [join(directory, grader), ...extraArgs, fixturePath], {
       encoding: 'utf8',
     });
     const output = (result.stdout ?? '') + (result.stderr ?? '');

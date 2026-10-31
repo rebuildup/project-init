@@ -13,7 +13,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 export function gradeRecords(raw: string, contract: RecordContract): string[] {
   const out: string[] = [];
-  const normalized = raw.replace(/\r/g, '');
+  const normalized = raw.replace(/\r\n/g, '\n');
   const lines = normalized ? normalized.split('\n') : [];
   if (normalized.endsWith('\n')) lines.pop();
   const trailingBlank = Number(lines.at(-1) === '');

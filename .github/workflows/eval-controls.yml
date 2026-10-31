@@ -38,6 +38,8 @@ jobs:
         run: bun run typecheck
       - name: Test adaptive scheduler
         run: bun run test:adaptive
+      - name: Test review regressions
+        run: bun run test:eval-regressions
       - name: Test TypeScript release batching controls
         run: bun run test:release-batching
       - name: Test TypeScript interaction and Linear controls

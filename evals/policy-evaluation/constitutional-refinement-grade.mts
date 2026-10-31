@@ -23,7 +23,7 @@ const forbidden = [
 ];
 
 export function grade(raw: string): string[] {
-  const text = raw.replace(/\r/g, '');
+  const text = raw.replace(/\r(?=\n|$)/g, '');
   const actual = text ? text.split('\n') : [];
   if (text.endsWith('\n')) actual.pop();
   const diagnostics: string[] = [];
