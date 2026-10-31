@@ -38,11 +38,16 @@ jobs:
             echo "::error::main advanced after release merge; publication requires reconciliation"
             exit 1
           fi
-          tag_type="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.type' 2>/dev/null || true)"
-          tag_sha="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)"
-          if [[ -n "$tag_sha" && "$tag_sha" != null && ( "$tag_type" != commit || "$tag_sha" != "$MERGE_SHA" ) ]]; then
-            echo "::error::Existing tag does not directly target the release merge SHA; do not overwrite"
-            exit 1
+          # List existing refs and compare the exact tag name. A missing single-ref
+          # lookup can yield nonempty error text in some gh/jq combinations.
+          existing_tag="$(gh api --paginate "repos/$REPO/git/refs/tags" | jq -c --arg expected "refs/tags/$tag" '.[] | select(.ref == $expected)')"
+          if [[ -n "$existing_tag" ]]; then
+            tag_type="$(jq -r '.object.type' <<< "$existing_tag")"
+            tag_sha="$(jq -r '.object.sha' <<< "$existing_tag")"
+            if [[ "$tag_type" != commit || "$tag_sha" != "$MERGE_SHA" ]]; then
+              echo "::error::Existing tag does not directly target the release merge SHA; do not overwrite"
+              exit 1
+            fi
           fi
 
           if ! gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
