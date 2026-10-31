@@ -1,10 +1,11 @@
 import { strict as assert } from 'node:assert';
-import { readFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { resolveRoute, parseArgs } from './dispatch.mts';
+import { resolveRoute, parseArgs, discoverProjectRoot } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
@@ -43,4 +44,25 @@ test('native Claude Agent/Task tool invocations are rejected by hook',()=>{
   const allowed=spawnSync(process.execPath,[join(here,'claude-guard.mts')],{encoding:'utf8',input:JSON.stringify({tool_name:'Read'})});
   assert.equal(allowed.status,0);
   assert.equal(allowed.stdout,'');
+});
+
+test('linked Git worktrees identify the common project root automatically',()=>{
+  const root=mkdtempSync(join(tmpdir(),'herdr-layout-root-'));
+  const wt=root+'-wt';
+  try {
+    const run=(args: string[])=>spawnSync('git',args,{encoding:'utf8'});
+    const init=run(['init','-q',root]);
+    assert.equal(init.status,0,init.stderr);
+    const commit=run(['-C',root,'-c','user.email=unit@example.org','-c','user.name=Test',
+      'commit','--allow-empty','-qm','init']);
+    assert.equal(commit.status,0,commit.stderr);
+    const create=run(['-C',root,'worktree','add','-qb','layout-check',wt]);
+    assert.equal(create.status,0,create.stderr);
+    assert.equal(discoverProjectRoot(wt),resolve(root));
+    assert.equal(discoverProjectRoot(root),resolve(root));
+  } finally {
+    spawnSync('git',['-C',root,'worktree','remove','--force',wt]);
+    rmSync(wt,{recursive:true,force:true});
+    rmSync(root,{recursive:true,force:true});
+  }
 });

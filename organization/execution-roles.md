@@ -80,3 +80,7 @@ Runtime-specific commands belong to Practice adapters.
 Terminal panes, provider session IDs, native subagent IDs, and Supervisor-local state are useful transient identifiers but are not sufficient as the only representation of consequential unfinished work.
 
 Durable attempts must remain reconstructable from durable project state and checkpoints according to `agent-recovery`.
+
+## Execution function and presentation
+
+Execution roles define responsibility, not UI placement. Functional work (refactor/review/verification/recovery/reconciliation/cleanup) is composed with actor role and attempt class, not substituted for either. See [execution-functions.md](execution-functions.md) for the function vocabulary, collision invariants and Herdr presentation adapter; tabs and panes never confer authority.

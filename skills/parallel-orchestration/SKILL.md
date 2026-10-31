@@ -70,7 +70,7 @@ competitive mutable implementationは、各attemptが独立mutable ownership bou
 
 追加spawnはReady work、uncertainty、WIP、provider/host resource、human review、CI/external wait、retry/stale率、回収costを見て判断する。idle capacityだけを理由にworkを分割しない。追加Workerのmarginal valueよりorchestration/integration bottleneckが大きい場合はfan-outを止める。
 
-短命でparent内に閉じる観測・探索helperは、project-localでexternal routeが指定されていなければnative subagentを使用できる。独立lifecycle / mutable ownership / background continuity / provider separation / budget isolation / human attach、またはrole-specific external routeが必要ならtop-level Workerへ昇格する。起動前にroleのrouteをresolveし、実際のharness/providerがそのrouteに一致するようpreflight/permissionで保証する。Herdrを使う具体mappingと参照実装は `herdr-runtime` と `templates/agent-routing/` に従う。
+短命でparent内部に閉じる観測・探索helperは、project-localでexternal routeが指定されていなければnative subagentを使用できる。独立lifecycle / mutable ownership / background continuity / provider separation / budget isolation / human attach、またはrole-specific external routeが必要ならtop-level Workerへ昇格する。起動前にroleのrouteをresolveし、実際のharness/providerがそのrouteに一致するようpreflight/permissionで保証する。Herdrを使う具体mappingと参照実装は `herdr-runtime` と `templates/agent-routing/` に従う。
 
 fan-in時はtask/attempt/base/fencing/result identityとapplicable evidenceを確認する。複数agentの同意だけをcorrectness evidenceにしない。
 
@@ -257,7 +257,6 @@ isolated sandbox同士なら同じfileを触ること自体は直列化の理由
 true isolationが使えない場合、shared mutable workspaceで並列実装しない。read-only researchの並列化または安全な直列実装へ縮退する。
 
 stacked PRを安全に維持できない場合もdependency SoTを壊さず、predecessor merge後に通常ticketとして開始する直列workflowへ縮退する。
-
 
 ## Organizational outcome checks
 
