@@ -106,6 +106,12 @@ test('Ctrl starts split pane without consuming anchor; failed launcher never cre
     const bad=f.run('start',['--role','recovery','--cwd',f.root,'--project-root',f.root,'--name','broken'],{MOCK_AGENT_FAIL:'1'});
     assert.notEqual(bad.status,0);
     assert.equal(f.commands().length,0);
+    const child=join(f.root,'subdir'); mkdirSync(child);
+    const invalid=f.run('start',['--role','recovery','--cwd',child,'--project-root',f.root,'--name','recover']);
+    assert.notEqual(invalid.status,0);
+    assert.match(invalid.stderr,/Ctrl actor requires cwd=projectRoot/);
+    assert.equal(f.commands().filter(c=>c[0]==='workspace'&&c[1]==='create').length,0);
+    // The rejected request must not reserve its name.
     const good=f.run('start',['--role','recovery','--cwd',f.root,'--project-root',f.root,'--name','recover']);
     assert.equal(good.status,0,good.stderr);
     const commands=f.commands();
