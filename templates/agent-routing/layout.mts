@@ -1,5 +1,6 @@
 // Herdr presentation adapter. Project authority and resource leases live outside the UI.
 import { basename, resolve } from 'node:path';
+import { realpathSync } from 'node:fs';
 
 const DEFAULT_TABS: Readonly<Record<string, string>> = Object.freeze({
   coordinate: 'Ctrl', supervise: 'Ctrl', integrate: 'Ctrl',
@@ -64,7 +65,8 @@ export function resolveLayout(config: unknown = {}, functionName: string) {
   if (overflow !== 'queue' && overflow !== 'new-tab') fail('overflow must be queue or new-tab');
   const overrides = config.functionTabs ?? {};
   if (!obj(overrides) || Object.keys(overrides).some(k => !Object.hasOwn(DEFAULT_TABS, ALIASES[k] ?? k))) fail('unknown functionTabs key');
-  const tabLabel = overrides[functionName] ?? overrides[fn] ?? DEFAULT_TABS[fn];
+  const alias = Object.keys(ALIASES).find(key => ALIASES[key] === fn);
+  const tabLabel = overrides[functionName] ?? overrides[fn] ?? (alias ? overrides[alias] : undefined) ?? DEFAULT_TABS[fn];
   if (typeof tabLabel !== 'string' || !LABEL.test(tabLabel)) fail('invalid tab label');
   if (config.workspaceLabel !== undefined && (typeof config.workspaceLabel !== 'string' || !LABEL.test(config.workspaceLabel))) fail('invalid workspace label');
   return {function:fn, tabLabel, workspaceLabel:config.workspaceLabel, maxPanes, maxTabs, overflow};
@@ -75,7 +77,16 @@ export function normalizeSnapshot(response: unknown): Snapshot {
   return {workspaces:array<Workspace>(result.workspaces,'workspaces'), tabs:array<Tab>(result.tabs,'tabs'),
     panes:array<Pane>(result.panes,'panes'), agents:array<Agent>(result.agents,'agents')};
 }
-const equalPath = (a: unknown, b: string): boolean => typeof a === 'string' && a.length > 0 && resolve(a) === resolve(b);
+function physicalPath(path: string): string {
+  const absolute=resolve(path);
+  try { return realpathSync(absolute); }
+  catch (error) {
+    if (obj(error) && error.code === 'ENOENT') return absolute; // Synthetic/missing snapshot paths.
+    throw error; // Permission and IO uncertainty must not result in a new workspace.
+  }
+}
+const equalPath = (a: unknown, b: string): boolean =>
+  typeof a === 'string' && a.length > 0 && physicalPath(a) === physicalPath(b);
 
 // Pure and deterministic: no shell creation, no focus changes, no process teardown.
 export function planPlacement(snapshotInput: unknown,
@@ -103,10 +114,14 @@ export function planPlacement(snapshotInput: unknown,
     (t.label === cfg.tabLabel || (t.label.startsWith(cfg.tabLabel) && /^[2-9]$/.test(t.label.slice(cfg.tabLabel.length)))))
     .sort((a,b) => (a.label === cfg.tabLabel ? -1 : b.label === cfg.tabLabel ? 1 : a.label.localeCompare(b.label)));
   if (new Set(laneTabs.map(t=>t.label)).size !== laneTabs.length) return block('duplicate tab labels; reconcile',{workspace});
+  // Validate every lane tab before choosing a spare pane. A bad Work2 blocks Work too.
   for (const tab of laneTabs) {
-    const panes = s.panes.filter(p => p.tab_id === tab.tab_id);
+    const panes=s.panes.filter(p => p.tab_id === tab.tab_id);
     if ((typeof tab.pane_count === 'number' && tab.pane_count !== panes.length) ||
         !panes.length || panes.some(p=>typeof p.pane_id !== 'string')) return block('inconsistent pane inventory; refresh',{tab:tab.tab_id});
+  }
+  for (const tab of laneTabs) {
+    const panes = s.panes.filter(p => p.tab_id === tab.tab_id);
     if (panes.length < cfg.maxPanes) return {action:'split-pane',workspace,tab:tab.tab_id,
       targetPane:panes[panes.length-1].pane_id,
       direction:panes.length % 2 ? 'right':'down',cwd:resolve(cwd),function:cfg.function};

@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bun scripts/agent-routing/claude-guard.mts"
+            "command": "node scripts/agent-routing/claude-guard.mts"
           }
         ]
       }

@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Strict project-local delegation entrypoint. No implicit provider or harness fallback.
 import { spawnSync } from 'node:child_process';
-import { closeSync, existsSync, openSync, readFileSync, unlinkSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, realpathSync, unlinkSync, writeFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -30,10 +30,47 @@ const MAX_TIMEOUT = 300000;
 export function discoverProjectRoot(cwd: string): string {
   const run=spawnSync('git',['-C',cwd,'rev-parse','--path-format=absolute','--git-common-dir'],
     {encoding:'utf8',timeout:10000});
-  if (run.status!==0) return cwd; // Non-Git workspace: cwd is the explicit project identity.
+  if (run.error || run.signal) fail('Git discovery failed; supply --project-root explicitly');
+  if (run.status!==0) {
+    if (/not a git repository/i.test(run.stderr ?? '')) return cwd;
+    fail('Git discovery failed; supply --project-root explicitly');
+  }
   const common=resolve(run.stdout.trim());
   if (basename(common)!=='.git') fail('nonstandard Git common directory; specify --project-root');
   return dirname(common); // Main checkout for linked Worktrunk/Git worktrees.
+}
+interface AttemptBinding {
+  status: 'pending' | 'active';
+  role: string; provider: string; harness: string; routeHash: string;
+  projectRoot: string; pane?: string; name: string;
+}
+const routeHash = (route: Route) => createHash('sha256').update(JSON.stringify(route)).digest('hex');
+function bindingPath(root: string, name: string): string {
+  const id=createHash('sha256').update(root).digest('hex').slice(0,24);
+  const dir=join(tmpdir(), 'project-init-herdr-attempts-'+id);
+  mkdirSync(dir,{recursive:true,mode:0o700});
+  return join(dir,name+'.json');
+}
+function reserveAttempt(path: string, attempt: AttemptBinding): void {
+  let fd: number;
+  try { fd=openSync(path,'wx',0o600); }
+  catch { fail('attempt name already reserved; inspect live Herdr state before retry: '+attempt.name); }
+  try { writeFileSync(fd, JSON.stringify(attempt)+'\n'); } finally { closeSync(fd); }
+}
+function verifyAttempt(args: Record<string,string>, route: Route): void {
+  if (!args['project-root'] || !args.name) fail('--project-root and --name required for prompt/read');
+  const root=realpathSync(resolve(args['project-root']));
+  let attempt: AttemptBinding;
+  try { attempt=JSON.parse(readFileSync(bindingPath(root,args.name),'utf8')) as AttemptBinding; }
+  catch { fail('attempt binding unavailable; cannot dispatch to an untrusted pane'); }
+  if (attempt.status!=='active' || attempt.projectRoot!==root || attempt.pane!==args.target ||
+      attempt.name!==args.name || attempt.role!==route.role ||
+      attempt.harness!==route.harness || attempt.provider!==route.provider ||
+      attempt.routeHash!==routeHash(route)) fail('pane/role/provider binding mismatch; fail closed');
+  const detected=call('herdr',['agent','get',args.target],true);
+  const agent=detected?.result?.agent;
+  if (!isRecord(agent) || (agent.name!==args.name && agent.agent_name!==args.name))
+    fail('pane no longer contains the bound live agent; reconcile before prompting');
 }
 async function locked<T>(root: string, fn: () => Promise<T>): Promise<T> {
   const id=createHash('sha256').update(root).digest('hex').slice(0,24);
@@ -87,6 +124,8 @@ export function parseArgs(argv: string[]): Record<string, string> {
   if (command==='start' && (!opts.cwd || !opts.name)) fail('--cwd and --name required');
   if (command==='prompt' && (!opts.target || !opts['message-file'])) fail('--target and --message-file required');
   if (command==='read' && !opts.target) fail('--target required');
+  if (['prompt','read'].includes(command) && (!opts.role || !opts['project-root'] || !opts.name))
+    fail('--role, --project-root and --name required for prompt/read');
   if (opts.target && !PANE.test(opts.target)) fail('invalid pane target');
   if (opts.name && !NAME.test(opts.name)) fail('invalid agent name');
   if (opts['workspace-id'] && !PANE.test(opts['workspace-id'])) fail('invalid workspace id');
@@ -99,7 +138,8 @@ export async function run(argv: string[]): Promise<unknown> {
   if (args.command==='start') {
     const route=resolveRoute(config,args.role);
     const cwd=resolve(args.cwd);
-    const projectRoot=resolve(args['project-root'] ?? discoverProjectRoot(cwd));
+    if (!existsSync(cwd)) fail('worker cwd does not exist');
+    const projectRoot=realpathSync(resolve(args['project-root'] ?? discoverProjectRoot(cwd)));
     if (!existsSync(cwd) || !existsSync(projectRoot)) fail('workspace/project root does not exist');
     if (!isRecord(config) || !isRecord(config.roles)) fail('invalid routing config');
     const selectedRole = config.roles[args.role];
@@ -117,6 +157,12 @@ export async function run(argv: string[]): Promise<unknown> {
       if (decision.action==='blocked' || decision.action==='queued') {
         fail(decision.action + ': ' + decision.reason);
       }
+      // Reserve before the first Herdr mutation. Failed/uncertain starts remain reserved.
+      const attemptPath=bindingPath(projectRoot,args.name);
+      const attempt: AttemptBinding={status:'pending',role:route.role,
+        harness:route.harness,provider:route.provider,routeHash:routeHash(route),
+        projectRoot,name:args.name};
+      reserveAttempt(attemptPath,attempt);
       let pane: string | undefined;
       let workspace: string | undefined = decision.workspace;
       if (decision.action==='create-workspace') {
@@ -131,7 +177,9 @@ export async function run(argv: string[]): Promise<unknown> {
         call('herdr',['tab','rename',controlTab,'Ctrl']);
         if (decision.tabLabel==='Ctrl') {
           if (cwd!==projectRoot) fail('Ctrl actor requires cwd=projectRoot on initial workspace');
-          pane=controlPane;
+          const split=call('herdr',['pane','split',controlPane,'--direction','right',
+            '--cwd',cwd,'--no-focus'],true);
+          pane=split?.result?.pane?.pane_id; // Preserve the root shell as an anchor.
         } else {
           const tab=call('herdr',['tab','create','--workspace',workspace,'--cwd',cwd,
             '--label',decision.tabLabel,'--no-focus'],true);
@@ -159,16 +207,21 @@ export async function run(argv: string[]): Promise<unknown> {
         try { found=JSON.parse(probe.stdout); } catch { fail('Herdr returned malformed agent state'); }
         if (!found?.result?.agent) continue;
         call('herdr',['agent','rename',pane,args.name]);
+        // Binding is deliberately written only after successful rename.
+        writeFileSync(attemptPath,JSON.stringify({...attempt,status:'active',pane})+'\n',{mode:0o600});
         return {...route,workspace,pane,agent:args.name,detected:true,placement:decision};
       }
       fail('pane '+pane+' started but no detectable agent; inspect pane before retry');
     });
   }
   if (args.command==='prompt'){
+    const route=resolveRoute(config,args.role);
+    verifyAttempt(args,route);
     const message=readFileSync(resolve(args['message-file']),'utf8');
     if (!message.trim()) fail('message file empty');
     return {response:call('herdr',['agent','prompt',args.target,message,'--wait','--timeout','120000'],true)};
   }
+  verifyAttempt(args,resolveRoute(config,args.role));
   return {output:call('herdr',['agent','read',args.target,'--source','recent-unwrapped','--lines','120'])};
 }
 if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
