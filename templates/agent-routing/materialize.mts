@@ -82,7 +82,7 @@ export function materialize(project:string,claudeHook=false,check=false) {
     const original:unknown=hooks.PreToolUse??[];
     if(!Array.isArray(original)) throw new Error('invalid PreToolUse hook list');
     const required={matcher:'Agent|Task',hooks:[{type:'command',command:'node scripts/agent-routing/claude-guard.mts'}]};
-    const matches=(v:unknown)=>isRecord(v)&&v.matcher==='Agent|Task';
+    const matches=(v:unknown):v is Record<string,unknown>=>isRecord(v)&&v.matcher==='Agent|Task';
     if(original.some((v:unknown)=>matches(v)&&JSON.stringify(v.hooks)!==JSON.stringify(required.hooks)))
       throw new Error('existing Agent|Task hook differs; reconcile manually');
     if(!original.some((v:unknown)=>matches(v))) {
