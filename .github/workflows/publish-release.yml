@@ -1,0 +1,65 @@
+name: Publish merged release
+on:
+  pull_request:
+    types: [closed]
+permissions:
+  contents: read
+jobs:
+  publish:
+    if: ${{ github.event.pull_request.merged == true && github.event.pull_request.base.ref == 'main' && startsWith(github.event.pull_request.head.ref, 'release-') && github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: publish-release-${{ github.event.pull_request.number }}
+      cancel-in-progress: false
+    steps:
+      - name: Verify merged release and publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ ! "$HEAD_REF" =~ ^release-([0-9]+)-([0-9]+)-([0-9]+)$ ]]; then
+            echo "::error::Invalid release branch name"
+            exit 1
+          fi
+          tag="v${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          if [[ ! "$MERGE_SHA" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Missing immutable merge SHA"
+            exit 1
+          fi
+
+          main_sha="$(gh api "repos/$REPO/git/ref/heads/main" --jq '.object.sha')"
+          if [[ "$main_sha" != "$MERGE_SHA" ]]; then
+            echo "::error::main advanced after release merge; publication requires reconciliation"
+            exit 1
+          fi
+          tag_type="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.type' 2>/dev/null || true)"
+          tag_sha="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.sha' 2>/dev/null || true)"
+          if [[ -n "$tag_sha" && ( "$tag_type" != commit || "$tag_sha" != "$MERGE_SHA" ) ]]; then
+            echo "::error::Existing tag does not directly target the release merge SHA; do not overwrite"
+            exit 1
+          fi
+
+          if ! gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+            gh release create "$tag" --repo "$REPO" --target "$MERGE_SHA" --title "$tag" --generate-notes
+          fi
+
+          actual_tag_sha="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.sha')"
+          actual_tag_type="$(gh api "repos/$REPO/git/ref/tags/$tag" --jq '.object.type')"
+          if [[ "$actual_tag_type" != commit || "$actual_tag_sha" != "$MERGE_SHA" ]]; then
+            echo "::error::Published tag SHA/type mismatch"
+            exit 1
+          fi
+          release="$(gh release view "$tag" --repo "$REPO" --json tagName,isDraft,isPrerelease)"
+          if [[ "$(jq -r '.tagName' <<< "$release")" != "$tag" ||
+                "$(jq -r '.isDraft' <<< "$release")" != false ||
+                "$(jq -r '.isPrerelease' <<< "$release")" != false ]]; then
+            echo "::error::Release identity or publication state mismatch"
+            exit 1
+          fi
+          echo "Published and verified $tag -> $MERGE_SHA"
