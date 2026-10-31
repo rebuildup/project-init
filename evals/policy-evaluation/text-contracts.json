@@ -1,0 +1,475 @@
+{
+  "mise-toolchain-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "project-local toolchain/bootstrap frontend: mise"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise install`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise exec -- ...` / `mise run <task>`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "native canonical version source"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "native canonical version sourceがある場合、mise側へ独立した競合pinを作らない"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "mise unavailable/incompatible時は同等のversion/reproducibility guaranteeを持つ明示的fallbackを使用する"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "bounded version request + committed mise lockfile"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`mise install --locked`"
+      ],
+      [
+        "PROMPT.ja.md",
+        "organization/profiles/release-driven-solo.md"
+      ],
+      [
+        "PROMPT.ja.md",
+        "`mise install`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "project-local toolchain bootstrap: mise"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "`mise exec -- ...` / `mise run <task>`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "`mise install --locked`"
+      ],
+      [
+        "skills/onboarding/SKILL.md",
+        "external/untrusted PRではmise command実行前にtrust reviewまたはbounded sandboxを必須"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "mise is the default project-local toolchain/bootstrap Practice"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "Do not create competing version authorities"
+      ],
+      [
+        "docs/adr/ADR-0022.md",
+        "mise does not replace system/runtime isolation layers"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "mise",
+        "tool default",
+        "profile"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bmise\\b",
+        "i",
+        "mise leaked into Constitution"
+      ]
+    ],
+    "matches": [],
+    "files": []
+  },
+  "cloudflare-cli-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "### Cloudflare CLI defaults"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "primary CLIを `cf`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "`cf cli search`"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "explicit compatibility fallback"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "silent fallbackにしない"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "Cloudflareを利用しないprojectへ `cf` / Wranglerをpolicy complianceだけのために導入しない"
+      ],
+      [
+        "PROMPT.ja.md",
+        "Cloudflare CLI（`cf`）"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Wrangler examples trigger capability discovery, not automatic adoption"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Wrangler is an explicit compatibility fallback"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Capability is version-sensitive and must be reconciled"
+      ],
+      [
+        "docs/adr/ADR-0026.md",
+        "Cloudflare CLI choice stays below the Constitution"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "Cloudflare CLI（`cf`）",
+        "tool default",
+        "profile"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\b(?:cloudflare|wrangler)\\b",
+        "i",
+        "Cloudflare-specific tooling leaked into Constitution"
+      ]
+    ],
+    "matches": [],
+    "files": []
+  },
+  "herdr-orchestration-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "Herdrをoptional adaptive Supervisor runtimeとして使用できる"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "smallest useful fan-out"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "agent数自体をoptimization targetにしない"
+      ],
+      [
+        "PROMPT.ja.md",
+        "`parallel-orchestration`"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "## Adaptive fan-out / fan-in"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "**competitive exploration**"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "smallest useful fan-out"
+      ],
+      [
+        "skills/parallel-orchestration/SKILL.md",
+        "複数agentの同意だけをcorrectness evidenceにしない"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "## Agent-driven Supervisor loop"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "`HERDR_ENV=1`"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent start"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent prompt"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "herdr agent read"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "`agent_prompt_stalled`"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Optimize admitted progress, not agent count"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Use four fan-out modes"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Herdr state remains telemetry"
+      ],
+      [
+        "docs/adr/ADR-0025.md",
+        "Fan-in is evidence-based"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "Herdr",
+        "`herdr-runtime`"
+      ]
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bHerdr\\b",
+        "i",
+        "Herdr leaked into Constitution"
+      ]
+    ],
+    "matches": [],
+    "files": []
+  },
+  "merge-method-contract": {
+    "contains": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "PR landing method: merge commit only"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "methodを暗黙選択せず `merge` を明示"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "current release-driven profileではGitHub Pull Requestをmerge commitでlandします。"
+      ],
+      [
+        "docs/adr/ADR-0018.md",
+        "current release-driven profileでGitHub Pull Requestをlandする場合、標準methodは **merge commit** のみとする。"
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "merge method",
+        "`github-delivery`",
+        "profile"
+      ]
+    ],
+    "matches": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_merge_commit\\s*=\\s*true"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_squash_merge\\s*=\\s*false"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_rebase_merge\\s*=\\s*false"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_merge_commit\\s*=\\s*true"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_squash_merge\\s*=\\s*false"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_rebase_merge\\s*=\\s*false"
+      ]
+    ],
+    "files": [],
+    "forbid": [
+      [
+        "organization/profiles/release-driven-solo.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "organization/profiles/release-driven-solo.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "organization/profiles/release-driven-solo.md contains conflicting repository merge settings"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "skills/github-delivery/SKILL.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "skills/github-delivery/SKILL.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "skills/github-delivery/SKILL.md contains conflicting repository merge settings"
+      ],
+      [
+        "PROMPT.ja.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "PROMPT.ja.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "PROMPT.ja.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "PROMPT.ja.md contains conflicting repository merge settings"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "merge / squash( merge)? / rebase( merge)?|merge / squash / rebase",
+        "",
+        "CONTRIBUTING.md still presents merge/squash/rebase as peer PR landing choices"
+      ],
+      [
+        "CONTRIBUTING.md",
+        "allow_squash_merge\\s*=\\s*true|allow_rebase_merge\\s*=\\s*true|allow_merge_commit\\s*=\\s*false",
+        "",
+        "CONTRIBUTING.md contains conflicting repository merge settings"
+      ]
+    ]
+  },
+  "constitutional-contract": {
+    "contains": [
+      [
+        "constitution/CONSTITUTION.md",
+        "Identity Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Authority Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Evidence Integrity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Mutable Ownership Safety"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Organizational Continuity"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Canonical Consistency"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Progress"
+      ],
+      [
+        "formal/Organization.tla",
+        "IdentityIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "AuthorityIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "EvidenceIntegrity"
+      ],
+      [
+        "formal/Organization.tla",
+        "MutableOwnershipSafety"
+      ],
+      [
+        "formal/Organization.tla",
+        "OrganizationalContinuity"
+      ],
+      [
+        "formal/Organization.tla",
+        "EventuallyTerminal"
+      ]
+    ],
+    "routes": [],
+    "matches": [],
+    "files": [
+      "constitution/CONSTITUTION.md",
+      "organization/profiles/release-driven-solo.md",
+      "formal/Organization.tla"
+    ],
+    "forbid": [
+      [
+        "constitution/CONSTITUTION.md",
+        "Worktrunk",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Worktrunk"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Linear",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Linear"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "GitHub",
+        "",
+        "tool/workflow-specific term leaked into Constitution: GitHub"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Codex",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Codex"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Claude",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Claude"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Orca",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Orca"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "release-x-y-z",
+        "",
+        "tool/workflow-specific term leaked into Constitution: release-x-y-z"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "Draft PR",
+        "",
+        "tool/workflow-specific term leaked into Constitution: Draft PR"
+      ],
+      [
+        "constitution/CONSTITUTION.md",
+        "\\bmise\\b",
+        "",
+        "tool/workflow-specific term leaked into Constitution: mise"
+      ]
+    ]
+  }
+}

@@ -42,7 +42,7 @@ The eval runner, not the evaluated agent, must capture those six response lines 
 ## Deterministic half
 
 ```bash
-bash evals/policy-evaluation/grade.sh /tmp/policy_eval_answer.txt
+bun evals/shared/record-grader.mts grade /tmp/policy_eval_answer.txt
 ```
 
 The grader checks both routing shape and safety invariants. Correct profile names alone are insufficient.
@@ -52,7 +52,7 @@ The grader checks both routing shape and safety invariants. Correct profile name
 Before trusting a score:
 
 ```bash
-bash evals/policy-evaluation/controls.sh
+bun evals/policy-evaluation/controls.mts
 ```
 
 Expected:
