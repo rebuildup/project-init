@@ -73,25 +73,29 @@ models = [
   "deepseek/deepseek-v4-pro",
 ]
 
-# Free-only slice of OpenRouter: every id here was verified live against the
-# public /api/v1/models catalog on 2026-10-21 as pricing.prompt = 0 AND
-# pricing.completion = 0. The list is a curated allowlist — ids are added only
-# after a live check, so a model that OpenRouter later moves to paid pricing
-# fails closed here instead of silently billing. Excluded on purpose:
-#   - `openrouter/free` (meta auto-router: which model answers is
-#     non-deterministic, so "the specified free model responded" cannot be
-#     verified),
-#   - `nvidia/nemotron-3.5-content-safety:free` (tools = false, safety
-#     classifier, not a coding model),
-#   - `google/lyria-3-*-preview` (audio-output generative models, tools = false).
-# Same endpoint and credential as the paid `openrouter` provider, so no new
-# Infisical secret is needed. Free-tier rate limits are account-based
-# (1000 req/day with >= $10 purchase history, 20 req/min) — the paid
-# `openrouter` route remains the path for anything beyond that.
+# Free-only slice of OpenRouter. Policy (issue #76): the normal route has ONE
+# fixed model — no runtime catalog/quality/availability selection and no
+# `openrouter/free` meta-router. The single allowlist entry is the only model
+# the route accepts; any other id (free or paid) fails closed before a process
+# starts, so another model can never be reached implicitly or by a typo.
+#
+# This allowlist does NOT detect the selected id itself becoming paid, nor a
+# provider-side retirement: pricing/availability changes are outside the
+# launcher's view. Re-check the live catalog/pricing before relying on it, and
+# configure an OpenRouter account spend limit (a hard cap that rejects
+# requests) as the hard stop. An alert only notifies; it does not stop usage.
+#
+# Default verified live on 2026-11-01:
+#   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",
+#     tools supported, no expiry;
+#   - real E2E response + Bash tool call on all three harnesses
+#     (claude 2.1.314, pi 1.4.0, opencode 2.2.3).
+# Re-check the catalog before changing this id; do not add experimental models
+# here. Same endpoint and credential as the paid `openrouter` provider, so no
+# new Infisical secret is needed. Free-tier limits are account-based
+# (1000 req/day after >= $10 purchase history, 20 req/min); the paid
+# `openrouter` route remains the explicit path beyond that.
 [providers.openrouter-free]
-# Default chosen from the live free catalog because the MiniMax M3.1 Flash
-# launch promotion ends 2026-10-22 12:00 UTC. Exact harness E2E for the
-# replacement default must still be verified; no paid fallback is allowed.
 label = "OpenRouter (free models)"
 base_url = "https://openrouter.ai/api"
 secret = "OPENROUTER_API_KEY"
@@ -100,30 +104,11 @@ default_model = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # OpenCode addresses OpenRouter as its native provider id `openrouter` (the
 # paid provider above relies on the key == opencode_id default); the free
 # provider must map to the same id or OpenCode would see an unknown provider.
-# Actual model-specific OpenCode E2E for the new default is pending.
 opencode_id = "openrouter"
 # pi likewise knows OpenRouter natively as provider id `openrouter`; the
 # launcher route key `openrouter-free` is launcher-side routing only.
-# Actual model-specific Pi E2E for the new default is pending.
 pi_id = "openrouter"
-models = [
-  # MiniMax M3.1 Flash :free retires 2026-10-22 12:00 UTC; omitted to avoid dead routes.
-  "nvidia/nemotron-3.5-super-vl:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "poolside/laguna-s-2.1:free",
-  "poolside/laguna-xs-2.1:free",
-  "cohere/north-mini-code:free",
-  "xingchen-agi/xing4.0-29b-a4b:free",
-  "dots-studio/dots-3-note-preview:free",
-  "thinkingmachines/inkling:free",
-  "thinkingmachines/inkling-small:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "google/gemma-4-31b-it:free",
-  "liquid/lfm-2.5-2.6b:free",
-]
+models = ["nvidia/nemotron-3-ultra-550b-a55b:free"]
 
 [providers.deepseek]
 label = "DeepSeek"
@@ -186,6 +171,35 @@ models = [
   "space-bunny-free",
 ]
 
+# OpenCode Go ($10/month subscription). There is **no separate Go key**:
+# the same account/workspace key (`OPENCODE_API_KEY`) serves Zen and Go, and
+# the endpoint selects which allowance a request consumes (Go allowance here,
+# Zen/pay-as-you-go elsewhere). The launcher guarantee is instead:
+#   - always take the value from Infisical (`require_infisical`), never a
+#     stale ambient shell value: the ambient credential names are removed
+#     before the with-secrets stage, so a missing Infisical value fails;
+#   - Pi-side auth.json/models.json overrides are rejected before launch;
+#   - no fallback to Zen, pay-as-you-go or another model on failure.
+#
+# Go usage is metered against the subscription allowance per model
+# (5h / weekly / monthly). Extra Usage (pay-as-you-go overflow) must be OFF in
+# the Console while this route is meant to be flat-rate; the launcher cannot
+# see or change that account setting and must not pretend it did.
+#
+# Model ids are native Go ids, verified live against the public
+# https://opencode.ai/inference/go/v1/models catalog on 2026-11-01.
+[providers.opencode-go]
+label = "OpenCode Go"
+# Anthropic-compatible Go endpoint for Claude Code. Pi uses its own native Go
+# base URL (https://opencode.ai/zen/go/v1) from its provider catalog.
+base_url = "https://opencode.ai/inference/go/anthropic"
+secret = "OPENCODE_API_KEY"
+env = "OPENCODE_API_KEY"
+# Always source from Infisical; ignore ambient env and Pi-local overrides.
+require_infisical = true
+pi_id = "opencode-go"
+models = ["deepseek-v4.1-flash", "mimo-v2.6-flash"]
+
 # ---------------------------------------------------------------------------
 # Harnesses: native command + adapter that knows how to select a provider.
 # ---------------------------------------------------------------------------
@@ -237,7 +251,11 @@ config_content = "OPENCODE_CONFIG_CONTENT"
 note = "Anthropic-compatible endpoint; every model role maps to the route model."
 
 [routes."claude.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); the paid openrouter route stays separate and is never a fallback here."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); the paid openrouter route stays separate and is never a fallback here."
+
+[routes."claude.opencode-go"]
+default_model = "deepseek-v4.1-flash"
+note = "Go endpoint; Infisical OPENCODE_API_KEY (single key, Go allowance selected by this endpoint). DeepSeek V4.1 Flash needs Privacy > Regions = Global. Real response + tool call verified 2026-11-01; no zen/pay-as-you-go fallback."
 
 [routes."claude.deepseek"]
 # The DeepSeek Anthropic endpoint maps claude-* names internally and silently
@@ -254,7 +272,7 @@ note = "Free zen models through the OpenCode client (free tier is client-bound).
 [routes."opencode.openrouter"]
 
 [routes."opencode.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); model ids are OpenRouter-native (`nvidia/nemotron-3-ultra-550b-a55b:free`)."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); model ids are OpenRouter-native (`nvidia/nemotron-3-ultra-550b-a55b:free`)."
 
 [routes."opencode.deepseek"]
 
@@ -270,7 +288,11 @@ note = "Keep MiniMax-M3 as the known working route default; the formal MiniMax-M
 [routes."pi.openrouter"]
 
 [routes."pi.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); pi may warn for ids outside its catalog and passes them through."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); pi may warn for ids outside its catalog and passes them through."
+
+[routes."pi.opencode-go"]
+default_model = "mimo-v2.6-flash"
+note = "Go endpoint via Pi's native opencode-go provider. Requires Pi >= 1.4.0 from @earendil-works/pi-coding-agent; the old 0.73.1 (@mariozechner) lacks x-opencode-session and gets HTTP 400. Real response + tool call verified 2026-11-01; no fallback."
 
 [routes."pi.deepseek"]
 note = "pi warns for ids outside its built-in catalog and passes them through."

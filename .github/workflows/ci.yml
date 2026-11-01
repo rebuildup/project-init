@@ -36,6 +36,7 @@ jobs:
           bun script/agent.ts check
           bun script/agent.ts list > /dev/null
           bun script/agent.ts models zen > /dev/null
+          bun script/agent.ts models opencode-go > /dev/null
           bun script/agent.ts shortcuts > /dev/null
       - name: Test agent launcher (mock harnesses)
         run: bun test script/agent.test.ts script/claude-settings.test.ts

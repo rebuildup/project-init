@@ -131,6 +131,8 @@ examples:
   agent opencode zen
   agent opencode zen -- run "explain this repo"
   agent claude deepseek -- -p "say ok"
+  agent claude opencode-go -- -p "say ok"   # Go plan, default DeepSeek V4.1 Flash
+  agent pi opencode-go -- -p "hello"        # Go plan, default MiMo V2.6 Flash
   agent claude minimax -- -p "say ok"   # default MiniMax-M3.1-Flash (--model overrides)
   agent pi openrouter -- -p "hello"
   agent dsh deepseek -- web
@@ -162,6 +164,11 @@ interface Provider {
   models: string[];
   opencode_id: string;
   pi_id: string;
+  // Always source the credential from `secret` (Infisical): the ambient env
+  // value is removed before the with-secrets stage, a missing Infisical value
+  // fails, and Pi-local auth/model overrides are rejected. See
+  // config/agents.toml [providers.opencode-go].
+  require_infisical: boolean;
 }
 
 interface Harness {
@@ -198,6 +205,10 @@ interface Plan {
   assign: Array<[string, string]>;
   // (env_name, secret_name) that must hold a credential before exec
   require_cred: Array<[string, string]>;
+  // always inject this route's credential from Infisical (no ambient fast path)
+  require_infisical: boolean;
+  // Pi credential/endpoint override guard, re-checked immediately before spawn
+  pi_guard: { providerId: string; envName: string } | null;
   drop: string[];
   baseline: string[] | null; // null = current process env
 }
@@ -296,6 +307,15 @@ function loadConfig(path?: string): Config {
     if (typeof require_model !== "boolean") {
       throw new AgentError(`${where}: 'require_model' must be a boolean`);
     }
+    const require_infisical = table["require_infisical"] ?? false;
+    if (typeof require_infisical !== "boolean") {
+      throw new AgentError(`${where}: 'require_infisical' must be a boolean`);
+    }
+    if (require_infisical && !secret) {
+      throw new AgentError(
+        `${where}: require_infisical = true requires an Infisical 'secret' name`
+      );
+    }
     if (default_model && require_model) {
       throw new AgentError(
         `${where}: require_model = true contradicts default_model = '${default_model}'`
@@ -317,6 +337,7 @@ function loadConfig(path?: string): Config {
       models,
       opencode_id: optionalStr(table, "opencode_id", where) || key,
       pi_id: optionalStr(table, "pi_id", where) || key,
+      require_infisical,
     };
   }
   if (Object.keys(providers).length === 0) {
@@ -1045,6 +1066,8 @@ function buildPlan(
     unset: [],
     assign: [],
     require_cred,
+    require_infisical: provider.require_infisical,
+    pi_guard: null,
     drop: [...new Set([...config.drop_env, ...providerCreds])].sort(),
     baseline: null,
   };
@@ -1137,7 +1160,95 @@ function planPi(plan: Plan, harness: Harness, provider: Provider, model: string 
   if (model === null) {
     throw new AgentError("resolved no model for adapter pi");
   }
+  if (provider.require_infisical) {
+    const envName = provider.env || provider.secret;
+    if (!envName) {
+      throw new AgentError(`provider '${provider.key}' declares no credential env name`);
+    }
+    guardPiCredentialSource(provider.pi_id, envName);
+    plan.pi_guard = { providerId: provider.pi_id, envName };
+  }
   plan.command = [harness.command, "--provider", provider.pi_id, "--model", model, ...plan.command.slice(1)];
+}
+
+function expandTildePath(path: string): string {
+  if (path === "~") return homedir();
+  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+  return path;
+}
+
+/** Pi's agent dir: $PI_CODING_AGENT_DIR or ~/.pi/agent (Pi 0.73 config.js). */
+function piAgentDir(): string {
+  const override = process.env.PI_CODING_AGENT_DIR;
+  return override ? expandTildePath(override) : join(homedir(), ".pi", "agent");
+}
+
+function readPiJsonObject(path: string, label: string): Record<string, unknown> | null {
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch (error) {
+    // Only ENOENT proves "no Pi override". A permission/IO error means the
+    // credential source cannot be verified, so the route must not start.
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+    const detail = error instanceof Error ? error.message : String(error);
+    throw new AgentError(
+      `cannot read Pi ${label} (${path}): ${detail}; refusing to start because ` +
+        "the credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new AgentError(
+      `invalid JSON in Pi ${label} (${path}); refusing to start because the ` +
+        "credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  if (!isPlainObject(parsed)) {
+    throw new AgentError(
+      `Pi ${label} (${path}) is not a JSON object; refusing to start because ` +
+        "the credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  return parsed;
+}
+
+/**
+ * Pi resolves credentials in this order: CLI --api-key > auth.json > env >
+ * models.json provider keys, and models.json can override a provider's
+ * baseUrl/api. For `require_infisical` routes the launcher's process-scoped env
+ * must be authoritative, so refuse to start when Pi has its own `opencode-go`
+ * credential or provider override. Nothing is edited or deleted.
+ */
+function guardPiCredentialSource(providerId: string, envName: string): void {
+  const dir = piAgentDir();
+  const authPath = join(dir, "auth.json");
+  const auth = readPiJsonObject(authPath, "auth.json");
+  if (auth && auth[providerId] !== undefined && auth[providerId] !== null) {
+    throw new AgentError(
+      `Pi would read its own '${providerId}' credential from ${authPath} before ` +
+        `${envName}; remove or relocate that auth.json entry (other providers ` +
+        "are unaffected), or run native `pi` explicitly. The launcher never edits Pi's " +
+        "auth file.",
+      EXIT_RUNTIME
+    );
+  }
+  const modelsPath = join(dir, "models.json");
+  const models = readPiJsonObject(modelsPath, "models.json");
+  const providers = models?.["providers"];
+  if (isPlainObject(providers) && providers[providerId] !== undefined) {
+    throw new AgentError(
+      `Pi models.json defines provider '${providerId}' (${modelsPath}), which can ` +
+        "override the fixed Go endpoint; remove that provider entry or run native " +
+        "`pi` explicitly.",
+      EXIT_RUNTIME
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1188,6 +1299,11 @@ async function runInherited(cmd: string[], env?: Record<string, string | undefin
 }
 
 function needsInjection(plan: Plan): boolean {
+  if (plan.require_infisical) {
+    // Never trust an ambient value for these routes: always let Infisical
+    // provide (or fail to provide) the credential inside the wrapper.
+    return true;
+  }
   for (const [envName, secretName] of plan.require_cred) {
     if (process.env[envName] || process.env[secretName]) {
       continue;
@@ -1226,16 +1342,39 @@ async function startViaWithSecrets(plan: Plan, baseline: string[]): Promise<numb
   for (const [envName, secretName] of plan.require_cred) {
     payload.push("--cred", `${envName}=${secretName}`);
   }
+  if (plan.pi_guard) {
+    payload.push("--pi-guard-id", plan.pi_guard.providerId);
+    payload.push("--pi-guard-env", plan.pi_guard.envName);
+  }
   payload.push("--", ...plan.command);
+
+  // require_infisical routes must not inherit an ambient credential: remove
+  // the route's credential names from the wrapper's environment so only
+  // Infisical can supply them. A missing Infisical secret then fails inside
+  // the wrapper instead of silently reusing the shell value.
+  let wrapperEnv: Record<string, string> | undefined;
+  if (plan.require_infisical) {
+    const strip = new Set<string>();
+    for (const [envName, secretName] of plan.require_cred) {
+      strip.add(envName);
+      strip.add(secretName);
+    }
+    wrapperEnv = {};
+    for (const [name, value] of Object.entries(process.env)) {
+      if (value === undefined || strip.has(name)) continue;
+      wrapperEnv[name] = value;
+    }
+  }
+  const childEnv = wrapperEnv ?? process.env;
 
   if (IS_WINDOWS && wrapper.endsWith(".ps1")) {
     const shell = which("pwsh") ? "pwsh" : "powershell";
     return runInherited(
       [shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", wrapper, ...payload],
-      process.env
+      childEnv
     );
   }
-  return runInherited([wrapper, ...payload], process.env);
+  return runInherited([wrapper, ...payload], childEnv);
 }
 
 async function finalize(plan: Plan): Promise<number> {
@@ -1344,6 +1483,8 @@ function cmdExec(argv: string[]): Promise<number> {
   let copy: Array<[string, string]> = [];
   let assign: Array<[string, string]> = [];
   let cred: Array<[string, string]> = [];
+  let piGuardId: string | null = null;
+  let piGuardEnv: string | null = null;
   let command: string[] = [];
   let index = 0;
   while (index < argv.length) {
@@ -1371,6 +1512,10 @@ function cmdExec(argv: string[]): Promise<number> {
       const raw = argv[index + 1];
       const eq = raw.indexOf("=");
       cred.push([raw.slice(0, eq), raw.slice(eq + 1)]);
+    } else if (token === "--pi-guard-id") {
+      piGuardId = argv[index + 1];
+    } else if (token === "--pi-guard-env") {
+      piGuardEnv = argv[index + 1];
     } else {
       throw new AgentError(`__exec: unexpected token '${token}'`);
     }
@@ -1381,6 +1526,15 @@ function cmdExec(argv: string[]): Promise<number> {
   }
   if (baseline === null) {
     throw new AgentError("__exec: --baseline is required");
+  }
+  if (piGuardId !== null || piGuardEnv !== null) {
+    if (!piGuardId || !piGuardEnv) {
+      throw new AgentError("__exec: --pi-guard-id and --pi-guard-env must be passed together");
+    }
+    // Re-check immediately before spawn: auth.json/models.json may have
+    // changed after the pre-fetch check (TOCTOU). Still not atomic with Pi's
+    // own read, but the window is reduced to the final exec.
+    guardPiCredentialSource(piGuardId, piGuardEnv);
   }
   const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, drop, baseline };
   return finalize(stage as unknown as Plan);
@@ -1531,7 +1685,10 @@ function cmdModels(config: Config, providerKey: string): number {
     console.log(`anthropic endpoint: ${provider.base_url}`);
   }
   if (provider.secret) {
-    console.log(`credential: Infisical secret ${provider.secret} -> env ${provider.env}`);
+    const note = provider.require_infisical
+      ? " [require_infisical: always sourced from Infisical; ambient env and Pi-local overrides are rejected]"
+      : "";
+    console.log(`credential: Infisical secret ${provider.secret} -> env ${provider.env}${note}`);
   } else {
     console.log("credential: harness-native login (no Infisical secret)");
   }
