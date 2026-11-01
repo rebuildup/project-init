@@ -207,6 +207,8 @@ interface Plan {
   require_cred: Array<[string, string]>;
   // always inject this route's credential from Infisical (no ambient fast path)
   require_infisical: boolean;
+  // Pi credential/endpoint override guard, re-checked immediately before spawn
+  pi_guard: { providerId: string; envName: string } | null;
   drop: string[];
   baseline: string[] | null; // null = current process env
 }
@@ -1065,6 +1067,7 @@ function buildPlan(
     assign: [],
     require_cred,
     require_infisical: provider.require_infisical,
+    pi_guard: null,
     drop: [...new Set([...config.drop_env, ...providerCreds])].sort(),
     baseline: null,
   };
@@ -1158,7 +1161,12 @@ function planPi(plan: Plan, harness: Harness, provider: Provider, model: string 
     throw new AgentError("resolved no model for adapter pi");
   }
   if (provider.require_infisical) {
-    guardPiCredentialSource(provider);
+    const envName = provider.env || provider.secret;
+    if (!envName) {
+      throw new AgentError(`provider '${provider.key}' declares no credential env name`);
+    }
+    guardPiCredentialSource(provider.pi_id, envName);
+    plan.pi_guard = { providerId: provider.pi_id, envName };
   }
   plan.command = [harness.command, "--provider", provider.pi_id, "--model", model, ...plan.command.slice(1)];
 }
@@ -1217,15 +1225,14 @@ function readPiJsonObject(path: string, label: string): Record<string, unknown> 
  * must be authoritative, so refuse to start when Pi has its own `opencode-go`
  * credential or provider override. Nothing is edited or deleted.
  */
-function guardPiCredentialSource(provider: Provider): void {
-  const providerId = provider.pi_id;
+function guardPiCredentialSource(providerId: string, envName: string): void {
   const dir = piAgentDir();
   const authPath = join(dir, "auth.json");
   const auth = readPiJsonObject(authPath, "auth.json");
   if (auth && auth[providerId] !== undefined && auth[providerId] !== null) {
     throw new AgentError(
       `Pi would read its own '${providerId}' credential from ${authPath} before ` +
-        `${provider.env}; remove or relocate that auth.json entry (other providers ` +
+        `${envName}; remove or relocate that auth.json entry (other providers ` +
         "are unaffected), or run native `pi` explicitly. The launcher never edits Pi's " +
         "auth file.",
       EXIT_RUNTIME
@@ -1334,6 +1341,10 @@ async function startViaWithSecrets(plan: Plan, baseline: string[]): Promise<numb
   }
   for (const [envName, secretName] of plan.require_cred) {
     payload.push("--cred", `${envName}=${secretName}`);
+  }
+  if (plan.pi_guard) {
+    payload.push("--pi-guard-id", plan.pi_guard.providerId);
+    payload.push("--pi-guard-env", plan.pi_guard.envName);
   }
   payload.push("--", ...plan.command);
 
@@ -1472,6 +1483,8 @@ function cmdExec(argv: string[]): Promise<number> {
   let copy: Array<[string, string]> = [];
   let assign: Array<[string, string]> = [];
   let cred: Array<[string, string]> = [];
+  let piGuardId: string | null = null;
+  let piGuardEnv: string | null = null;
   let command: string[] = [];
   let index = 0;
   while (index < argv.length) {
@@ -1499,6 +1512,10 @@ function cmdExec(argv: string[]): Promise<number> {
       const raw = argv[index + 1];
       const eq = raw.indexOf("=");
       cred.push([raw.slice(0, eq), raw.slice(eq + 1)]);
+    } else if (token === "--pi-guard-id") {
+      piGuardId = argv[index + 1];
+    } else if (token === "--pi-guard-env") {
+      piGuardEnv = argv[index + 1];
     } else {
       throw new AgentError(`__exec: unexpected token '${token}'`);
     }
@@ -1509,6 +1526,15 @@ function cmdExec(argv: string[]): Promise<number> {
   }
   if (baseline === null) {
     throw new AgentError("__exec: --baseline is required");
+  }
+  if (piGuardId !== null || piGuardEnv !== null) {
+    if (!piGuardId || !piGuardEnv) {
+      throw new AgentError("__exec: --pi-guard-id and --pi-guard-env must be passed together");
+    }
+    // Re-check immediately before spawn: auth.json/models.json may have
+    // changed after the pre-fetch check (TOCTOU). Still not atomic with Pi's
+    // own read, but the window is reduced to the final exec.
+    guardPiCredentialSource(piGuardId, piGuardEnv);
   }
   const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, drop, baseline };
   return finalize(stage as unknown as Plan);

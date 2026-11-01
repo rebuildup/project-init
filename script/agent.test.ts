@@ -90,6 +90,13 @@ const FAKE_WITH_SECRETS_NO_OPENCODE = FAKE_WITH_SECRETS.replace(
   "",
 );
 
+// Injects the fake secrets AND writes an opencode-go auth entry, simulating a
+// concurrent writer between the pre-fetch guard and the final spawn.
+const FAKE_WITH_SECRETS_MUTATES_PI = FAKE_WITH_SECRETS.replace(
+  "export FAKE_INFISICAL_INJECTED=yes",
+  'mkdir -p "${PI_CODING_AGENT_DIR:?}"\nprintf \'%s\' \'{"opencode-go":{"type":"api_key","key":"injected"}}\' > "${PI_CODING_AGENT_DIR:?}/auth.json"\nexport FAKE_INFISICAL_INJECTED=yes',
+);
+
 const PRECEDENCE_CONFIG = `
 [defaults]
 drop_env = ["ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"]
@@ -925,6 +932,29 @@ test(
     check(ok.exitCode === 0, ok.stderr.toString());
     const [, env] = fixture.child();
     check(env["OPENCODE_API_KEY"] === "secret-opencode", env["OPENCODE_API_KEY"]);
+  }),
+);
+
+test(
+  "test_pi_opencode_go_rechecks_before_spawn",
+  withFixture((fixture) => {
+    // Simulate a concurrent writer: auth.json is absent for the pre-fetch
+    // check, then the with-secrets wrapper creates it before stage 2. The
+    // wrapper-internal re-check must stop Pi before spawn.
+    const agentDir = join(fixture.tmp, "pi-agent-race");
+    mkdirSync(agentDir, { recursive: true });
+    fixture.writeWrapper(FAKE_WITH_SECRETS_MUTATES_PI);
+    const result = fixture.run(["pi", "opencode-go"], {
+      env: { PI_CODING_AGENT_DIR: agentDir },
+      config: REAL_CONFIG,
+    });
+    check(result.exitCode === 1, `expected exit 1, got ${result.exitCode}`);
+    check(result.stderr.toString().includes("auth.json"), result.stderr.toString());
+    check(result.stderr.toString().includes("opencode-go"), result.stderr.toString());
+    check(
+      !existsSync(fixture.out),
+      "pi must not start when auth.json appears after the first check",
+    );
   }),
 );
 

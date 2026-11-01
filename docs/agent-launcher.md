@@ -306,7 +306,13 @@ Infisical value fails instead of using it.
   (`ENOENT`) counts as "no override"; an unreadable or invalid file fails
   closed because the credential source cannot be proven. Only
   `require_infisical` routes get this guard, so existing Pi routes keep their
-  previous behaviour.
+  previous behaviour. The check runs **twice**: before fetching secrets (fail
+  fast) and again inside the with-secrets stage immediately before spawning Pi
+  (`--pi-guard-id`). This closes the window where `auth.json`/`models.json`
+  changes between the first check and the launch, but it is not atomic with
+  Pi's own read: a concurrent writer can still race in the final instant.
+  The launcher does not lock Pi's config, so do not edit `~/.pi/agent` while a
+  Go route is launching.
 - **Claude Code existing login.** OpenCode's docs advise `/logout` first when
   Claude Code is signed in. In the tested version (2.1.314) the injected
   `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` took precedence: with a real
@@ -414,7 +420,7 @@ launcher never creates or rotates API keys.
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (39 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (40 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
@@ -423,7 +429,8 @@ criteria:
   wrapper, missing Infisical value fails even with an ambient key, zen keeps
   its fast path), Pi `auth.json`/`models.json` override guard
   (`PI_CODING_AGENT_DIR` honored, unrelated providers allowed, invalid JSON
-  and non-ENOENT read errors fail closed), secret filtering both ways,
+  and non-ENOENT read errors fail closed), pre-spawn re-check
+  (concurrent auth.json creation stops before spawn), secret filtering both ways,
   forbidden passthrough flags, shortcut equivalence/args/`--agent-model`/
   unknown names/link management, native commands staying unwrapped, config
   validation failures) plus `agent check`, `agent shortcuts` and
