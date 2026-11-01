@@ -392,15 +392,18 @@ charges for `nvidia/nemotron-3-ultra-550b-a55b:free` or retires it, this
 launcher will still attempt that exact id: a new price would be billed by
 OpenRouter, and a retirement would fail at runtime. Neither is detected by
 `agent check`. Re-check the live catalog/pricing before relying on the route,
-and keep an account-side budget/alert as the hard stop. The launcher does not
-claim "free forever".
+and keep an account-side **spend limit** (a hard cap that rejects requests at
+the limit) as the hard stop. An alert only notifies; it does not stop requests.
+The launcher does not claim "free forever".
 
 OpenRouter also supports key-level spend limits, but `openrouter-free` reuses
 the paid provider's `OPENROUTER_API_KEY`, so a `$0` key cap would also block
-the paid `openrouter` route. Pick one explicitly: (a) keep an account-level
-budget/alert as the hard stop, or (b) add a separate free-only Infisical key
-and point `providers.openrouter-free.secret`/`env` at it before enforcing a
-`$0` cap. The launcher never creates or rotates API keys.
+the paid `openrouter` route. Pick one explicitly: (a) configure an account
+spend limit (hard cap; an alert alone does not stop usage), or (b) add a
+separate free-only Infisical key and point
+`providers.openrouter-free.secret`/`env` at it before enforcing a `$0` cap.
+Verify that the `$0` cap still allows free requests before adopting it. The
+launcher never creates or rotates API keys.
 
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:

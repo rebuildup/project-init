@@ -84,7 +84,8 @@ models = [
 # This allowlist does NOT detect the selected id itself becoming paid, nor a
 # provider-side retirement: pricing/availability changes are outside the
 # launcher's view. Re-check the live catalog/pricing before relying on it, and
-# keep an OpenRouter account budget/alert as the hard stop.
+# configure an OpenRouter account spend limit (a hard cap that rejects
+# requests) as the hard stop. An alert only notifies; it does not stop usage.
 #
 # Default verified live on 2026-11-01:
 #   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",
