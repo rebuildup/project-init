@@ -287,10 +287,26 @@ Two explicit routes share one Go (`$10/month`) workspace key:
   provider's base URL/API. Run `pi update --models` (or upgrade Pi) first.
   Pi's docs say current builds send the OpenCode session header; older builds
   may not, which can affect routing/caching quality but not the credential.
-- **Pi auth precedence.** Pi reads `~/.pi/agent/auth.json` *before*
-  environment variables. An `opencode-go` entry there would override the
-  injected key. The launcher does not modify that file; do not keep an
-  `opencode-go` entry if you expect the Infisical key to be used.
+- **Pi auth precedence (fail closed).** Pi resolves credentials as
+  CLI `--api-key` > `auth.json` > env > `models.json` provider keys, and
+  `models.json` can override a provider's `baseUrl`/`api`. `agent pi
+  opencode-go` therefore reads `$PI_CODING_AGENT_DIR` (or `~/.pi/agent`)
+  before launch and **exits 1** if `auth.json` has an `opencode-go` entry or
+  `models.json` defines an `opencode-go` provider. It never edits or deletes
+  those files; other providers' entries are unaffected. An unreadable or
+  invalid file also fails closed because the credential source cannot be
+  proven. Only `secret_only` routes get this guard, so existing Pi routes
+  keep their previous behaviour.
+- **Claude Code existing login.** OpenCode's docs advise `/logout` first when
+  Claude Code is signed in. In the tested version (2.1.314) the injected
+  `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` took precedence: with a real
+  claude.ai Pro login present, `agent claude openrouter-free` used the env
+  endpoint/token and Claude printed that "another auth source ... takes
+  precedence over your claude.ai login". The same mechanism applies to Go,
+  but **Go-specific billing was not verified** (no Go key). Confirm with
+  `/status` and the Go usage page on the first real run; if a future Claude
+  version changes precedence, treat the route as blocked rather than logging
+  the user out automatically.
 - **Privacy prerequisite.** DeepSeek V4.1 Flash (and V4 Pro) require
   **Settings › Privacy › Regions = Global** in the Go workspace
   (owner/admin). Without it the request is rejected; the launcher must not
@@ -365,24 +381,34 @@ Not covered on purpose: `opencode.opencode-go` (possible follow-up; the two
 required Go routes are the scope), `opencode`/`pi` on other providers, paid
 zen models (add them to the TOML deliberately), any automatic fallback
 between models or providers, and any second model on an `openrouter-free`
-route (the free allowlist is a single id — an unlisted or later-monetized id
-fails closed instead of silently billing).
+route (the free allowlist is a single id — an unlisted id fails closed).
+
+**The static allowlist is not a price or availability guarantee.** It only
+prevents the launcher from selecting a different id. If OpenRouter later
+charges for `nvidia/nemotron-3-ultra-550b-a55b:free` or retires it, this
+launcher will still attempt that exact id: a new price would be billed by
+OpenRouter, and a retirement would fail at runtime. Neither is detected by
+`agent check`. Re-check the live catalog/pricing before relying on the route,
+and keep an account-side budget/alert as the hard stop. The launcher does not
+claim "free forever".
 
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (37 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (39 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
   credential as the paid provider), OpenCode Go defaults/endpoint/auth-token
   mapping, `secret_only` separation in both directions (Zen shell key cannot
   satisfy Go, Go key is dropped on zen routes, fast path vs. Infisical),
-  missing Go secret fail-closed, secret filtering both ways, forbidden
-  passthrough flags, shortcut equivalence/args/`--agent-model`/unknown
-  names/link management, native commands staying unwrapped, config validation
-  failures) plus `agent check`, `agent shortcuts` and
-  `bun script/agent.ts …` smoke runs in CI.
+  missing Go secret fail-closed, Pi `auth.json`/`models.json` override guard
+  (`PI_CODING_AGENT_DIR` honored, unrelated providers allowed, invalid JSON
+  fails closed), secret filtering both ways, forbidden passthrough flags,
+  shortcut equivalence/args/`--agent-model`/unknown names/link management,
+  native commands staying unwrapped, config validation failures) plus
+  `agent check`, `agent shortcuts` and `bun script/agent.ts …` smoke runs
+  in CI.
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
   run only in the mock tier stay marked unverified here. OpenRouter-free was

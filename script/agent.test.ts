@@ -202,13 +202,24 @@ class Fixture {
     chmodSync(this.wrapper, 0o755);
   }
 
+  /** Write a Pi agent-dir JSON file (auth.json / models.json) in the test HOME. */
+  writePiConfig(name: string, content: unknown, agentDir?: string): string {
+    const dir = agentDir ?? join(this.tmp, ".pi", "agent");
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, name);
+    writeFileSync(path, JSON.stringify(content, null, 2));
+    return path;
+  }
+
   baseEnv(extra?: Record<string, string>): Record<string, string> {
     const env: Record<string, string> = {
       // Fixed PATH: the suite must not see shortcuts or harnesses installed
       // in the developer's environment (a personal ~/.local/bin on PATH
       // would turn link-management expectations into conflicts).
       PATH: `${this.bindir}:/usr/bin:/bin`,
-      HOME: process.env.HOME || this.tmp,
+      // Isolate Pi/harness user config (the launcher reads ~/.pi/agent for
+      // the secret_only Pi guard) from the developer's real HOME.
+      HOME: this.tmp,
       AGENT_WITH_SECRETS: this.wrapper,
       AGENT_TEST_OUT: this.out,
       AGENT_TEST_MARKER: this.marker,
@@ -828,6 +839,87 @@ test(
     check(pi.exitCode === 1, `expected exit 1, got ${pi.exitCode}`);
     check(pi.stderr.toString().includes("OPENCODE_GO_API_KEY"), pi.stderr.toString());
     check(!existsSync(fixture.out), "pi must not start without the Go credential");
+  }),
+);
+
+test(
+  "test_pi_opencode_go_auth_json_guard",
+  withFixture((fixture) => {
+    // Pi reads auth.json BEFORE environment variables. A stale/different
+    // opencode-go entry would silently override the Infisical key, so the
+    // secret_only route must stop before the harness starts.
+    const authPath = fixture.writePiConfig("auth.json", {
+      minimax: { type: "api_key", key: "keep-me" },
+      "opencode-go": { type: "api_key", key: "other-workspace" },
+    });
+    const result = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(result.exitCode === 1, `expected exit 1, got ${result.exitCode}`);
+    check(result.stderr.toString().includes(authPath), result.stderr.toString());
+    check(result.stderr.toString().includes("opencode-go"), result.stderr.toString());
+    check(!existsSync(fixture.out), "pi must not start with an auth.json override");
+    check(!existsSync(fixture.marker), "credentials must not be fetched first");
+
+    // Unrelated providers in auth.json are fine (nothing is deleted).
+    fixture.writePiConfig("auth.json", { minimax: { type: "api_key", key: "keep-me" } });
+    const ok = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(ok.exitCode === 0, ok.stderr.toString());
+    const [, env] = fixture.child();
+    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
+
+    // PI_CODING_AGENT_DIR is honored exactly like Pi itself resolves it.
+    const alt = join(fixture.tmp, "alt-agent");
+    const altPath = fixture.writePiConfig(
+      "auth.json",
+      { "opencode-go": { type: "api_key", key: "x" } },
+      alt,
+    );
+    const altResult = fixture.run(["pi", "opencode-go"], {
+      config: REAL_CONFIG,
+      env: { PI_CODING_AGENT_DIR: alt },
+    });
+    check(altResult.exitCode === 1, `expected exit 1, got ${altResult.exitCode}`);
+    check(altResult.stderr.toString().includes(altPath), altResult.stderr.toString());
+
+    // An unreadable/invalid auth.json also fails closed: the source cannot be
+    // proven, so the launcher must not guess.
+    writeFileSync(join(fixture.tmp, ".pi", "agent", "auth.json"), "{not json");
+    const broken = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(broken.exitCode === 1, `expected exit 1, got ${broken.exitCode}`);
+    check(broken.stderr.toString().includes("invalid JSON"), broken.stderr.toString());
+    check(!existsSync(fixture.out), "pi must not start with an unverifiable auth.json");
+  }),
+);
+
+test(
+  "test_pi_opencode_go_models_json_guard",
+  withFixture((fixture) => {
+    // models.json can replace a provider's baseUrl/api. For a fixed Go route
+    // that would bypass the verified endpoint, so it also fails closed.
+    const modelsPath = fixture.writePiConfig("models.json", {
+      providers: {
+        "opencode-go": {
+          models: [
+            {
+              id: "mimo-v2.6-flash",
+              api: "openai-completions",
+              baseUrl: "https://example.invalid/v1",
+            },
+          ],
+        },
+      },
+    });
+    const result = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(result.exitCode === 1, `expected exit 1, got ${result.exitCode}`);
+    check(result.stderr.toString().includes(modelsPath), result.stderr.toString());
+    check(!existsSync(fixture.out), "pi must not start with a models.json override");
+    check(!existsSync(fixture.marker), "credentials must not be fetched first");
+
+    // A provider entry for a different route is unrelated and stays allowed.
+    fixture.writePiConfig("models.json", { providers: { openrouter: { models: [] } } });
+    const ok = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(ok.exitCode === 0, ok.stderr.toString());
+    const [, env] = fixture.child();
+    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
   }),
 );
 

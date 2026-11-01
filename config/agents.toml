@@ -79,7 +79,12 @@ models = [
 # fixed model — no runtime catalog/quality/availability selection and no
 # `openrouter/free` meta-router. The single allowlist entry is the only model
 # the route accepts; any other id (free or paid) fails closed before a process
-# starts, so a monetized model can never be reached implicitly or by a typo.
+# starts, so another model can never be reached implicitly or by a typo.
+#
+# This allowlist does NOT detect the selected id itself becoming paid, nor a
+# provider-side retirement: pricing/availability changes are outside the
+# launcher's view. Re-check the live catalog/pricing before relying on it, and
+# keep an OpenRouter account budget/alert as the hard stop.
 #
 # Default verified live on 2026-11-01:
 #   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",

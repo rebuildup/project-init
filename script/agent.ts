@@ -1162,7 +1162,88 @@ function planPi(plan: Plan, harness: Harness, provider: Provider, model: string 
   if (model === null) {
     throw new AgentError("resolved no model for adapter pi");
   }
+  if (provider.secret_only) {
+    guardPiCredentialSource(provider);
+  }
   plan.command = [harness.command, "--provider", provider.pi_id, "--model", model, ...plan.command.slice(1)];
+}
+
+function expandTildePath(path: string): string {
+  if (path === "~") return homedir();
+  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
+  return path;
+}
+
+/** Pi's agent dir: $PI_CODING_AGENT_DIR or ~/.pi/agent (Pi 0.73 config.js). */
+function piAgentDir(): string {
+  const override = process.env.PI_CODING_AGENT_DIR;
+  return override ? expandTildePath(override) : join(homedir(), ".pi", "agent");
+}
+
+function readPiJsonObject(path: string, label: string): Record<string, unknown> | null {
+  if (!existsSync(path)) return null;
+  let text: string;
+  try {
+    text = readFileSync(path, "utf8");
+  } catch {
+    throw new AgentError(
+      `cannot read Pi ${label} (${path}); refusing to start because the ` +
+        "credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    throw new AgentError(
+      `invalid JSON in Pi ${label} (${path}); refusing to start because the ` +
+        "credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  if (!isPlainObject(parsed)) {
+    throw new AgentError(
+      `Pi ${label} (${path}) is not a JSON object; refusing to start because ` +
+        "the credential source cannot be verified",
+      EXIT_RUNTIME
+    );
+  }
+  return parsed;
+}
+
+/**
+ * Pi resolves credentials in this order: CLI --api-key > auth.json > env >
+ * models.json provider keys, and models.json can override a provider's
+ * baseUrl/api. For `secret_only` routes the launcher's process-scoped env must
+ * be authoritative, so refuse to start when Pi has its own `opencode-go`
+ * credential or provider override. Nothing is edited or deleted.
+ */
+function guardPiCredentialSource(provider: Provider): void {
+  const providerId = provider.pi_id;
+  const dir = piAgentDir();
+  const authPath = join(dir, "auth.json");
+  const auth = readPiJsonObject(authPath, "auth.json");
+  if (auth && auth[providerId] !== undefined && auth[providerId] !== null) {
+    throw new AgentError(
+      `Pi would read its own '${providerId}' credential from ${authPath} before ` +
+        `${provider.env}; remove or relocate that auth.json entry (other providers ` +
+        "are unaffected), or run native `pi` explicitly. The launcher never edits Pi's " +
+        "auth file.",
+      EXIT_RUNTIME
+    );
+  }
+  const modelsPath = join(dir, "models.json");
+  const models = readPiJsonObject(modelsPath, "models.json");
+  const providers = models?.["providers"];
+  if (isPlainObject(providers) && providers[providerId] !== undefined) {
+    throw new AgentError(
+      `Pi models.json defines provider '${providerId}' (${modelsPath}), which can ` +
+        "override the fixed Go endpoint; remove that provider entry or run native " +
+        "`pi` explicitly.",
+      EXIT_RUNTIME
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
