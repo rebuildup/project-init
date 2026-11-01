@@ -102,12 +102,13 @@ function localInstance(){
  throw Error('unsupported OS');
 }
 function check(n:Device,home:string){assertIdentity(n,run(['ssh','-F',join(home,'.ssh/devices.conf'),'-o','BatchMode=yes',`device-${n.id}`,identityCommand(n.os)]));}
+export function secureFile(path:string){if(platform()==='win32')run(['powershell','-NoProfile','-File',join(root,'script/devices-acl.ps1'),path]);}
 function atomic(path:string,text:string){
  if(existsSync(path)&&lstatSync(path).isSymbolicLink())throw Error(`refusing symlink: ${path}`);
- const tmp=path+'.tmp'; writeFileSync(tmp,text,{mode:0o600,flag:'wx'});try{renameSync(tmp,path);}finally{if(existsSync(tmp))rmSync(tmp);}
+ const tmp=path+'.tmp'; writeFileSync(tmp,text,{mode:0o600,flag:'wx'});try{secureFile(tmp);renameSync(tmp,path);}finally{if(existsSync(tmp))rmSync(tmp);}
 }
 function generated(path:string,text:string){
- if(existsSync(path)){if(!readFileSync(path,'utf8').startsWith(marker))throw Error(`foreign file: ${path}`);if(readFileSync(path,'utf8')===text)return;}
+ if(existsSync(path)){if(!readFileSync(path,'utf8').startsWith(marker))throw Error(`foreign file: ${path}`);if(readFileSync(path,'utf8')===text){secureFile(path);return;}}
  atomic(path,text);
 }
 function installSSH(nodes:Device[],home:string){
@@ -117,6 +118,8 @@ function installSSH(nodes:Device[],home:string){
  generated(join(dir,'devices_known_hosts'),marker+nodes.map(n=>`device-${n.id} ${n.hostKey}\n`).join(''));
  generated(join(dir,'devices.conf'),renderSSH(nodes,home));
  const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
+ if(existsSync(config))secureFile(config);
+ const key=join(dir,'id_ed25519_devices');if(existsSync(key))secureFile(key);
  const old=existsSync(config)?readFileSync(config,'utf8'):'';
  if(!old.startsWith(include)){
   if(old.includes('devices.conf'))throw Error('devices.conf already included elsewhere; place its Include first explicitly');
