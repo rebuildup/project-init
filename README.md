@@ -269,3 +269,73 @@ The editor baseline is shared between Vim and Neovim:
 - [`ADR-0010`](docs/adr/ADR-0010.md) — effective Claude settings composed from the shared submodule baseline and a machine-local overlay
 - [`ADR-0011`](docs/adr/ADR-0011.md) — one owner per global Agent Skill placement (dotfiles, app updaters, projects)
 - [`dotfiles survey`](docs/research/dotfiles-survey.md)
+
+### デバイスへの SSH / Herdr 接続
+
+接続先の正本は self-hosted Infisical の dotfiles project / `dev` / `/devices`。
+各端末で Infisical にユーザーログインして利用する。取得対象はこのフォルダーのみで、
+アプリケーション secret の全注入・秘密鍵配布はしない。
+
+```sh
+devices list                 # Infisical の同じ論理ノード一覧
+devices sync                 # SSH設定と公式Herdr machine登録を同期
+devices check wsl            # host key + OS/user/instance を照合
+devices ssh wsl              # 標準SSH
+devices herdr wsl            # Herdr公式remoteで既存sessionへ
+```
+
+Unix は `script/link` で `devices` を配置。Windows は
+`script\devices.ps1` または `script\devices.cmd` を使う。
+全プラットフォームで `bun script/devices.ts ...` も同じ入口。
+`devices sync` 後は、普段の `herdr` の machine 一覧から各ノードを選べる。
+同一 session 内の全 workspace/tab は Herdr 自身が共有し、複製しない。
+自身のノードは Local を使用する。名前付き session は default とは別物なので明示する。
+
+新規端末では `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_devices` で
+**その端末だけの鍵**を作り、公開鍵を許可する相手の SSH に登録する。
+現在の入口は `IdentityAgent none` を明示するため、無人の machine 接続では
+端末のファイル権限で保護したパスフレーズなしの専用鍵が必要。
+個人の既存鍵を置換・共有せず、接続先の公開鍵認可は別途管理する。
+OS側のSSH/経路セットアップは `pc-setup` が所有する。
+
+登録・更新は接続対象上または信頼済みの管理経路で instance ID とホスト公開鍵を
+取得し、次の形式のファイルを `devices register NODE.json` に渡す。
+値を Git に置く必要はなく、このファイルを正本として使い続けない。
+
+```json
+{
+  "id": "lab-windows",
+  "label": "Lab Windows",
+  "os": "windows",
+  "instanceId": "REPLACE-WITH-MACHINE-GUID",
+  "host": "lab-pc.example.internal",
+  "port": 22,
+  "user": "researcher",
+  "hostKey": "ssh-ed25519 REPLACE_WITH_VERIFIED_PUBLIC_HOST_KEY",
+  "session": "default"
+}
+```
+
+`os` は `linux` / `macos` / `windows`。
+instance ID は Linux `/etc/machine-id`、macOS `IOPlatformUUID`、
+Windows `HKLM:\SOFTWARE\Microsoft\Cryptography` の `MachineGuid`。
+ホスト鍵は ed25519 公開鍵の先頭2フィールド。未知のネットワークから取得した
+`ssh-keyscan` の結果だけを信頼しない。register は構文を検査して発行し、
+同期・接続時に実体を検査する。ノードごとに `DEVICE_<ID>` を shared secret として保存する。
+同じ ID の register はそのエントリだけを更新する。同一 ID の同時編集は避ける。
+
+WSL 作成・再作成時は新しい instance ID、SSH host key、到達可能な host/port を
+同じ論理 ID で register する。旧秘密鍵/host key を新インスタンスへ複製しない。
+削除時は `devices forget wsl`、その後各端末で `devices sync`。
+停止だけなら定義を残してよい。停止中は接続失敗となり、起動後に同じ対象へ再接続する。
+新規登録には対象の Herdr session が既に稼働していることが必要で、
+この入口はリモートから管理者権限で server を勝手に起動しない。
+
+同期は手動実行。Infisical の変更を常駐監視する独自プロセスは作らない。
+接続コマンドも最新定義を取得する。Herdr が既に開いている間の保存済み接続は
+最後に同期した定義を使うため、変更・削除後は各端末で同期する。
+自分が作成した profile だけを追跡し、変更・削除時に再調整する。
+既存の別名 profile を勝手に採用・削除せず、同名衝突はエラーにする。
+接続不能な他ノードがあっても、照合できた対象への明示接続は可能。
+同期状態は `~/.local/state/dotfiles/devices`、SSH生成物は
+`~/.ssh/devices.conf` と `~/.ssh/devices_known_hosts`。これらは正本ではない。
