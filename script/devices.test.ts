@@ -51,3 +51,15 @@ unixTest('real CLI sync is idempotent, isolates foreign profiles and rejects wro
   expect(JSON.parse(readFileSync(db,'utf8'))).toEqual([foreign]);
  }finally{rmSync(dir,{recursive:true,force:true});}
 }, 20000);
+
+const windowsTest=process.platform==='win32'?test:test.skip;
+windowsTest('Windows ACL helper works without PowerShell modules and excludes inherited writers',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'devices-acl-')),file=join(dir,'config');
+ writeFileSync(file,'Host example\n');
+ const script=join(import.meta.dir,'devices-acl.ps1');
+ try{
+  const result=Bun.spawnSync(['powershell','-NoProfile','-Command',`& '${script.replaceAll("'","''")}' '${file.replaceAll("'","''")}'; if(!$?) {exit 1}; $a=[IO.File]::GetAccessControl('${file.replaceAll("'","''")}'); if(!$a.AreAccessRulesProtected){exit 2}; $allowed=@([Security.Principal.WindowsIdentity]::GetCurrent().User.Value,'S-1-5-18','S-1-5-32-544'); foreach($r in $a.GetAccessRules($true,$true,[Security.Principal.SecurityIdentifier])){if($r.IdentityReference.Value -notin $allowed){exit 3}}`],{env:{...process.env,PSModulePath:dir},stdout:'pipe',stderr:'pipe'});
+  expect(result.stderr.toString()).toBe('');expect(result.exitCode).toBe(0);
+  expect(readFileSync(file,'utf8')).toBe('Host example\n');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});

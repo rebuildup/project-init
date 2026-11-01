@@ -1,7 +1,8 @@
 # Secure device-owned SSH files before atomic replacement or use.
 param([Parameter(Mandatory=$true)][string]$Path)
 $ErrorActionPreference = 'Stop'
-$item = Get-Item -LiteralPath $Path -Force
+$item = [IO.FileInfo]::new([IO.Path]::GetFullPath($Path))
+if (!$item.Exists) { throw 'SSH file does not exist' }
 if ($item.Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Refusing reparse point' }
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User
 $acl = [Security.AccessControl.FileSecurity]::new()
@@ -14,4 +15,5 @@ foreach ($id in @($sid.Value, 'S-1-5-18', 'S-1-5-32-544')) {
         [Security.AccessControl.AccessControlType]::Allow)
     $acl.AddAccessRule($rule)
 }
-Set-Acl -LiteralPath $Path -AclObject $acl
+# Windows PowerShell/.NET Framework API: no module autoload through an inherited PSModulePath.
+[IO.File]::SetAccessControl($item.FullName, $acl)
