@@ -146,7 +146,7 @@ function sync(nodes:Device[],home:string,state:string){
   }
  }
  for(const n of nodes){
-  if(current.some(p=>p.target===`device-${n.id}` && p.id!==owned[n.id]?.profileId))throw Error(`${n.id}: foreign SSH target collision; refusing config update`);
+  if(profiles().some(p=>p.target===`device-${n.id}` && p.id!==owned[n.id]?.profileId))throw Error(`${n.id}: foreign SSH target collision; refusing config update`);
  }
  installSSH(nodes,home);let failed=false;
  for(const n of nodes){

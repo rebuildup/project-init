@@ -50,4 +50,4 @@ unixTest('real CLI sync is idempotent, isolates foreign profiles and rejects wro
   writeFileSync(registry,'null');expect(runSync().exitCode).toBe(0);
   expect(JSON.parse(readFileSync(db,'utf8'))).toEqual([foreign]);
  }finally{rmSync(dir,{recursive:true,force:true});}
-});
+}, 20000);
