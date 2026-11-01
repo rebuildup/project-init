@@ -46,8 +46,6 @@ drop_env = [
   "MINIMAX_M_PLAN_KEY",
   "MINIMAX_TOKEN_PLAN_KEY",
   "OPENCODE_API_KEY",
-  # Go workspace key, kept separate from the Zen/Console key above.
-  "OPENCODE_GO_API_KEY",
   "OPENROUTER_API_KEY",
   # Launcher/Infisical material, not harness material
   "INFISICAL_TOKEN",
@@ -173,13 +171,15 @@ models = [
   "space-bunny-free",
 ]
 
-# OpenCode Go ($10/month subscription). A SEPARATE workspace credential from
-# zen: both harnesses natively read OPENCODE_API_KEY, but the Go key is stored
-# in Infisical as OPENCODE_GO_API_KEY and is the only accepted source
-# (`secret_only`). A pre-existing Zen OPENCODE_API_KEY in the caller's
-# environment is overwritten for this route, never reused, and the Go key is
-# dropped for every other route. Missing Go key => fail before the harness
-# starts; no fallback to zen or pay-as-you-go.
+# OpenCode Go ($10/month subscription). There is **no separate Go key**:
+# the same account/workspace key (`OPENCODE_API_KEY`) serves Zen and Go, and
+# the endpoint selects which allowance a request consumes (Go allowance here,
+# Zen/pay-as-you-go elsewhere). The launcher guarantee is instead:
+#   - always take the value from Infisical (`require_infisical`), never a
+#     stale ambient shell value: the ambient credential names are removed
+#     before the with-secrets stage, so a missing Infisical value fails;
+#   - Pi-side auth.json/models.json overrides are rejected before launch;
+#   - no fallback to Zen, pay-as-you-go or another model on failure.
 #
 # Go usage is metered against the subscription allowance per model
 # (5h / weekly / monthly). Extra Usage (pay-as-you-go overflow) must be OFF in
@@ -193,10 +193,10 @@ label = "OpenCode Go"
 # Anthropic-compatible Go endpoint for Claude Code. Pi uses its own native Go
 # base URL (https://opencode.ai/zen/go/v1) from its provider catalog.
 base_url = "https://opencode.ai/inference/go/anthropic"
-secret = "OPENCODE_GO_API_KEY"
+secret = "OPENCODE_API_KEY"
 env = "OPENCODE_API_KEY"
-# Only OPENCODE_GO_API_KEY counts; the same-named Zen env var is ignored.
-secret_only = true
+# Always source from Infisical; ignore ambient env and Pi-local overrides.
+require_infisical = true
 pi_id = "opencode-go"
 models = ["deepseek-v4.1-flash", "mimo-v2.6-flash"]
 
@@ -255,7 +255,7 @@ note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); the paid 
 
 [routes."claude.opencode-go"]
 default_model = "deepseek-v4.1-flash"
-note = "Go plan; DeepSeek V4.1 Flash needs Privacy > Regions = Global in the Go workspace (owner/admin). Go endpoint + Go key only; no zen/pay-as-you-go fallback."
+note = "Go endpoint; Infisical OPENCODE_API_KEY (single key, Go allowance selected by this endpoint). DeepSeek V4.1 Flash needs Privacy > Regions = Global. Real response + tool call verified 2026-11-01; no zen/pay-as-you-go fallback."
 
 [routes."claude.deepseek"]
 # The DeepSeek Anthropic endpoint maps claude-* names internally and silently
@@ -292,7 +292,7 @@ note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); pi may wa
 
 [routes."pi.opencode-go"]
 default_model = "mimo-v2.6-flash"
-note = "Go plan; Pi native provider id `opencode-go` reading the Go key as OPENCODE_API_KEY. Pi catalog lags the new id (custom id warning); no fallback."
+note = "Go endpoint via Pi's native opencode-go provider. BLOCKED upstream: Pi 0.73.1 (latest npm) does not send x-opencode-session and Go returns HTTP 400; no fallback or model substitution. Infisical key + local Pi overrides are still enforced."
 
 [routes."pi.deepseek"]
 note = "pi warns for ids outside its built-in catalog and passes them through."

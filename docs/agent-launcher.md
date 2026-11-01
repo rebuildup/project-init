@@ -165,8 +165,8 @@ env = "DEEPSEEK_API_KEY"       # env var the harness reads (may differ)
 default_model = "deepseek-flash"
 models = ["deepseek-flash", "deepseek-v4-pro"]
 # require_model = true         # fail closed: --model mandatory when no default exists
-# secret_only = true           # credential only from <secret>; an ambient
-#                              # value of <env> is ignored/overwritten
+# require_infisical = true     # always source <secret> from Infisical;
+#                              # strip ambient values before the wrapper
 # opencode_id = "opencode"     # provider id when it differs from the key (zen)
 # pi_id = "deepseek"           # pi --provider value (defaults to the key)
 
@@ -194,9 +194,8 @@ Validation (`agent check`, run by CI) rejects: unknown adapter, route keys
 that reference unknown harnesses/providers, missing defaults without
 `require_model`, defaults that are not in the model list,
 `require_model`-with-default contradictions, `anthropic` routes whose
-provider has no `base_url`, `secret_only = true` with identical or missing
-`secret`/`env` names, and route keys whose `harness-provider` shortcut names
-would collide.
+provider has no `base_url`, `require_infisical = true` without a `secret`
+name, and route keys whose `harness-provider` shortcut names would collide.
 
 ## Adapters (native CLI contracts)
 
@@ -225,17 +224,18 @@ would collide.
 
 ## Credential handling (no leakage, no argv secrets)
 
-1. **Fast path**: if the route's credential is already present, no secret is
-   fetched at all (`script/with-secrets` is not invoked). The accepted source
-   depends on the provider:
-   - normal providers: either the harness `env` name **or** the Infisical
-     `secret` name;
-   - `secret_only` providers (`opencode-go`): **only** the `secret` name. An
-     ambient value of the harness `env` name is not accepted (see rule 5).
-2. Otherwise the launcher re-executes itself *inside* the existing
+1. **Fast path**: for a normal route, if the harness `env` name or the
+   Infisical `secret` name is already present, no secret is fetched
+   (`script/with-secrets` is not invoked).
+2. **`require_infisical` routes** (`opencode-go`) never take the fast path.
+   The launcher always runs the with-secrets stage, and **removes the route's
+   credential names from the wrapper's environment first**. Only Infisical can
+   supply them; a missing Infisical value fails instead of reusing a stale
+   shell value. This is stronger than "prefer Infisical over env".
+3. Otherwise the launcher re-executes itself *inside* the existing
    `script/with-secrets` (self-hosted Infisical project binding, environment
    `dev`), which injects the whole dev secret set.
-3. The in-wrapper stage then filters the environment before `exec`:
+4. The in-wrapper stage then filters the environment before `exec`:
    - variables injected by Infisical that the route did not select are
      dropped (baseline diff),
    - every credential name declared in the config (including legacy ones
@@ -244,52 +244,49 @@ would collide.
    - only then are the adapter's `ANTHROPIC_*` values derived — secret
      values are referenced by *name* inside the child stage and are never
      placed in argv, files or logs.
-4. Renames happen inside that stage too (e.g. Infisical
+5. Renames happen inside that stage too (e.g. Infisical
    `MINIMAX_M_PLAN_KEY` → harness `MINIMAX_API_KEY`).
-5. `secret_only = true` providers (`opencode-go`) accept **only** their
-   `secret` name. The harness `env` name is copied from it and never read
-   from the ambient environment: a pre-existing Zen `OPENCODE_API_KEY` is
-   ignored and overwritten, the fast path is skipped unless
-   `OPENCODE_GO_API_KEY` itself is already set, and a missing
-   `OPENCODE_GO_API_KEY` fails before the harness starts. There is no
-   `env[dst] || env[src]` fallback for these providers.
 6. A missing secret fails with its Infisical name before any harness starts.
 
 The launcher's mock tests assert both directions: the selected credential
-arrives, and every other provider's credential does not. For Go they
-additionally assert that a shell Zen key cannot satisfy the Go route.
+arrives, and every other provider's credential does not. For Go they also
+assert that an ambient key is stripped before the wrapper and that a missing
+Infisical value fails instead of using it.
 
-## OpenCode Go routes (fixed Go plan, issue #76)
-
-Two explicit routes share one Go (`$10/month`) workspace key:
+## OpenCode Go routes (single key, Go endpoint)
 
 | route | harness | default model | endpoint | credential |
 | --- | --- | --- | --- | --- |
-| `claude.opencode-go` | Claude Code | `deepseek-v4.1-flash` | `https://opencode.ai/inference/go/anthropic` (`ANTHROPIC_BASE_URL`) | Go key as `ANTHROPIC_AUTH_TOKEN` |
-| `pi.opencode-go` | Pi | `mimo-v2.6-flash` | Pi's native `opencode-go` provider (`https://opencode.ai/zen/go/v1`) | Go key as `OPENCODE_API_KEY` |
+| `claude.opencode-go` | Claude Code | `deepseek-v4.1-flash` | `https://opencode.ai/inference/go/anthropic` (`ANTHROPIC_BASE_URL`) | Infisical `OPENCODE_API_KEY` as `ANTHROPIC_AUTH_TOKEN` |
+| `pi.opencode-go` | Pi | `mimo-v2.6-flash` | Pi's native `opencode-go` provider (`https://opencode.ai/zen/go/v1`) | Infisical `OPENCODE_API_KEY` as `OPENCODE_API_KEY` |
 
-- Both are fixed defaults in `config/agents.toml`; `--model` only accepts the
-  provider's declared Go ids. There is no runtime model selection, no
-  availability/quality gate and no fallback to Zen, Console pay-as-you-go or
-  another provider.
-- **Credential separation.** Both harnesses normally read
-  `OPENCODE_API_KEY`, which is also the Zen key. The Go key lives in
-  Infisical as `OPENCODE_GO_API_KEY` and is the only accepted source
-  (`secret_only = true`): an ambient Zen `OPENCODE_API_KEY` is overwritten
-  for these routes, and `OPENCODE_GO_API_KEY` is dropped for every other
-  route. A missing Go key stops the launch (exit 1) instead of borrowing Zen.
-- **Not yet a real-API success.** As of 2026-11-01 the Infisical `dev`
-  environment has `OPENCODE_API_KEY` but no `OPENCODE_GO_API_KEY`, so only
-  the mock tier and the public model catalog are verified here. The two model
-  ids are listed by the public `https://opencode.ai/inference/go/v1/models`
-  endpoint (28 models, 2026-11-01). Actual inference, tool calls, Go quota
-  accounting and Pi's `x-opencode-session` header are **unverified** until
-  the secret is provisioned and the calls below are run.
-- **Pi version.** Pi 0.73.1 ships provider `opencode-go` but its bundled
-  catalog predates both ids; it warns `Using custom model id` and keeps the
-  provider's base URL/API. Run `pi update --models` (or upgrade Pi) first.
-  Pi's docs say current builds send the OpenCode session header; older builds
-  may not, which can affect routing/caching quality but not the credential.
+- **There are no per-product keys.** The same account/workspace key
+  (`OPENCODE_API_KEY`) serves Zen and Go. The **endpoint** and the workspace's
+  Go subscription decide which allowance a request consumes; the key name does
+  not. Earlier drafts assumed a separate `OPENCODE_GO_API_KEY`; that key does
+  not exist and has been removed from the config and docs.
+- **What the launcher does guarantee** (`require_infisical = true`): the
+  credential always comes from Infisical. The ambient `OPENCODE_API_KEY` is
+  removed from the wrapper's environment before Infisical runs, so a stale
+  shell value cannot be used; a missing Infisical value exits 1. Pi's local
+  `auth.json`/`models.json` cannot override the credential or endpoint (see
+  below). No runtime model selection and no fallback to Zen, pay-as-you-go or
+  another model/provider.
+- **Claude Code: verified.** On 2026-11-01, with an ambient bogus
+  `OPENCODE_API_KEY` set, `agent claude opencode-go` ignored it, used the
+  Infisical key, and returned `GO_CLAUDE_OK` from a Bash tool call with
+  `deepseek-v4.1-flash`. Claude Code 2.1.314 warns that it does not recognize
+  the custom model id (200k assumed context) but sends `ANTHROPIC_BASE_URL` /
+  `ANTHROPIC_AUTH_TOKEN` unchanged. Go recognizes Claude Code's native session
+  header.
+- **Pi: blocked upstream.** Pi `0.73.1` (the latest npm release at the time)
+  ships the `opencode-go` provider but does **not** send
+  `x-opencode-session`; the Go endpoint returns
+  `400 Request is missing x-opencode-session`. A real call through the
+  launcher reproduced this after the credential was verified. The launcher
+  does **not** substitute another model/provider, inject a fake session header,
+  or claim success. The route stays configured for a future Pi build that
+  sends the header; until then treat `pi.opencode-go` as blocked.
 - **Pi auth precedence (fail closed).** Pi resolves credentials as
   CLI `--api-key` > `auth.json` > env > `models.json` provider keys, and
   `models.json` can override a provider's `baseUrl`/`api`. `agent pi
@@ -298,46 +295,44 @@ Two explicit routes share one Go (`$10/month`) workspace key:
   `models.json` defines an `opencode-go` provider. It never edits or deletes
   those files; other providers' entries are unaffected. Only a missing file
   (`ENOENT`) counts as "no override"; an unreadable or invalid file fails
-  closed because the credential source cannot be proven. Only `secret_only`
-  routes get this guard, so existing Pi routes keep their previous behaviour.
+  closed because the credential source cannot be proven. Only
+  `require_infisical` routes get this guard, so existing Pi routes keep their
+  previous behaviour.
 - **Claude Code existing login.** OpenCode's docs advise `/logout` first when
   Claude Code is signed in. In the tested version (2.1.314) the injected
   `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` took precedence: with a real
-  claude.ai Pro login present, `agent claude openrouter-free` used the env
-  endpoint/token and Claude printed that "another auth source ... takes
-  precedence over your claude.ai login". The same mechanism applies to Go,
-  but **Go-specific billing was not verified** (no Go key). Confirm with
-  `/status` and the Go usage page on the first real run; if a future Claude
-  version changes precedence, treat the route as blocked rather than logging
-  the user out automatically.
+  claude.ai Pro login present, the env endpoint/token were used and Claude
+  printed that "another auth source ... takes precedence over your claude.ai
+  login". This was re-confirmed on the Go route (Claude Code succeeded with
+  the same login present). If a future version changes precedence, treat the
+  route as blocked rather than logging the user out automatically.
 - **Privacy prerequisite.** DeepSeek V4.1 Flash (and V4 Pro) require
   **Settings › Privacy › Regions = Global** in the Go workspace
   (owner/admin). Without it the request is rejected; the launcher must not
-  silently switch to another model or provider. If Global cannot be enabled,
-  `claude.opencode-go` stays blocked — use `--model mimo-v2.6-flash` only if
-  that is an explicit accepted choice, or another route.
+  silently switch to another model or provider.
 - **Billing.** Go usage is metered per model against a monthly allowance with
   5-hour (20%) and weekly (50%) sub-limits. **Extra Usage** (overflow to the
   Console pay-as-you-go balance) must be verified OFF in the Console on the
   Go page, except Go Teams which starts ON. The launcher cannot read or
-  change that account setting and does not claim to.
-  DeepSeek V4.1 Flash also has peak/off-peak pricing (peak: 01:00–04:00 and
-  06:00–10:00 UTC, Mon–Fri); the flat-rate allowance is unaffected by the
-  time of day, but usage counts differ.
-- Claude Code 2.1.314 warns that it does not recognize the custom model id
-  (200k assumed context) but sends `ANTHROPIC_BASE_URL` /
-  `ANTHROPIC_AUTH_TOKEN` unchanged; Go recognizes Claude Code's native
-  session header.
+  change that account setting and does not claim to. DeepSeek V4.1 Flash also
+  has peak/off-peak pricing (peak: 01:00–04:00 and 06:00–10:00 UTC, Mon–Fri);
+  the flat-rate allowance is unaffected by the time of day, but usage counts
+  differ. A successful response proves routing, not which allowance was
+  charged — check the Go usage page.
 
-Real verification (only after `OPENCODE_GO_API_KEY` exists in Infisical
-`dev`; cheap prompts, no unattended loops):
+Real verification (cheap prompts, no unattended loops):
 
 ```bash
+# Claude Code: verified 2026-11-01
 agent claude opencode-go -- -p 'Use the Bash tool to run: echo GO_CLAUDE_OK'
+
+# Pi: blocked by the missing x-opencode-session header (HTTP 400) in 0.73.1
 agent pi opencode-go -- -p 'Use the bash tool to run: echo GO_PI_OK'
-# /status inside the session shows the Go base URL; the Console shows the
-# model, the Go allowance counters and whether Extra Usage was used.
 ```
+
+For Claude, `/status` inside a session shows the base URL; the Console shows
+the model and allowance counters. For Pi, do not treat an HTTP 400 as a
+credential failure — it is the upstream header requirement.
 
 ## OpenRouter free: one fixed model (no automatic selection)
 
@@ -375,9 +370,9 @@ not an active code path.
 
 | harness \ provider | zen | opencode-go | openrouter | openrouter-free | deepseek | minimax |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `deepseek-v4.1-flash` (Go endpoint; Go key only, `secret_only`; needs Privacy Regions = Global; real response **unverified** — no `OPENCODE_GO_API_KEY` in Infisical yet) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
+| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
 | opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this PR adds only the two required routes) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
-| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Go key only; Pi 0.73.1 warns "custom model id"; real response **unverified** — no `OPENCODE_GO_API_KEY` in Infisical yet) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
+| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; **blocked upstream**: Pi 0.73.1 does not send `x-opencode-session`, Go returns HTTP 400) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
 | dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
 
 Not covered on purpose: `opencode.opencode-go` (possible follow-up; the two
@@ -413,9 +408,9 @@ criteria:
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
   credential as the paid provider), OpenCode Go defaults/endpoint/auth-token
-  mapping, `secret_only` separation in both directions (Zen shell key cannot
-  satisfy Go, Go key is dropped on zen routes, fast path vs. Infisical),
-  missing Go secret fail-closed, Pi `auth.json`/`models.json` override guard
+  mapping, `require_infisical` behavior (ambient key stripped before the
+  wrapper, missing Infisical value fails even with an ambient key, zen keeps
+  its fast path), Pi `auth.json`/`models.json` override guard
   (`PI_CODING_AGENT_DIR` honored, unrelated providers allowed, invalid JSON
   and non-ENOENT read errors fail closed), secret filtering both ways,
   forbidden passthrough flags, shortcut equivalence/args/`--agent-model`/
@@ -425,8 +420,9 @@ criteria:
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
   run only in the mock tier stay marked unverified here. OpenRouter-free was
-  live-tested on 2026-11-01; OpenCode Go is mock-only until
-  `OPENCODE_GO_API_KEY` is provisioned.
+  live-tested on 2026-11-01. OpenCode Go/Claude Code was live-tested the same
+  day (response + tool call); OpenCode Go/Pi is blocked by the missing
+  `x-opencode-session` header in Pi 0.73.1.
 
 Verification status per platform (implementation is identical; what
 differs is which entry-point layer was exercised on a real machine):
@@ -438,8 +434,9 @@ differs is which entry-point layer was exercised on a real machine):
 | Windows native | CI-verified only (windows-latest job: batch-shim argv/injection/`%`+`"` rejection, `.cmd` shortcut create+exec, `with-secrets.ps1` workspaceId/API-URL pinning) | n/a (`.cmd` used instead) | unverified (no real machine) | CI-verified (PowerShell 7 on windows-latest); real machine (2026-10-17, PowerShell 7.6): `agent.ps1 list/check`, `with-secrets.ps1` injection and `bun test script/agent.windows.test.ts` verified; **shortcut creation and interactive harness start still unverified** |
 
 The OpenCode Go routes add no new entry-point or injection layer, so they
-inherit the platform status above; their credential mapping is mock-verified
-on POSIX. Real Go calls are unverified on every platform (missing secret).
+inherit the platform status above. Claude Code/Go was live-tested on macOS on
+2026-11-01; Pi/Go is blocked upstream on every platform by Pi 0.73.1 not
+sending `x-opencode-session`. Windows/WSL real Go calls remain unverified.
 
 ## Installation and migration (replaces the draft mise tasks)
 
@@ -511,11 +508,10 @@ was: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`,
 
 - The `openrouter-free` provider reuses `OPENROUTER_API_KEY` — no free-tier
   credential exists or is needed.
-- **`OPENCODE_GO_API_KEY` is required by the new Go routes but was not yet
-  present** in `dev` at that date. Until it is added (value from the Go
-  workspace, never committed), `agent claude opencode-go` and
-  `agent pi opencode-go` exit 1 with a message naming it. This is
-  intentional: the launcher will not borrow `OPENCODE_API_KEY` (Zen).
+- There is **no separate Go key**. Both Go routes use the existing
+  `OPENCODE_API_KEY`; the Go endpoint and the workspace subscription select
+  the allowance. The launcher still forces the value to come from Infisical
+  (`require_infisical`) so a stale ambient key cannot be used.
 - Legacy/untouched names that are deliberately filtered out of every child:
   `MINIMAX_TOKEN_PLAN_KEY`, `MIMO_API_KEY`.
 

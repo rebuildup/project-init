@@ -62,11 +62,13 @@ fi
 if [[ -n "\${AGENT_TEST_WRAPPER_ARGV:-}" ]]; then
   printf '%s\\n' "$@" > "$AGENT_TEST_WRAPPER_ARGV"
 fi
+if [[ -n "\${AGENT_TEST_WRAPPER_ENV:-}" ]]; then
+  env | sort > "$AGENT_TEST_WRAPPER_ENV"
+fi
 export FAKE_INFISICAL_INJECTED=yes
 export DEEPSEEK_API_KEY=secret-deepseek
 export OPENROUTER_API_KEY=secret-openrouter
-export OPENCODE_API_KEY=secret-zen
-export OPENCODE_GO_API_KEY=secret-opencode-go
+export OPENCODE_API_KEY=secret-opencode
 export MINIMAX_M_PLAN_KEY=secret-minimax-plan
 export MINIMAX_TOKEN_PLAN_KEY=secret-minimax-legacy
 export MIMO_API_KEY=secret-mimo
@@ -83,8 +85,8 @@ const FAKE_WITH_SECRETS_NO_DEEPSEEK = FAKE_WITH_SECRETS.replace(
 
 // Same, but the OpenCode Go workspace key is absent. The Zen key is still
 // injected: a Go route must fail instead of reusing it.
-const FAKE_WITH_SECRETS_NO_GO = FAKE_WITH_SECRETS.replace(
-  "export OPENCODE_GO_API_KEY=secret-opencode-go\n",
+const FAKE_WITH_SECRETS_NO_OPENCODE = FAKE_WITH_SECRETS.replace(
+  "export OPENCODE_API_KEY=secret-opencode\n",
   "",
 );
 
@@ -179,6 +181,7 @@ class Fixture {
   out: string;
   marker: string;
   wrapper_argv: string;
+  wrapper_env: string;
   wrapper: string;
 
   constructor() {
@@ -188,6 +191,7 @@ class Fixture {
     this.out = join(this.tmp, "child.env");
     this.marker = join(this.tmp, "wrapper.ran");
     this.wrapper_argv = join(this.tmp, "wrapper.argv");
+    this.wrapper_env = join(this.tmp, "wrapper.env");
     this.wrapper = join(this.tmp, "with-secrets");
     this.writeWrapper(FAKE_WITH_SECRETS);
     for (const harness of HARNESSES) {
@@ -218,12 +222,13 @@ class Fixture {
       // would turn link-management expectations into conflicts).
       PATH: `${this.bindir}:/usr/bin:/bin`,
       // Isolate Pi/harness user config (the launcher reads ~/.pi/agent for
-      // the secret_only Pi guard) from the developer's real HOME.
+      // the require_infisical Pi guard) from the developer's real HOME.
       HOME: this.tmp,
       AGENT_WITH_SECRETS: this.wrapper,
       AGENT_TEST_OUT: this.out,
       AGENT_TEST_MARKER: this.marker,
       AGENT_TEST_WRAPPER_ARGV: this.wrapper_argv,
+      AGENT_TEST_WRAPPER_ENV: this.wrapper_env,
     };
     if (extra) {
       Object.assign(env, extra);
@@ -232,7 +237,7 @@ class Fixture {
   }
 
   private clearDumps(): void {
-    for (const path of [this.out, this.marker, this.wrapper_argv]) {
+    for (const path of [this.out, this.marker, this.wrapper_argv, this.wrapper_env]) {
       if (existsSync(path)) {
         unlinkSync(path);
       }
@@ -406,7 +411,8 @@ test(
     result = fixture.run(["models", "opencode-go"], { config: REAL_CONFIG });
     check(result.exitCode === 0, result.stderr.toString());
     const goStdout = result.stdout.toString();
-    check(goStdout.includes("OPENCODE_GO_API_KEY"), goStdout);
+    check(goStdout.includes("OPENCODE_API_KEY"), goStdout);
+    check(goStdout.includes("require_infisical"), goStdout);
     check(goStdout.includes("https://opencode.ai/inference/go/anthropic"), goStdout);
     check(goStdout.includes("pi provider id: opencode-go"), goStdout);
     check(goStdout.includes("deepseek-v4.1-flash"), goStdout);
@@ -491,7 +497,6 @@ test(
       "DEEPSEEK_API_KEY",
       "OPENROUTER_API_KEY",
       "OPENCODE_API_KEY",
-      "OPENCODE_GO_API_KEY",
       "MIMO_API_KEY",
       "INFISICAL_TOKEN",
       "FAKE_INFISICAL_INJECTED",
@@ -587,7 +592,6 @@ test(
     for (const leak of [
       "DEEPSEEK_API_KEY",
       "OPENCODE_API_KEY",
-      "OPENCODE_GO_API_KEY",
       "MIMO_API_KEY",
       "INFISICAL_TOKEN",
       "FAKE_INFISICAL_INJECTED",
@@ -709,12 +713,12 @@ test(
     check(env["ANTHROPIC_DEFAULT_SONNET_MODEL"] === "deepseek-v4.1-flash", JSON.stringify(env));
     check(env["ANTHROPIC_DEFAULT_HAIKU_MODEL"] === "deepseek-v4.1-flash", JSON.stringify(env));
     check(
-      env["ANTHROPIC_AUTH_TOKEN"] === "secret-opencode-go",
+      env["ANTHROPIC_AUTH_TOKEN"] === "secret-opencode",
       `auth token was '${env["ANTHROPIC_AUTH_TOKEN"]}'`,
     );
     check(!("ANTHROPIC_API_KEY" in env), "ANTHROPIC_API_KEY must be cleared");
     // GO key arrives under the harness env name; nothing else leaks.
-    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
+    check(env["OPENCODE_API_KEY"] === "secret-opencode", env["OPENCODE_API_KEY"]);
     for (const leak of [
       "DEEPSEEK_API_KEY",
       "OPENROUTER_API_KEY",
@@ -740,7 +744,7 @@ test(
       "-p",
       "hi",
     ]);
-    check(piEnv["OPENCODE_API_KEY"] === "secret-opencode-go", piEnv["OPENCODE_API_KEY"]);
+    check(piEnv["OPENCODE_API_KEY"] === "secret-opencode", piEnv["OPENCODE_API_KEY"]);
     check(!("OPENROUTER_API_KEY" in piEnv), "leak");
     check(!("DEEPSEEK_API_KEY" in piEnv), "leak");
 
@@ -777,68 +781,59 @@ test(
 );
 
 test(
-  "test_opencode_go_never_uses_zen_key",
+  "test_opencode_go_uses_infisical_key",
   withFixture((fixture) => {
-    // A Zen key already exported in the shell must not satisfy the Go route:
-    // the wrapper still runs, and the Go key overwrites it.
+    // require_infisical: an ambient key is never trusted. The wrapper always
+    // runs, the ambient credential is stripped from its environment, and the
+    // Infisical value reaches the child.
     const injected = fixture.run(["claude", "opencode-go"], {
-      env: { OPENCODE_API_KEY: "zen-shell-key" },
+      env: { OPENCODE_API_KEY: "stale-shell-key" },
       config: REAL_CONFIG,
     });
     check(injected.exitCode === 0, injected.stderr.toString());
     const [, env] = fixture.child();
-    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
-    check(env["ANTHROPIC_AUTH_TOKEN"] === "secret-opencode-go", env["ANTHROPIC_AUTH_TOKEN"]);
-    check(existsSync(fixture.marker), "the shell Zen key must not short-circuit Infisical");
+    check(env["OPENCODE_API_KEY"] === "secret-opencode", env["OPENCODE_API_KEY"]);
+    check(env["ANTHROPIC_AUTH_TOKEN"] === "secret-opencode", env["ANTHROPIC_AUTH_TOKEN"]);
+    check(existsSync(fixture.marker), "require_infisical must not short-circuit on an ambient value");
+    const wrapperEnv = readFileSync(fixture.wrapper_env, "utf8");
+    check(
+      !wrapperEnv.split("\n").some((line) => line.startsWith("OPENCODE_API_KEY=")),
+      "the ambient credential must be stripped before the with-secrets stage",
+    );
 
-    // Same when both secrets are already exported: the Go name wins and wins
-    // on the fast path (no Infisical round trip).
-    const fast = fixture.run(["pi", "opencode-go"], {
-      env: {
-        OPENCODE_API_KEY: "zen-shell-key",
-        OPENCODE_GO_API_KEY: "go-shell-key",
-      },
+    // Zen still uses the fast path (same key name, no require_infisical).
+    const zen = fixture.run(["opencode", "zen"], {
+      env: { OPENCODE_API_KEY: "zen-shell-key" },
       config: REAL_CONFIG,
     });
-    check(fast.exitCode === 0, fast.stderr.toString());
-    const [, fastEnv] = fixture.child();
-    check(fastEnv["OPENCODE_API_KEY"] === "go-shell-key", fastEnv["OPENCODE_API_KEY"]);
-    check(!existsSync(fixture.marker), "preset Go key must use the fast path");
-
-    // Zen route: the Go key is dropped, in both directions.
-    for (const extra of [
-      { OPENCODE_GO_API_KEY: "go-shell-key" },
-      { OPENCODE_API_KEY: "zen-shell-key", OPENCODE_GO_API_KEY: "go-shell-key" },
-    ]) {
-      const zen = fixture.run(["opencode", "zen"], { env: extra, config: REAL_CONFIG });
-      check(zen.exitCode === 0, zen.stderr.toString());
-      const [, zenEnv] = fixture.child();
-      const expectedZen = "OPENCODE_API_KEY" in extra ? "zen-shell-key" : "secret-zen";
-      check(zenEnv["OPENCODE_API_KEY"] === expectedZen, zenEnv["OPENCODE_API_KEY"]);
-      check(!("OPENCODE_GO_API_KEY" in zenEnv), "Go key leaked into a zen route");
-    }
+    check(zen.exitCode === 0, zen.stderr.toString());
+    const [, zenEnv] = fixture.child();
+    check(zenEnv["OPENCODE_API_KEY"] === "zen-shell-key", zenEnv["OPENCODE_API_KEY"]);
+    check(!existsSync(fixture.marker), "zen keeps the ambient fast path");
   }),
 );
 
 test(
   "test_opencode_go_missing_key_fails_closed",
   withFixture((fixture) => {
-    // Infisical has the Zen key but no Go key: the route must stop, not
-    // borrow the Zen credential and not fall back to another provider.
-    fixture.writeWrapper(FAKE_WITH_SECRETS_NO_GO);
+    // Infisical has no OPENCODE_API_KEY: even with an ambient value, the route
+    // must stop instead of silently using the shell credential.
+    fixture.writeWrapper(FAKE_WITH_SECRETS_NO_OPENCODE);
     const result = fixture.run(["claude", "opencode-go"], {
-      env: { OPENCODE_API_KEY: "zen-shell-key" },
+      env: { OPENCODE_API_KEY: "stale-shell-key" },
       config: REAL_CONFIG,
     });
     check(result.exitCode === 1, `expected exit 1, got ${result.exitCode}`);
-    check(result.stderr.toString().includes("OPENCODE_GO_API_KEY"), result.stderr.toString());
-    check(result.stderr.toString().includes("only accepted source"), result.stderr.toString());
-    check(!existsSync(fixture.out), "harness must not start without the Go credential");
+    check(result.stderr.toString().includes("OPENCODE_API_KEY"), result.stderr.toString());
+    check(!existsSync(fixture.out), "harness must not start without the Infisical credential");
 
-    const pi = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    const pi = fixture.run(["pi", "opencode-go"], {
+      env: { OPENCODE_API_KEY: "stale-shell-key" },
+      config: REAL_CONFIG,
+    });
     check(pi.exitCode === 1, `expected exit 1, got ${pi.exitCode}`);
-    check(pi.stderr.toString().includes("OPENCODE_GO_API_KEY"), pi.stderr.toString());
-    check(!existsSync(fixture.out), "pi must not start without the Go credential");
+    check(pi.stderr.toString().includes("OPENCODE_API_KEY"), pi.stderr.toString());
+    check(!existsSync(fixture.out), "pi must not start without the Infisical credential");
   }),
 );
 
@@ -847,7 +842,7 @@ test(
   withFixture((fixture) => {
     // Pi reads auth.json BEFORE environment variables. A stale/different
     // opencode-go entry would silently override the Infisical key, so the
-    // secret_only route must stop before the harness starts.
+    // require_infisical route must stop before the harness starts.
     const authPath = fixture.writePiConfig("auth.json", {
       minimax: { type: "api_key", key: "keep-me" },
       "opencode-go": { type: "api_key", key: "other-workspace" },
@@ -864,7 +859,7 @@ test(
     const ok = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
     check(ok.exitCode === 0, ok.stderr.toString());
     const [, env] = fixture.child();
-    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
+    check(env["OPENCODE_API_KEY"] === "secret-opencode", env["OPENCODE_API_KEY"]);
 
     // PI_CODING_AGENT_DIR is honored exactly like Pi itself resolves it.
     const alt = join(fixture.tmp, "alt-agent");
@@ -929,7 +924,7 @@ test(
     const ok = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
     check(ok.exitCode === 0, ok.stderr.toString());
     const [, env] = fixture.child();
-    check(env["OPENCODE_API_KEY"] === "secret-opencode-go", env["OPENCODE_API_KEY"]);
+    check(env["OPENCODE_API_KEY"] === "secret-opencode", env["OPENCODE_API_KEY"]);
   }),
 );
 
@@ -1196,7 +1191,6 @@ test(
       "pre-existing other-provider secret must be dropped",
     );
     check(!("OPENCODE_API_KEY" in env), "injected zen secret must be dropped");
-    check(!("OPENCODE_GO_API_KEY" in env), "injected Go secret must be dropped");
     check(existsSync(fixture.marker), "with-secrets wrapper was not used");
   }),
 );
@@ -1240,7 +1234,7 @@ test(
     check(result.exitCode === 0, result.stderr.toString());
     let [argv, env] = fixture.child();
     expect(argv, JSON.stringify(argv)).toEqual(["--standalone"]);
-    check(env["OPENCODE_API_KEY"] === "secret-zen", JSON.stringify(env));
+    check(env["OPENCODE_API_KEY"] === "secret-opencode", JSON.stringify(env));
     const content = JSON.parse(env["OPENCODE_CONFIG_CONTENT"]) as Record<string, unknown>;
     check(content["model"] === "opencode/mimo-v2.6-flash-free", JSON.stringify(content));
     check(content["permission"] === "allow", "existing inline config must merge");
@@ -1309,8 +1303,7 @@ test(
     );
     check(
       !("OPENROUTER_API_KEY" in env) &&
-        !("OPENCODE_API_KEY" in env) &&
-        !("OPENCODE_GO_API_KEY" in env),
+        !("OPENCODE_API_KEY" in env),
       "other secrets must not leak",
     );
   }),
@@ -1562,20 +1555,18 @@ adapter = "passthrough"
 `,
         "unknown harness",
       ],
-      // secret_only is meaningless (and rejected) when both names are equal:
-      // there would be no way to distinguish the named secret from an
-      // ambient variable of the same name.
+      // require_infisical needs an Infisical secret name; there is nothing
+      // to source authoritatively otherwise.
       [
         `
 [providers.p1]
 label = "P"
-secret = "SAME_KEY"
-env = "SAME_KEY"
-secret_only = true
+env = "SOME_KEY"
+require_infisical = true
 default_model = "m"
 models = ["m"]
 `,
-        "secret_only = true requires distinct",
+        "require_infisical = true requires an Infisical 'secret' name",
       ],
     ];
     for (const [index, [content, needle]] of cases.entries()) {

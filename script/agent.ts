@@ -164,10 +164,11 @@ interface Provider {
   models: string[];
   opencode_id: string;
   pi_id: string;
-  // The credential may come only from `secret`; an ambient value of `env`
-  // (e.g. another product's same-named key) is never a source and is
-  // overwritten. See config/agents.toml [providers.opencode-go].
-  secret_only: boolean;
+  // Always source the credential from `secret` (Infisical): the ambient env
+  // value is removed before the with-secrets stage, a missing Infisical value
+  // fails, and Pi-local auth/model overrides are rejected. See
+  // config/agents.toml [providers.opencode-go].
+  require_infisical: boolean;
 }
 
 interface Harness {
@@ -204,8 +205,8 @@ interface Plan {
   assign: Array<[string, string]>;
   // (env_name, secret_name) that must hold a credential before exec
   require_cred: Array<[string, string]>;
-  // secret_name whose value is the only accepted credential source
-  exclusive: Set<string>;
+  // always inject this route's credential from Infisical (no ambient fast path)
+  require_infisical: boolean;
   drop: string[];
   baseline: string[] | null; // null = current process env
 }
@@ -304,15 +305,13 @@ function loadConfig(path?: string): Config {
     if (typeof require_model !== "boolean") {
       throw new AgentError(`${where}: 'require_model' must be a boolean`);
     }
-    const secret_only = table["secret_only"] ?? false;
-    if (typeof secret_only !== "boolean") {
-      throw new AgentError(`${where}: 'secret_only' must be a boolean`);
+    const require_infisical = table["require_infisical"] ?? false;
+    if (typeof require_infisical !== "boolean") {
+      throw new AgentError(`${where}: 'require_infisical' must be a boolean`);
     }
-    if (secret_only && (!secret || !env || secret === env)) {
-      // With identical names there is no way to tell "the named secret" from
-      // an ambient value of the same variable, so the guarantee would be a lie.
+    if (require_infisical && !secret) {
       throw new AgentError(
-        `${where}: secret_only = true requires distinct 'secret' and 'env' names`
+        `${where}: require_infisical = true requires an Infisical 'secret' name`
       );
     }
     if (default_model && require_model) {
@@ -336,7 +335,7 @@ function loadConfig(path?: string): Config {
       models,
       opencode_id: optionalStr(table, "opencode_id", where) || key,
       pi_id: optionalStr(table, "pi_id", where) || key,
-      secret_only,
+      require_infisical,
     };
   }
   if (Object.keys(providers).length === 0) {
@@ -1036,7 +1035,6 @@ function buildPlan(
   const keep = new Set<string>();
   const copy: Array<[string, string]> = [];
   const require_cred: Array<[string, string]> = [];
-  const exclusive = new Set<string>();
   if (provider.secret || provider.env) {
     const envName = provider.env || provider.secret;
     const secretName = provider.secret || provider.env;
@@ -1044,9 +1042,6 @@ function buildPlan(
     keep.add(envName);
     keep.add(secretName);
     require_cred.push([envName, secretName]);
-    if (provider.secret_only) {
-      exclusive.add(secretName);
-    }
     if (envName !== secretName) {
       // stage 2 copies the secret value into the env name the harness reads
       copy.push([envName, secretName]);
@@ -1069,7 +1064,7 @@ function buildPlan(
     unset: [],
     assign: [],
     require_cred,
-    exclusive,
+    require_infisical: provider.require_infisical,
     drop: [...new Set([...config.drop_env, ...providerCreds])].sort(),
     baseline: null,
   };
@@ -1162,7 +1157,7 @@ function planPi(plan: Plan, harness: Harness, provider: Provider, model: string 
   if (model === null) {
     throw new AgentError("resolved no model for adapter pi");
   }
-  if (provider.secret_only) {
+  if (provider.require_infisical) {
     guardPiCredentialSource(provider);
   }
   plan.command = [harness.command, "--provider", provider.pi_id, "--model", model, ...plan.command.slice(1)];
@@ -1218,8 +1213,8 @@ function readPiJsonObject(path: string, label: string): Record<string, unknown> 
 /**
  * Pi resolves credentials in this order: CLI --api-key > auth.json > env >
  * models.json provider keys, and models.json can override a provider's
- * baseUrl/api. For `secret_only` routes the launcher's process-scoped env must
- * be authoritative, so refuse to start when Pi has its own `opencode-go`
+ * baseUrl/api. For `require_infisical` routes the launcher's process-scoped env
+ * must be authoritative, so refuse to start when Pi has its own `opencode-go`
  * credential or provider override. Nothing is edited or deleted.
  */
 function guardPiCredentialSource(provider: Provider): void {
@@ -1297,13 +1292,12 @@ async function runInherited(cmd: string[], env?: Record<string, string | undefin
 }
 
 function needsInjection(plan: Plan): boolean {
+  if (plan.require_infisical) {
+    // Never trust an ambient value for these routes: always let Infisical
+    // provide (or fail to provide) the credential inside the wrapper.
+    return true;
+  }
   for (const [envName, secretName] of plan.require_cred) {
-    if (plan.exclusive.has(secretName)) {
-      // Only the named secret is a valid source. An ambient value of envName
-      // belongs to another product (zen vs Go share OPENCODE_API_KEY).
-      if (process.env[secretName]) continue;
-      return true;
-    }
     if (process.env[envName] || process.env[secretName]) {
       continue;
     }
@@ -1341,19 +1335,35 @@ async function startViaWithSecrets(plan: Plan, baseline: string[]): Promise<numb
   for (const [envName, secretName] of plan.require_cred) {
     payload.push("--cred", `${envName}=${secretName}`);
   }
-  for (const secretName of plan.exclusive) {
-    payload.push("--exclusive", secretName);
-  }
   payload.push("--", ...plan.command);
+
+  // require_infisical routes must not inherit an ambient credential: remove
+  // the route's credential names from the wrapper's environment so only
+  // Infisical can supply them. A missing Infisical secret then fails inside
+  // the wrapper instead of silently reusing the shell value.
+  let wrapperEnv: Record<string, string> | undefined;
+  if (plan.require_infisical) {
+    const strip = new Set<string>();
+    for (const [envName, secretName] of plan.require_cred) {
+      strip.add(envName);
+      strip.add(secretName);
+    }
+    wrapperEnv = {};
+    for (const [name, value] of Object.entries(process.env)) {
+      if (value === undefined || strip.has(name)) continue;
+      wrapperEnv[name] = value;
+    }
+  }
+  const childEnv = wrapperEnv ?? process.env;
 
   if (IS_WINDOWS && wrapper.endsWith(".ps1")) {
     const shell = which("pwsh") ? "pwsh" : "powershell";
     return runInherited(
       [shell, "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", wrapper, ...payload],
-      process.env
+      childEnv
     );
   }
-  return runInherited([wrapper, ...payload], process.env);
+  return runInherited([wrapper, ...payload], childEnv);
 }
 
 async function finalize(plan: Plan): Promise<number> {
@@ -1381,17 +1391,6 @@ async function finalize(plan: Plan): Promise<number> {
   }
 
   for (const [dst, src] of plan.copy) {
-    if (plan.exclusive.has(src)) {
-      // Authoritative source only: never `env[dst] || env[src]`, which would
-      // silently keep another product's same-named key.
-      const value = env[src];
-      if (value) {
-        env[dst] = value;
-      } else {
-        delete env[dst];
-      }
-      continue;
-    }
     const value = env[dst] || env[src];
     if (value) {
       env[dst] = value;
@@ -1399,16 +1398,10 @@ async function finalize(plan: Plan): Promise<number> {
   }
 
   for (const [envName, secretName] of plan.require_cred) {
-    const present = plan.exclusive.has(secretName)
-      ? Boolean(env[secretName])
-      : Boolean(env[envName] || env[secretName]);
-    if (!present) {
-      const detail = plan.exclusive.has(secretName)
-        ? `${secretName} is the only accepted source for ${envName} ` +
-          `(an existing ${envName} is ignored)`
-        : `set ${envName} or provide Infisical secret ${secretName}`;
+    if (!env[envName] && !env[secretName]) {
       throw new AgentError(
-        `missing credential: ${detail} in environment \`dev\` (script/with-secrets)`,
+        `missing credential: set ${envName} or provide Infisical secret ${secretName} ` +
+          "in environment `dev` (script/with-secrets)",
         EXIT_RUNTIME
       );
     }
@@ -1465,7 +1458,6 @@ interface ExecStagePlan {
   unset: string[];
   assign: Array<[string, string]>;
   require_cred: Array<[string, string]>;
-  exclusive: Set<string>;
   drop: string[];
   baseline: string[];
 }
@@ -1480,7 +1472,6 @@ function cmdExec(argv: string[]): Promise<number> {
   let copy: Array<[string, string]> = [];
   let assign: Array<[string, string]> = [];
   let cred: Array<[string, string]> = [];
-  let exclusive = new Set<string>();
   let command: string[] = [];
   let index = 0;
   while (index < argv.length) {
@@ -1508,8 +1499,6 @@ function cmdExec(argv: string[]): Promise<number> {
       const raw = argv[index + 1];
       const eq = raw.indexOf("=");
       cred.push([raw.slice(0, eq), raw.slice(eq + 1)]);
-    } else if (token === "--exclusive") {
-      exclusive.add(argv[index + 1]);
     } else {
       throw new AgentError(`__exec: unexpected token '${token}'`);
     }
@@ -1521,7 +1510,7 @@ function cmdExec(argv: string[]): Promise<number> {
   if (baseline === null) {
     throw new AgentError("__exec: --baseline is required");
   }
-  const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, exclusive, drop, baseline };
+  const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, drop, baseline };
   return finalize(stage as unknown as Plan);
 }
 
@@ -1670,8 +1659,8 @@ function cmdModels(config: Config, providerKey: string): number {
     console.log(`anthropic endpoint: ${provider.base_url}`);
   }
   if (provider.secret) {
-    const note = provider.secret_only
-      ? " [secret_only: an existing same-named env var is ignored and overwritten]"
+    const note = provider.require_infisical
+      ? " [require_infisical: always sourced from Infisical; ambient env and Pi-local overrides are rejected]"
       : "";
     console.log(`credential: Infisical secret ${provider.secret} -> env ${provider.env}${note}`);
   } else {
