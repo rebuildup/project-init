@@ -339,3 +339,17 @@ WSL 作成・再作成時は新しい instance ID、SSH host key、到達可能�
 接続不能な他ノードがあっても、照合できた対象への明示接続は可能。
 同期状態は `~/.local/state/dotfiles/devices`、SSH生成物は
 `~/.ssh/devices.conf` と `~/.ssh/devices_known_hosts`。これらは正本ではない。
+
+#### Git と Infisical の更新順
+
+Git で配布するのは `script/devices*`、入口、検証、手順だけ。
+実ノードのアドレス・instance ID・host key・session は Infisical に置き、
+`home/` やローカル JSON を第二の正本にしない。`profiles.json` は生成物の所有記録であり、
+接続コマンドは毎回 Infisical を読む。秘密鍵とログイン情報は Git に追加しない。
+
+実装更新は各 checkout で `git pull --ff-only`（作業中の変更は保持して先に確認）。
+その後 `devices sync`、Windows は通常権限の PowerShell から
+`& "$HOME\.dotfiles-devices\script\devices.ps1" sync` を実行する。
+Windows の SSH ログオンは通常ログオンの資格情報ストアを開けないことがあるため、
+認証情報をコピーせず通常ログオンから同期する。
+専用 checkout を使う場合も `main` を追跡し、手作業でスクリプトをコピーし続けない。
