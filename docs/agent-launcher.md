@@ -279,18 +279,15 @@ Infisical value fails instead of using it.
   the custom model id (200k assumed context) but sends `ANTHROPIC_BASE_URL` /
   `ANTHROPIC_AUTH_TOKEN` unchanged. Go recognizes Claude Code's native session
   header.
-- **Pi: blocked upstream.** Pi `0.73.1` (the latest npm release at the time)
-  ships the `opencode-go` provider but does **not** send
-  `x-opencode-session`; the Go endpoint returns
-  `400 Request is missing x-opencode-session`. A real call through the
-  launcher reproduced this after the credential was verified. The launcher
-  does **not** substitute another model/provider, inject a fake session header,
-  or claim success. The route stays configured for a future Pi build that
-  sends the header; until then treat `pi.opencode-go` as blocked.
-  A manual header-only `models.json` entry was verified to make Pi 0.73.1
-  succeed (`GO_PI_OK`), but the launcher does not generate or edit Pi config
-  and its current guard rejects `models.json` provider overrides, so this is
-  not an enabled path.
+- **Pi: verified with the new distribution.** `agent pi opencode-go` returned
+  `GO_PI_OK` from a Bash tool call with Pi **1.4.0** on 2026-11-01. Pi moved
+  its npm package on 2026-05-07 from `@mariozechner/pi-coding-agent` to
+  `@earendil-works/pi-coding-agent`; the old 0.73.1 does not send
+  `x-opencode-session` and gets HTTP 400. 1.4.0 sends the real per-conversation
+  session id (the session log contains a fresh UUID), and reuses the existing
+  `~/.pi/agent` auth/settings/sessions/extensions. No manual `models.json`
+  header is needed. `pc-setup` must select the new package
+  (`mise.global.toml`/`.lock`) before this route works.
 - **Go billing proof (2026-11-01).** Direct probes with the Infisical key
   (never in argv) returned `usage.cost = 0` and
   `opencode.billing_source = "go"` on both endpoints:
@@ -338,13 +335,14 @@ Real verification (cheap prompts, no unattended loops):
 # Claude Code: verified 2026-11-01
 agent claude opencode-go -- -p 'Use the Bash tool to run: echo GO_CLAUDE_OK'
 
-# Pi: blocked by the missing x-opencode-session header (HTTP 400) in 0.73.1
+# Pi: verified 2026-11-01 with @earendil-works/pi-coding-agent 1.4.0
 agent pi opencode-go -- -p 'Use the bash tool to run: echo GO_PI_OK'
 ```
 
 For Claude, `/status` inside a session shows the base URL; the Console shows
-the model and allowance counters. For Pi, do not treat an HTTP 400 as a
-credential failure — it is the upstream header requirement.
+the model and allowance counters. With the old Pi 0.73.1 package the same Pi
+call returns HTTP 400 (`x-opencode-session` missing); update the package via
+`pc-setup` instead of adding a manual header.
 
 ## OpenRouter free: one fixed model (no automatic selection)
 
@@ -364,7 +362,8 @@ Verified on 2026-11-01 (macOS, real calls through the launcher, Infisical
 - public `/api/v1/models`: `pricing.prompt = "0"`, `pricing.completion = "0"`,
   `tools` supported, no expiry;
 - Claude Code 2.1.314: `-p` answer + Bash tool call (`ROUTE_OK`) succeeded;
-- Pi 0.73.1: `-p` answer + bash tool call (`PI_ROUTE_OK`) succeeded;
+- Pi 1.4.0 (`@earendil-works/pi-coding-agent`): `-p` answer + bash tool call
+  (`PI_FREE_OK`) succeeded;
 - OpenCode 2.2.3: `run` answer + bash tool call (`OC_ROUTE_OK`) succeeded.
 
 Not verified: Windows/WSL real calls, long sessions, rate-limit behaviour, and
@@ -384,7 +383,7 @@ not an active code path.
 | --- | --- | --- | --- | --- | --- | --- |
 | claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
 | opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this PR adds only the two required routes) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
-| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; **blocked upstream**: Pi 0.73.1 does not send `x-opencode-session`, Go returns HTTP 400) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
+| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; requires Pi >= 1.4.0 from `@earendil-works`; **real response + tool call verified 2026-11-01**) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
 | dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
 
 Not covered on purpose: `opencode.opencode-go` (possible follow-up; the two
@@ -432,9 +431,8 @@ criteria:
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
   run only in the mock tier stay marked unverified here. OpenRouter-free was
-  live-tested on 2026-11-01. OpenCode Go/Claude Code was live-tested the same
-  day (response + tool call); OpenCode Go/Pi is blocked by the missing
-  `x-opencode-session` header in Pi 0.73.1.
+  live-tested on 2026-11-01. OpenCode Go/Claude Code and OpenCode Go/Pi
+  (Pi 1.4.0) were live-tested the same day (response + tool call).
 
 Verification status per platform (implementation is identical; what
 differs is which entry-point layer was exercised on a real machine):
@@ -446,9 +444,9 @@ differs is which entry-point layer was exercised on a real machine):
 | Windows native | CI-verified only (windows-latest job: batch-shim argv/injection/`%`+`"` rejection, `.cmd` shortcut create+exec, `with-secrets.ps1` workspaceId/API-URL pinning) | n/a (`.cmd` used instead) | unverified (no real machine) | CI-verified (PowerShell 7 on windows-latest); real machine (2026-10-17, PowerShell 7.6): `agent.ps1 list/check`, `with-secrets.ps1` injection and `bun test script/agent.windows.test.ts` verified; **shortcut creation and interactive harness start still unverified** |
 
 The OpenCode Go routes add no new entry-point or injection layer, so they
-inherit the platform status above. Claude Code/Go was live-tested on macOS on
-2026-11-01; Pi/Go is blocked upstream on every platform by Pi 0.73.1 not
-sending `x-opencode-session`. Windows/WSL real Go calls remain unverified.
+inherit the platform status above. Claude Code/Go and Pi/Go (Pi 1.4.0) were
+live-tested on macOS on 2026-11-01. Windows/WSL real Go calls remain
+unverified.
 
 ## Installation and migration (replaces the draft mise tasks)
 

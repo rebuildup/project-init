@@ -89,7 +89,7 @@ models = [
 #   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",
 #     tools supported, no expiry;
 #   - real E2E response + Bash tool call on all three harnesses
-#     (claude 2.1.314, pi 0.73.1, opencode 2.2.3).
+#     (claude 2.1.314, pi 1.4.0, opencode 2.2.3).
 # Re-check the catalog before changing this id; do not add experimental models
 # here. Same endpoint and credential as the paid `openrouter` provider, so no
 # new Infisical secret is needed. Free-tier limits are account-based
@@ -292,7 +292,7 @@ note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); pi may wa
 
 [routes."pi.opencode-go"]
 default_model = "mimo-v2.6-flash"
-note = "Go endpoint via Pi's native opencode-go provider. BLOCKED upstream: Pi 0.73.1 (latest npm) does not send x-opencode-session and Go returns HTTP 400; no fallback or model substitution. Infisical key + local Pi overrides are still enforced."
+note = "Go endpoint via Pi's native opencode-go provider. Requires Pi >= 1.4.0 from @earendil-works/pi-coding-agent; the old 0.73.1 (@mariozechner) lacks x-opencode-session and gets HTTP 400. Real response + tool call verified 2026-11-01; no fallback."
 
 [routes."pi.deepseek"]
 note = "pi warns for ids outside its built-in catalog and passes them through."
