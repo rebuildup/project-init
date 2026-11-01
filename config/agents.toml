@@ -46,6 +46,8 @@ drop_env = [
   "MINIMAX_M_PLAN_KEY",
   "MINIMAX_TOKEN_PLAN_KEY",
   "OPENCODE_API_KEY",
+  # Go workspace key, kept separate from the Zen/Console key above.
+  "OPENCODE_GO_API_KEY",
   "OPENROUTER_API_KEY",
   # Launcher/Infisical material, not harness material
   "INFISICAL_TOKEN",
@@ -73,25 +75,23 @@ models = [
   "deepseek/deepseek-v4-pro",
 ]
 
-# Free-only slice of OpenRouter: every id here was verified live against the
-# public /api/v1/models catalog on 2026-10-21 as pricing.prompt = 0 AND
-# pricing.completion = 0. The list is a curated allowlist — ids are added only
-# after a live check, so a model that OpenRouter later moves to paid pricing
-# fails closed here instead of silently billing. Excluded on purpose:
-#   - `openrouter/free` (meta auto-router: which model answers is
-#     non-deterministic, so "the specified free model responded" cannot be
-#     verified),
-#   - `nvidia/nemotron-3.5-content-safety:free` (tools = false, safety
-#     classifier, not a coding model),
-#   - `google/lyria-3-*-preview` (audio-output generative models, tools = false).
-# Same endpoint and credential as the paid `openrouter` provider, so no new
-# Infisical secret is needed. Free-tier rate limits are account-based
-# (1000 req/day with >= $10 purchase history, 20 req/min) — the paid
-# `openrouter` route remains the path for anything beyond that.
+# Free-only slice of OpenRouter. Policy (issue #76): the normal route has ONE
+# fixed model — no runtime catalog/quality/availability selection and no
+# `openrouter/free` meta-router. The single allowlist entry is the only model
+# the route accepts; any other id (free or paid) fails closed before a process
+# starts, so a monetized model can never be reached implicitly or by a typo.
+#
+# Default verified live on 2026-11-01:
+#   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",
+#     tools supported, no expiry;
+#   - real E2E response + Bash tool call on all three harnesses
+#     (claude 2.1.314, pi 0.73.1, opencode 2.2.3).
+# Re-check the catalog before changing this id; do not add experimental models
+# here. Same endpoint and credential as the paid `openrouter` provider, so no
+# new Infisical secret is needed. Free-tier limits are account-based
+# (1000 req/day after >= $10 purchase history, 20 req/min); the paid
+# `openrouter` route remains the explicit path beyond that.
 [providers.openrouter-free]
-# Default chosen from the live free catalog because the MiniMax M3.1 Flash
-# launch promotion ends 2026-10-22 12:00 UTC. Exact harness E2E for the
-# replacement default must still be verified; no paid fallback is allowed.
 label = "OpenRouter (free models)"
 base_url = "https://openrouter.ai/api"
 secret = "OPENROUTER_API_KEY"
@@ -100,30 +100,11 @@ default_model = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # OpenCode addresses OpenRouter as its native provider id `openrouter` (the
 # paid provider above relies on the key == opencode_id default); the free
 # provider must map to the same id or OpenCode would see an unknown provider.
-# Actual model-specific OpenCode E2E for the new default is pending.
 opencode_id = "openrouter"
 # pi likewise knows OpenRouter natively as provider id `openrouter`; the
 # launcher route key `openrouter-free` is launcher-side routing only.
-# Actual model-specific Pi E2E for the new default is pending.
 pi_id = "openrouter"
-models = [
-  # MiniMax M3.1 Flash :free retires 2026-10-22 12:00 UTC; omitted to avoid dead routes.
-  "nvidia/nemotron-3.5-super-vl:free",
-  "nvidia/nemotron-3.5-lightning:free",
-  "nvidia/nemotron-3-ultra-550b-a55b:free",
-  "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
-  "nvidia/nemotron-3-super-120b-a12b:free",
-  "poolside/laguna-s-2.1:free",
-  "poolside/laguna-xs-2.1:free",
-  "cohere/north-mini-code:free",
-  "xingchen-agi/xing4.0-29b-a4b:free",
-  "dots-studio/dots-3-note-preview:free",
-  "thinkingmachines/inkling:free",
-  "thinkingmachines/inkling-small:free",
-  "google/gemma-4-26b-a4b-it:free",
-  "google/gemma-4-31b-it:free",
-  "liquid/lfm-2.5-2.6b:free",
-]
+models = ["nvidia/nemotron-3-ultra-550b-a55b:free"]
 
 [providers.deepseek]
 label = "DeepSeek"
@@ -186,6 +167,33 @@ models = [
   "space-bunny-free",
 ]
 
+# OpenCode Go ($10/month subscription). A SEPARATE workspace credential from
+# zen: both harnesses natively read OPENCODE_API_KEY, but the Go key is stored
+# in Infisical as OPENCODE_GO_API_KEY and is the only accepted source
+# (`secret_only`). A pre-existing Zen OPENCODE_API_KEY in the caller's
+# environment is overwritten for this route, never reused, and the Go key is
+# dropped for every other route. Missing Go key => fail before the harness
+# starts; no fallback to zen or pay-as-you-go.
+#
+# Go usage is metered against the subscription allowance per model
+# (5h / weekly / monthly). Extra Usage (pay-as-you-go overflow) must be OFF in
+# the Console while this route is meant to be flat-rate; the launcher cannot
+# see or change that account setting and must not pretend it did.
+#
+# Model ids are native Go ids, verified live against the public
+# https://opencode.ai/inference/go/v1/models catalog on 2026-11-01.
+[providers.opencode-go]
+label = "OpenCode Go"
+# Anthropic-compatible Go endpoint for Claude Code. Pi uses its own native Go
+# base URL (https://opencode.ai/zen/go/v1) from its provider catalog.
+base_url = "https://opencode.ai/inference/go/anthropic"
+secret = "OPENCODE_GO_API_KEY"
+env = "OPENCODE_API_KEY"
+# Only OPENCODE_GO_API_KEY counts; the same-named Zen env var is ignored.
+secret_only = true
+pi_id = "opencode-go"
+models = ["deepseek-v4.1-flash", "mimo-v2.6-flash"]
+
 # ---------------------------------------------------------------------------
 # Harnesses: native command + adapter that knows how to select a provider.
 # ---------------------------------------------------------------------------
@@ -237,7 +245,11 @@ config_content = "OPENCODE_CONFIG_CONTENT"
 note = "Anthropic-compatible endpoint; every model role maps to the route model."
 
 [routes."claude.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); the paid openrouter route stays separate and is never a fallback here."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); the paid openrouter route stays separate and is never a fallback here."
+
+[routes."claude.opencode-go"]
+default_model = "deepseek-v4.1-flash"
+note = "Go plan; DeepSeek V4.1 Flash needs Privacy > Regions = Global in the Go workspace (owner/admin). Go endpoint + Go key only; no zen/pay-as-you-go fallback."
 
 [routes."claude.deepseek"]
 # The DeepSeek Anthropic endpoint maps claude-* names internally and silently
@@ -254,7 +266,7 @@ note = "Free zen models through the OpenCode client (free tier is client-bound).
 [routes."opencode.openrouter"]
 
 [routes."opencode.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); model ids are OpenRouter-native (`nvidia/nemotron-3-ultra-550b-a55b:free`)."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); model ids are OpenRouter-native (`nvidia/nemotron-3-ultra-550b-a55b:free`)."
 
 [routes."opencode.deepseek"]
 
@@ -270,7 +282,11 @@ note = "Keep MiniMax-M3 as the known working route default; the formal MiniMax-M
 [routes."pi.openrouter"]
 
 [routes."pi.openrouter-free"]
-note = "Free models only (pricing 0/0, verified 2026-10-21); pi may warn for ids outside its catalog and passes them through."
+note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); pi may warn for ids outside its catalog and passes them through."
+
+[routes."pi.opencode-go"]
+default_model = "mimo-v2.6-flash"
+note = "Go plan; Pi native provider id `opencode-go` reading the Go key as OPENCODE_API_KEY. Pi catalog lags the new id (custom id warning); no fallback."
 
 [routes."pi.deepseek"]
 note = "pi warns for ids outside its built-in catalog and passes them through."

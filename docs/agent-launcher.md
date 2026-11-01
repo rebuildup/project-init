@@ -8,9 +8,11 @@ exactly one API provider, chosen explicitly at launch:
 ```bash
 agent list                                # configured routes
 agent claude openrouter                   # Claude Code via OpenRouter
-agent claude openrouter-free -- -p 'hi'   # Claude Code via OpenRouter free models
+agent claude openrouter-free -- -p 'hi'   # Claude Code via the fixed OpenRouter free model
 agent claude deepseek -- -p 'say ok'      # Claude Code via DeepSeek
-agent claude minimax -- -p 'say ok'      # default MiniMax-M3.1-Flash; --model overrides
+agent claude opencode-go -- -p 'say ok'   # Go plan, DeepSeek V4.1 Flash (fixed default)
+agent pi opencode-go -- -p 'hello'        # Go plan, MiMo V2.6 Flash (fixed default)
+agent claude minimax -- -p 'say ok'       # default MiniMax-M3.1-Flash; --model overrides
 agent opencode zen                        # OpenCode on the free zen models
 agent opencode zen -- run "explain this repo"
 agent pi deepseek -- -p 'hello'
@@ -43,8 +45,10 @@ Design contract:
   overridden by this repository (no shell function, no PATH shim).
 
 Non-goals: per-combination mise tasks (the draft approach this replaces),
-an implicit `claude()` override, cross-provider auth migration, and any
-persistent write of a `--model` choice (`--model` affects one process).
+an implicit `claude()` override, cross-provider auth migration, any
+persistent write of a `--model` choice (`--model` affects one process),
+runtime OpenRouter free-model selection (issue #76 reverted that direction),
+and any new harness/daemon/proxy/router.
 
 ## Usage
 
@@ -161,6 +165,8 @@ env = "DEEPSEEK_API_KEY"       # env var the harness reads (may differ)
 default_model = "deepseek-flash"
 models = ["deepseek-flash", "deepseek-v4-pro"]
 # require_model = true         # fail closed: --model mandatory when no default exists
+# secret_only = true           # credential only from <secret>; an ambient
+#                              # value of <env> is ignored/overwritten
 # opencode_id = "opencode"     # provider id when it differs from the key (zen)
 # pi_id = "deepseek"           # pi --provider value (defaults to the key)
 
@@ -188,8 +194,9 @@ Validation (`agent check`, run by CI) rejects: unknown adapter, route keys
 that reference unknown harnesses/providers, missing defaults without
 `require_model`, defaults that are not in the model list,
 `require_model`-with-default contradictions, `anthropic` routes whose
-provider has no `base_url`, and route keys whose `harness-provider`
-shortcut names would collide.
+provider has no `base_url`, `secret_only = true` with identical or missing
+`secret`/`env` names, and route keys whose `harness-provider` shortcut names
+would collide.
 
 ## Adapters (native CLI contracts)
 
@@ -219,7 +226,9 @@ shortcut names would collide.
 ## Credential handling (no leakage, no argv secrets)
 
 1. If the route's harness env already carries the credential, no secret is
-   fetched at all (fast path, `script/with-secrets` is not invoked).
+   fetched at all (fast path, `script/with-secrets` is not invoked). This
+   shortcut applies only to `env` == `secret` providers; see the
+   `secret_only` rule below.
 2. Otherwise the launcher re-executes itself *inside* the existing
    `script/with-secrets` (self-hosted Infisical project binding, environment
    `dev`), which injects the whole dev secret set.
@@ -234,52 +243,151 @@ shortcut names would collide.
      placed in argv, files or logs.
 4. Renames happen inside that stage too (e.g. Infisical
    `MINIMAX_M_PLAN_KEY` → harness `MINIMAX_API_KEY`).
-5. A missing secret fails with its Infisical name before any harness starts.
+5. `secret_only = true` providers (`opencode-go`) accept **only** their
+   `secret` name. The harness `env` name is copied from it and never read
+   from the ambient environment: a pre-existing Zen `OPENCODE_API_KEY` is
+   ignored and overwritten, the fast path is skipped unless
+   `OPENCODE_GO_API_KEY` itself is already set, and a missing
+   `OPENCODE_GO_API_KEY` fails before the harness starts. There is no
+   `env[dst] || env[src]` fallback for these providers.
+6. A missing secret fails with its Infisical name before any harness starts.
 
 The launcher's mock tests assert both directions: the selected credential
-arrives, and every other provider's credential does not.
+arrives, and every other provider's credential does not. For Go they
+additionally assert that a shell Zen key cannot satisfy the Go route.
 
-## OpenRouter free default lifecycle
+## OpenCode Go routes (fixed Go plan, issue #76)
 
-The former `minimax/minimax-m3.1-flash:free` launch promotion ends on
-2026-10-22 at 12:00 UTC (OpenRouter model page). The default is
-`nvidia/nemotron-3-ultra-550b-a55b:free`, a currently free model with tool calling in the public
-catalog. The original MiniMax free model passed live Claude/Pi/OpenCode E2E
-(response and file-edit tool invocation) on 2026-10-21, but the replacement
-model has **not yet** passed the same harness-specific E2E. Validate it on
-Mac, Windows, and WSL before relying on it for unattended development. A
-free-route failure must not switch to a paid model.
+Two explicit routes share one Go (`$10/month`) workspace key:
+
+| route | harness | default model | endpoint | credential |
+| --- | --- | --- | --- | --- |
+| `claude.opencode-go` | Claude Code | `deepseek-v4.1-flash` | `https://opencode.ai/inference/go/anthropic` (`ANTHROPIC_BASE_URL`) | Go key as `ANTHROPIC_AUTH_TOKEN` |
+| `pi.opencode-go` | Pi | `mimo-v2.6-flash` | Pi's native `opencode-go` provider (`https://opencode.ai/zen/go/v1`) | Go key as `OPENCODE_API_KEY` |
+
+- Both are fixed defaults in `config/agents.toml`; `--model` only accepts the
+  provider's declared Go ids. There is no runtime model selection, no
+  availability/quality gate and no fallback to Zen, Console pay-as-you-go or
+  another provider.
+- **Credential separation.** Both harnesses normally read
+  `OPENCODE_API_KEY`, which is also the Zen key. The Go key lives in
+  Infisical as `OPENCODE_GO_API_KEY` and is the only accepted source
+  (`secret_only = true`): an ambient Zen `OPENCODE_API_KEY` is overwritten
+  for these routes, and `OPENCODE_GO_API_KEY` is dropped for every other
+  route. A missing Go key stops the launch (exit 1) instead of borrowing Zen.
+- **Not yet a real-API success.** As of 2026-11-01 the Infisical `dev`
+  environment has `OPENCODE_API_KEY` but no `OPENCODE_GO_API_KEY`, so only
+  the mock tier and the public model catalog are verified here. The two model
+  ids are listed by the public `https://opencode.ai/inference/go/v1/models`
+  endpoint (28 models, 2026-11-01). Actual inference, tool calls, Go quota
+  accounting and Pi's `x-opencode-session` header are **unverified** until
+  the secret is provisioned and the calls below are run.
+- **Pi version.** Pi 0.73.1 ships provider `opencode-go` but its bundled
+  catalog predates both ids; it warns `Using custom model id` and keeps the
+  provider's base URL/API. Run `pi update --models` (or upgrade Pi) first.
+  Pi's docs say current builds send the OpenCode session header; older builds
+  may not, which can affect routing/caching quality but not the credential.
+- **Pi auth precedence.** Pi reads `~/.pi/agent/auth.json` *before*
+  environment variables. An `opencode-go` entry there would override the
+  injected key. The launcher does not modify that file; do not keep an
+  `opencode-go` entry if you expect the Infisical key to be used.
+- **Privacy prerequisite.** DeepSeek V4.1 Flash (and V4 Pro) require
+  **Settings › Privacy › Regions = Global** in the Go workspace
+  (owner/admin). Without it the request is rejected; the launcher must not
+  silently switch to another model or provider. If Global cannot be enabled,
+  `claude.opencode-go` stays blocked — use `--model mimo-v2.6-flash` only if
+  that is an explicit accepted choice, or another route.
+- **Billing.** Go usage is metered per model against a monthly allowance with
+  5-hour (20%) and weekly (50%) sub-limits. **Extra Usage** (overflow to the
+  Console pay-as-you-go balance) must be verified OFF in the Console on the
+  Go page, except Go Teams which starts ON. The launcher cannot read or
+  change that account setting and does not claim to.
+  DeepSeek V4.1 Flash also has peak/off-peak pricing (peak: 01:00–04:00 and
+  06:00–10:00 UTC, Mon–Fri); the flat-rate allowance is unaffected by the
+  time of day, but usage counts differ.
+- Claude Code 2.1.314 warns that it does not recognize the custom model id
+  (200k assumed context) but sends `ANTHROPIC_BASE_URL` /
+  `ANTHROPIC_AUTH_TOKEN` unchanged; Go recognizes Claude Code's native
+  session header.
+
+Real verification (only after `OPENCODE_GO_API_KEY` exists in Infisical
+`dev`; cheap prompts, no unattended loops):
+
+```bash
+agent claude opencode-go -- -p 'Use the Bash tool to run: echo GO_CLAUDE_OK'
+agent pi opencode-go -- -p 'Use the bash tool to run: echo GO_PI_OK'
+# /status inside the session shows the Go base URL; the Console shows the
+# model, the Go allowance counters and whether Extra Usage was used.
+```
+
+## OpenRouter free: one fixed model (no automatic selection)
+
+Policy (issue #76, superseding #72 / draft PR #73): the normal
+`openrouter-free` routes are a **single declarative model id** in
+`config/agents.toml`. There is no runtime catalog scan, availability or
+quality gate, no `openrouter/free` meta-router, no cached selection and no
+fallback to a different free or paid model. Changing the model is a TOML edit
+plus review. The allowlist contains only that id, so any other id — free or
+paid — exits 2 before a process starts.
+
+Current id: `nvidia/nemotron-3-ultra-550b-a55b:free`.
+
+Verified on 2026-11-01 (macOS, real calls through the launcher, Infisical
+`OPENROUTER_API_KEY`):
+
+- public `/api/v1/models`: `pricing.prompt = "0"`, `pricing.completion = "0"`,
+  `tools` supported, no expiry;
+- Claude Code 2.1.314: `-p` answer + Bash tool call (`ROUTE_OK`) succeeded;
+- Pi 0.73.1: `-p` answer + bash tool call (`PI_ROUTE_OK`) succeeded;
+- OpenCode 2.2.3: `run` answer + bash tool call (`OC_ROUTE_OK`) succeeded.
+
+Not verified: Windows/WSL real calls, long sessions, rate-limit behaviour, and
+whether those ids remain free (re-check before relying on them). Free-tier
+limits are account-based (20 req/min; 1,000 req/day after ≥ $10 cumulative
+purchase). A failure must be reported, not retried onto a paid route.
+
+Draft PR #73's evaluator (`agent-eval.ts`, `agent-quality.ts`, catalog and
+calibration machinery) is deliberately **not** merged. Its research record
+was salvaged into `docs/research/openrouter-free-quality-2026-10-24.md` as
+evidence for why automatic selection was stopped; that file is documentation,
+not an active code path.
 
 ## Route matrix and verification status
 
-| harness \ provider | zen | openrouter | openrouter-free | deepseek | minimax |
-| --- | --- | --- | --- | --- | --- |
-| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `z-ai/glm-5.3-flash` | free models only, default `nvidia/nemotron-3-ultra-550b-a55b:free` (same endpoint + `OPENROUTER_API_KEY` as the paid provider; allowlist = live-verified pricing 0/0 ids only — paid ids exit 2) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
-| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | yes | free models only, default `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"` — OpenCode's native OpenRouter provider id; live route verification pending) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
-| pi | — (free tier refused outside OpenCode) | yes | free models only, default `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"` — pi's native OpenRouter provider id; the route key is launcher-side routing only; live route verification pending) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
-| dsh | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
+| harness \ provider | zen | opencode-go | openrouter | openrouter-free | deepseek | minimax |
+| --- | --- | --- | --- | --- | --- | --- |
+| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `deepseek-v4.1-flash` (Go endpoint; Go key only, `secret_only`; needs Privacy Regions = Global; real response **unverified** — no `OPENCODE_GO_API_KEY` in Infisical yet) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
+| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this PR adds only the two required routes) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
+| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Go key only; Pi 0.73.1 warns "custom model id"; real response **unverified** — no `OPENCODE_GO_API_KEY` in Infisical yet) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
+| dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
 
-Not covered on purpose: `opencode`/`pi` on other providers, paid zen
-models (add them to the TOML deliberately), any automatic fallback
-between models or providers, and any paid OpenRouter id on an
-`openrouter-free` route (the free allowlist is closed — an unlisted or
-later-monetized id fails closed instead of silently billing).
+Not covered on purpose: `opencode.opencode-go` (possible follow-up; the two
+required Go routes are the scope), `opencode`/`pi` on other providers, paid
+zen models (add them to the TOML deliberately), any automatic fallback
+between models or providers, and any second model on an `openrouter-free`
+route (the free allowlist is a single id — an unlisted or later-monetized id
+fails closed instead of silently billing).
 
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (34 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (37 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
-  MiniMax default vs. `require_model` fail-closed, openrouter-free allowlist
-  (paid ids exit 2, same credential as the paid provider), secret filtering
-  both ways, missing secret, forbidden passthrough flags, shortcut
-  equivalence/args/`--agent-model`/unknown names/link management, native
-  commands staying unwrapped, config validation failures) plus
-  `agent check`, `agent shortcuts` and `bun script/agent.ts …` smoke runs
-  in CI.
+  MiniMax default vs. `require_model` fail-closed, the single-model
+  openrouter-free allowlist (paid and non-default free ids exit 2, same
+  credential as the paid provider), OpenCode Go defaults/endpoint/auth-token
+  mapping, `secret_only` separation in both directions (Zen shell key cannot
+  satisfy Go, Go key is dropped on zen routes, fast path vs. Infisical),
+  missing Go secret fail-closed, secret filtering both ways, forbidden
+  passthrough flags, shortcut equivalence/args/`--agent-model`/unknown
+  names/link management, native commands staying unwrapped, config validation
+  failures) plus `agent check`, `agent shortcuts` and
+  `bun script/agent.ts …` smoke runs in CI.
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
-  run only in the mock tier stay marked unverified here.
+  run only in the mock tier stay marked unverified here. OpenRouter-free was
+  live-tested on 2026-11-01; OpenCode Go is mock-only until
+  `OPENCODE_GO_API_KEY` is provisioned.
 
 Verification status per platform (implementation is identical; what
 differs is which entry-point layer was exercised on a real machine):
@@ -289,6 +397,10 @@ differs is which entry-point layer was exercised on a real machine):
 | macOS | verified (real routes) | verified (`ps` name recovery) | verified | n/a |
 | WSL/Linux | unverified on a real machine yet (post-merge step) | unverified (`/proc/self/cmdline` path not yet exercised) | unverified | n/a |
 | Windows native | CI-verified only (windows-latest job: batch-shim argv/injection/`%`+`"` rejection, `.cmd` shortcut create+exec, `with-secrets.ps1` workspaceId/API-URL pinning) | n/a (`.cmd` used instead) | unverified (no real machine) | CI-verified (PowerShell 7 on windows-latest); real machine (2026-10-17, PowerShell 7.6): `agent.ps1 list/check`, `with-secrets.ps1` injection and `bun test script/agent.windows.test.ts` verified; **shortcut creation and interactive harness start still unverified** |
+
+The OpenCode Go routes add no new entry-point or injection layer, so they
+inherit the platform status above; their credential mapping is mock-verified
+on POSIX. Real Go calls are unverified on every platform (missing secret).
 
 ## Installation and migration (replaces the draft mise tasks)
 
@@ -351,15 +463,22 @@ surgery beyond what that file documents.
 
 ## Secrets
 
-Names only, all already registered in the Infisical `dev` environment of
-project `d4c2fc09-a923-4a38-9cf4-b51769aadb76` (no new secrets are created):
+Names only. Secret **values** are never committed, logged, passed in argv or
+written to harness config. The tracked set in the Infisical `dev`
+environment of project `d4c2fc09-a923-4a38-9cf4-b51769aadb76` on 2026-11-01
+was: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`,
+`MINIMAX_M_PLAN_KEY` (harness env `MINIMAX_API_KEY`), `MIMO_API_KEY`,
+`MINIMAX_TOKEN_PLAN_KEY`, `ANTHROPIC_AUTH_TOKEN`.
 
-- `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`,
-  `MINIMAX_M_PLAN_KEY` (harness env `MINIMAX_API_KEY`). The
-  `openrouter-free` provider reuses `OPENROUTER_API_KEY` — no free-tier
+- The `openrouter-free` provider reuses `OPENROUTER_API_KEY` — no free-tier
   credential exists or is needed.
+- **`OPENCODE_GO_API_KEY` is required by the new Go routes but was not yet
+  present** in `dev` at that date. Until it is added (value from the Go
+  workspace, never committed), `agent claude opencode-go` and
+  `agent pi opencode-go` exit 1 with a message naming it. This is
+  intentional: the launcher will not borrow `OPENCODE_API_KEY` (Zen).
 - Legacy/untouched names that are deliberately filtered out of every child:
-  `MINIMAX_TOKEN_PLAN_KEY`, `MIMO_API_KEY`, `ANTHROPIC_AUTH_TOKEN`.
+  `MINIMAX_TOKEN_PLAN_KEY`, `MIMO_API_KEY`.
 
 ## Tests
 
