@@ -887,6 +887,16 @@ test(
     check(broken.exitCode === 1, `expected exit 1, got ${broken.exitCode}`);
     check(broken.stderr.toString().includes("invalid JSON"), broken.stderr.toString());
     check(!existsSync(fixture.out), "pi must not start with an unverifiable auth.json");
+
+    // Only ENOENT counts as "no override". Any other filesystem error must
+    // fail closed too: here auth.json is replaced by a directory (EISDIR).
+    const authPath2 = join(fixture.tmp, ".pi", "agent", "auth.json");
+    unlinkSync(authPath2);
+    mkdirSync(authPath2);
+    const unreadable = fixture.run(["pi", "opencode-go"], { config: REAL_CONFIG });
+    check(unreadable.exitCode === 1, `expected exit 1, got ${unreadable.exitCode}`);
+    check(unreadable.stderr.toString().includes("cannot read Pi auth.json"), unreadable.stderr.toString());
+    check(!existsSync(fixture.out), "pi must not start with an unreadable auth.json");
   }),
 );
 

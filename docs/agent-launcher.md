@@ -225,10 +225,13 @@ would collide.
 
 ## Credential handling (no leakage, no argv secrets)
 
-1. If the route's harness env already carries the credential, no secret is
-   fetched at all (fast path, `script/with-secrets` is not invoked). This
-   shortcut applies only to `env` == `secret` providers; see the
-   `secret_only` rule below.
+1. **Fast path**: if the route's credential is already present, no secret is
+   fetched at all (`script/with-secrets` is not invoked). The accepted source
+   depends on the provider:
+   - normal providers: either the harness `env` name **or** the Infisical
+     `secret` name;
+   - `secret_only` providers (`opencode-go`): **only** the `secret` name. An
+     ambient value of the harness `env` name is not accepted (see rule 5).
 2. Otherwise the launcher re-executes itself *inside* the existing
    `script/with-secrets` (self-hosted Infisical project binding, environment
    `dev`), which injects the whole dev secret set.
@@ -293,10 +296,10 @@ Two explicit routes share one Go (`$10/month`) workspace key:
   opencode-go` therefore reads `$PI_CODING_AGENT_DIR` (or `~/.pi/agent`)
   before launch and **exits 1** if `auth.json` has an `opencode-go` entry or
   `models.json` defines an `opencode-go` provider. It never edits or deletes
-  those files; other providers' entries are unaffected. An unreadable or
-  invalid file also fails closed because the credential source cannot be
-  proven. Only `secret_only` routes get this guard, so existing Pi routes
-  keep their previous behaviour.
+  those files; other providers' entries are unaffected. Only a missing file
+  (`ENOENT`) counts as "no override"; an unreadable or invalid file fails
+  closed because the credential source cannot be proven. Only `secret_only`
+  routes get this guard, so existing Pi routes keep their previous behaviour.
 - **Claude Code existing login.** OpenCode's docs advise `/logout` first when
   Claude Code is signed in. In the tested version (2.1.314) the injected
   `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` took precedence: with a real
@@ -392,6 +395,13 @@ OpenRouter, and a retirement would fail at runtime. Neither is detected by
 and keep an account-side budget/alert as the hard stop. The launcher does not
 claim "free forever".
 
+OpenRouter also supports key-level spend limits, but `openrouter-free` reuses
+the paid provider's `OPENROUTER_API_KEY`, so a `$0` key cap would also block
+the paid `openrouter` route. Pick one explicitly: (a) keep an account-level
+budget/alert as the hard stop, or (b) add a separate free-only Infisical key
+and point `providers.openrouter-free.secret`/`env` at it before enforcing a
+`$0` cap. The launcher never creates or rotates API keys.
+
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
@@ -404,11 +414,11 @@ criteria:
   satisfy Go, Go key is dropped on zen routes, fast path vs. Infisical),
   missing Go secret fail-closed, Pi `auth.json`/`models.json` override guard
   (`PI_CODING_AGENT_DIR` honored, unrelated providers allowed, invalid JSON
-  fails closed), secret filtering both ways, forbidden passthrough flags,
-  shortcut equivalence/args/`--agent-model`/unknown names/link management,
-  native commands staying unwrapped, config validation failures) plus
-  `agent check`, `agent shortcuts` and `bun script/agent.ts …` smoke runs
-  in CI.
+  and non-ENOENT read errors fail closed), secret filtering both ways,
+  forbidden passthrough flags, shortcut equivalence/args/`--agent-model`/
+  unknown names/link management, native commands staying unwrapped, config
+  validation failures) plus `agent check`, `agent shortcuts` and
+  `bun script/agent.ts …` smoke runs in CI.
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
   run only in the mock tier stay marked unverified here. OpenRouter-free was

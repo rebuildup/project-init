@@ -1181,14 +1181,17 @@ function piAgentDir(): string {
 }
 
 function readPiJsonObject(path: string, label: string): Record<string, unknown> | null {
-  if (!existsSync(path)) return null;
   let text: string;
   try {
     text = readFileSync(path, "utf8");
-  } catch {
+  } catch (error) {
+    // Only ENOENT proves "no Pi override". A permission/IO error means the
+    // credential source cannot be verified, so the route must not start.
+    if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return null;
+    const detail = error instanceof Error ? error.message : String(error);
     throw new AgentError(
-      `cannot read Pi ${label} (${path}); refusing to start because the ` +
-        "credential source cannot be verified",
+      `cannot read Pi ${label} (${path}): ${detail}; refusing to start because ` +
+        "the credential source cannot be verified",
       EXIT_RUNTIME
     );
   }
