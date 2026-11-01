@@ -287,6 +287,18 @@ Infisical value fails instead of using it.
   does **not** substitute another model/provider, inject a fake session header,
   or claim success. The route stays configured for a future Pi build that
   sends the header; until then treat `pi.opencode-go` as blocked.
+  A manual header-only `models.json` entry was verified to make Pi 0.73.1
+  succeed (`GO_PI_OK`), but the launcher does not generate or edit Pi config
+  and its current guard rejects `models.json` provider overrides, so this is
+  not an enabled path.
+- **Go billing proof (2026-11-01).** Direct probes with the Infisical key
+  (never in argv) returned `usage.cost = 0` and
+  `opencode.billing_source = "go"` on both endpoints:
+  `mimo-v2.6-flash` via the OpenAI-compatible endpoint
+  (`allowance` 3.64e-06) and `deepseek-v4.1-flash` via the Anthropic endpoint
+  (`allowance` 5.85e-06). This confirms the Go allowance, not pay-as-you-go,
+  for both. Extra Usage OFF should still be confirmed in the Console because
+  the launcher cannot read that setting.
 - **Pi auth precedence (fail closed).** Pi resolves credentials as
   CLI `--api-key` > `auth.json` > env > `models.json` provider keys, and
   `models.json` can override a provider's `baseUrl`/`api`. `agent pi
