@@ -145,19 +145,22 @@ function sync(nodes:Device[],home:string,state:string){
    run(['herdr','machine','remove',p.id]); delete owned[id];saveOwned(file,owned);
   }
  }
+ for(const n of nodes){
+  if(current.some(p=>p.target===`device-${n.id}` && p.id!==owned[n.id]?.profileId))throw Error(`${n.id}: foreign SSH target collision; refusing config update`);
+ }
  installSSH(nodes,home);let failed=false;
  for(const n of nodes){
   if(isLocal(n,local)){console.log(`${n.id}: Local`);continue;}
   try{
    check(n,home);requireSession(n,home);
-   if(owned[n.id]){console.log(`${n.id}: unchanged`);continue;}
+   if(owned[n.id]){if(!profiles().find(p=>p.id===owned[n.id].profileId)?.enabled)run(['herdr','machine','enable',owned[n.id].profileId]);console.log(`${n.id}: unchanged`);continue;}
    const existing=profiles();
    if(existing.some(p=>p.target===`device-${n.id}`||p.label===n.label))throw Error('foreign target or label collision; no adoption');
    run(['herdr','machine','add',`device-${n.id}`,'--remote-session',n.session,'--label',n.label],60000);
    const added=profiles().filter(p=>p.target===`device-${n.id}`&&p.session===n.session);
    if(added.length!==1)throw Error('unexpected Herdr registration result');
    owned[n.id]={profileId:added[0].id,node:n};saveOwned(file,owned); console.log(`${n.id}: registered`);
-  }catch(e){console.error(`${n.id}: ${String(e)}`);failed=true;}
+  }catch(e){if(owned[n.id])run(['herdr','machine','disable',owned[n.id].profileId]);console.error(`${n.id}: ${String(e)}`);failed=true;}
  }
  return !failed;
 }
@@ -187,7 +190,7 @@ export async function main(args=process.argv.slice(2)){
   if(rest.length!==1)throw Error(`usage: devices ${cmd} ID`);
   const n=nodes.find(n=>n.id===rest[0]);if(!n)throw Error('unknown device');
   // Reconcile owned profiles before changing SSH data; stale profiles cannot silently retarget.
-  sync(nodes,home,state);if(!isLocal(n)){check(n,home);requireSession(n,home);}
+  sync(nodes,home,state);if(!isLocal(n)){check(n,home);if(cmd==='herdr')requireSession(n,home);}
   if(cmd==='check'){console.log(`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
   const command=cmd==='herdr'&&isLocal(n)?['herdr','--session',n.session]:cmd==='ssh'?['ssh','-F',join(home,'.ssh/devices.conf'),`device-${n.id}`]:['herdr','--remote',`device-${n.id}`,'--session',n.session];
   // Do not hold the synchronization lock throughout an interactive session.
