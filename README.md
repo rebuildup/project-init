@@ -195,6 +195,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
+- `supervisor-boundary` — dedicated Supervisorの直接実装を防ぐ権限契約。`templates/supervisor-boundary/` にClaude Code用deny-by-default参考hookを用意（OS/credential/Broker境界の実機検証は別途必須）
 - `templates/agent-routing/` — role別のtop-level委譲先をHerdr + dotfilesの統一`agent` launcherへ固定する参照CLI。run/evalは環境別に検証が必要
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
