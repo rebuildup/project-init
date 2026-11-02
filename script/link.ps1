@@ -38,6 +38,7 @@ if ([System.Environment]::OSVersion.Platform -ne [System.PlatformID]::Win32NT) {
 
 # Relative to home/. Reason is printed so the skip is never silent.
 $PosixOnly = @{
+    '.local/bin/devices'            = 'POSIX launcher; on Windows use script/devices.ps1'
     '.local/bin/agent'              = 'POSIX symlink to agent.ts; on Windows use script/agent.ps1 and `agent shortcuts create`'
     '.claude/statusline-command.sh' = 'bash status line renderer; not wired for Windows-native Claude Code'
 }

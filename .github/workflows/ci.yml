@@ -22,7 +22,7 @@ jobs:
         with:
           persist-credentials: false
       - name: Check shell syntax
-        run: bash -n script/link script/check script/test script/bootstrap script/secrets-doctor script/with-secrets script/check-secrets script/test-workflow script/agent/minimax script/agent/mimo home/.local/bin/agent config/agent-init.bash
+        run: bash -n script/link script/check script/test script/bootstrap script/secrets-doctor script/with-secrets script/check-secrets script/test-workflow script/agent/minimax script/agent/mimo home/.local/bin/agent home/.local/bin/devices config/agent-init.bash
       - name: Set up Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6
         with:
@@ -39,7 +39,7 @@ jobs:
           bun script/agent.ts models opencode-go > /dev/null
           bun script/agent.ts shortcuts > /dev/null
       - name: Test agent launcher (mock harnesses)
-        run: bun test script/agent.test.ts script/claude-settings.test.ts
+        run: bun test script/agent.test.ts script/claude-settings.test.ts script/devices.test.ts
       - name: Guard secret material
         run: ./script/check-secrets
 
@@ -56,6 +56,6 @@ jobs:
       - name: Validate agent launcher config (Windows)
         run: bun script/agent.ts check
       - name: Test Windows layers (batch shims, .cmd shortcuts, PowerShell wrapper)
-        run: bun test script/agent.test.ts script/agent.windows.test.ts script/agent.entrypoint.windows.test.ts
+        run: bun test script/agent.test.ts script/agent.windows.test.ts script/agent.entrypoint.windows.test.ts script/devices.test.ts
       - name: Test Windows link adapter (adoption-first symlinks)
         run: bun test script/link.windows.test.ts
