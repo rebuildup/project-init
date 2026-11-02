@@ -1,0 +1,25 @@
+bun install v1.4.4 (38afee6c8)
+
++ @types/node@22.18.12 (v26.6.6 available)
++ typescript@5.9.3 (v7.0.2 available)
+
+3 packages installed [95.00ms]
+PASS bun run typecheck
+PASS bun run test:adaptive
+PASS bun run test:eval-regressions
+PASS bun run test:release-batching
+PASS bun run test:interaction
+PASS bun run test:linear
+PASS bun evals/policy-evaluation/comparative-controls.mts
+PASS node --test templates/agent-routing/dispatch.test.mts
+PASS node --test templates/agent-routing/layout.test.mts
+PASS node --test templates/agent-routing/dispatch.integration.test.mts
+PASS node --test templates/agent-routing/routing-regressions.test.mts
+PASS node --test templates/agent-routing/materialize.test.mts
+PASS bun evals/policy-evaluation/controls.mts
+PASS bash evals/skills-cli-materialization/controls.sh
+RECONNECT_TICK=1 PID=26080 SHA=9d880aa25919a22e982a7cbd2d1d4ee874938dc3
+RECONNECT_TICK=2 PID=26080 SHA=9d880aa25919a22e982a7cbd2d1d4ee874938dc3
+RECONNECT_TICK=3 PID=26080 SHA=9d880aa25919a22e982a7cbd2d1d4ee874938dc3
+ATTEMPT_COMPLETE test_exit=0
+<wsl-user>@<windows-host>:~$

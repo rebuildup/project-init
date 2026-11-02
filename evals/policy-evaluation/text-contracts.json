@@ -473,7 +473,16 @@
     ]
   },
   "execution-placement-contract": {
-    "contains": [],
+    "contains": [
+      [
+        "organization/execution-placement.md",
+        "Windows native and its WSL2 distributions normally share physical CPU, RAM, GPU/VRAM, SSD, power and thermal budgets."
+      ],
+      [
+        "organization/execution-placement.md",
+        "Do not count them as independent capacity when choosing placements."
+      ]
+    ],
     "routes": [
       [
         "PROMPT.ja.md",
