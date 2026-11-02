@@ -52,6 +52,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | 中長期の見積もり | `agent-delivery-estimation` |
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
+| 監督専用セッションの直接実装を権限分離で禁止する場合 | `supervisor-boundary`、`templates/supervisor-boundary/` |
 | top-level委譲時のharness/provider経路選択と強制 | `parallel-orchestration`、`herdr-runtime`、`templates/agent-routing/` |
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
 | Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |

@@ -66,3 +66,4 @@ orca-frontend	rebuildup/project-init	skills/orca-frontend/SKILL.md	workspace-fro
 orca-cli	stablyai/orca	skills/orca-cli/SKILL.md	workspace-frontend	watch	auto	MIT	skimmed	38131048	2026-10-17	Orca実行中だけ動くdiscovery stub。Orcaのbuildと版を合わせるため、machine単位でOrcaのupdaterに任せる。projectのlockには入れない
 orchestration	stablyai/orca	skills/orchestration/SKILL.md	supervisor-runtime	alternative	auto	MIT	skimmed	38131048	2026-10-17	OrcaのRun / Task / Dispatch。experimentalで、stateはtelemetryとして扱う。herdr-runtimeと同じworkerを管理させない
 orca-per-workspace-env	stablyai/orca	skills/orca-per-workspace-env/SKILL.md	execution-isolation	alternative	auto	MIT	skimmed	38131048	2026-10-17	workspaceごとのVM / container / SSH hostをOrcaが作る。sandbox-runtimeの担当を置き換えるかは比較してから決める
+supervisor-boundary	rebuildup/project-init	skills/supervisor-boundary/SKILL.md	supervisor-authority	default	auto	MIT	read	self	2026-11-02	専用Supervisorの実行権限を分離する正本（Claude hookは参考実装）
