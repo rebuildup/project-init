@@ -1,0 +1,4 @@
+  ok   comparative negative control       -> EVAL FAIL
+  ok   comparative regression control     -> EVAL FAIL
+  ok   comparative positive control       -> EVAL PASS
+controls OK: grader discriminates

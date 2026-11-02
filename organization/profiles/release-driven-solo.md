@@ -71,6 +71,7 @@
 - Rust `target/`はdirect sharingしない。Worktrunk ignored-file copyは`--require-include` + repository-controlled `.worktreeinclude` allowlistを必須とし、承認済みnon-secret cache pathだけを対象にする。reflink対応filesystemでのみCoW seedを許容し、full-copy hostでは除外する。cleanupはselective `cargo clean`とworktree lifecycleを優先する
 - worktree自体をruntime isolation proofとして扱わない
 - cross-boundary / judgment-heavy workで独立したtop-level workが複数ある場合、Herdrをoptional adaptive Supervisor runtimeとして使用できる
+- Mac / Windows native / WSL間で作業を配置する場合は [execution placement](../execution-placement.md) を適用する。OS固有機能の一致、物理ホスト共有資源（Windows + そのWSLは同じ資源群）、実行権限/lease、証拠SHAを判定し、別端末での実行を負荷分散と無条件に同一視しない。Herdr/SSHは実行場所への接続手段であり、Supervisor権限・mutable ownership・GUI実機証拠を生成しない
 - fan-outはsmallest useful fan-outから開始し、Ready work / uncertainty / WIP / resource / human-review / CI bottleneckを見て増減する。agent数自体をoptimization targetにしない
 - 単独で済む軽量taskに不要な委譲を増やさない。external delegationが必要なroleについてはproject-localでresolved routeを先に固定し、Herdrと統一`agent` launcherが利用可能な場合はその経路を使う。provider/budgetの分離が必要な委譲をnative subagentで代替しない
 - native subagentはroute制約のない短命な観測・探索作業に限り選択可能。既存のproject-local delegation policyがexternal Workerを指定するroleではnative subagentをdefaultにしない

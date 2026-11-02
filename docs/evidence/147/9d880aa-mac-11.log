@@ -1,0 +1,11 @@
+✔ install is idempotent, preserves project settings and custom routes (3.736167ms)
+✔ modified managed scripts and overlapping hooks fail closed (1.937375ms)
+✔ check mode does not write any files (0.338041ms)
+ℹ tests 3
+ℹ suites 0
+ℹ pass 3
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 59.439166

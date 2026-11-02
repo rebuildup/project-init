@@ -1,0 +1,19 @@
+✔ first worker plans one project workspace, not an attempt-scoped workspace (0.832666ms)
+✔ subsequent worker reuses same workspace and Work tab (0.16275ms)
+✔ capacity queues instead of creating unbounded tabs by default (0.389875ms)
+✔ bounded overflow creates Work2 only when explicitly enabled (0.19875ms)
+✔ function and presentation are separate: Review/Refactor/Recover map without tab explosion (0.114125ms)
+✔ duplicate agent names never silently reassign old attempt (0.062959ms)
+✔ ambiguous identical project roots and labels fail closed (0.10925ms)
+✔ existing user pane cannot be taken over as a worker (0.059583ms)
+✔ missing or inconsistent state does not create additional layout (0.205875ms)
+✔ unknown functions and unsafe configuration fail closed (0.105041ms)
+✔ explicit workspace selection does not infer other workspace authority from UI position (0.065083ms)
+ℹ tests 11
+ℹ suites 0
+ℹ pass 11
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56.702333

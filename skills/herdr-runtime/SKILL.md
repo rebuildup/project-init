@@ -110,7 +110,7 @@ Supervisor loop:
 
 official Herdr Agent Skillはcommand adapterとして利用できるが、project-initのattempt / ownership / evidence / admission semanticsを置換しない。導入する場合はproject-local Skill policyに従うか、`herdr --skill` 等のinstalled releaseに対応したsourceを利用し、global installationをproject correctnessの前提にしない。
 
-remote machineを使う場合はtargetを明示する。machine/server failure後に別machineやlocalへsilent fallbackして同じmutable attemptを二重継続しない。
+remote配置は[execution placement](../../organization/execution-placement.md)に従う。失敗時の別host/localへの無断移動とmutable attemptの二重実行は禁止する。
 
 ## Spawn flow
 

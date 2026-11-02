@@ -1,0 +1,5 @@
+$ bun evals/linear-release-control/controls.mts
+  ok   linear release positive control    -> PASS
+  ok   linear release negative control    -> FAIL missing-or-wrong: implementation_sot=github_issue
+  ok   linear release regression control  -> FAIL missing-or-wrong: dependency_sot=github_issue
+controls OK: grader discriminates

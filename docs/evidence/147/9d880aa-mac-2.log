@@ -1,0 +1,18 @@
+$ node --test evals/review-regressions.test.mts
+  FAIL missing fixture                    -> fixture missing or unreadable: <temporary-path>
+CONTROLS BROKEN: eval scores are not trustworthy
+✔ record grader accepts CRLF but rejects embedded carriage returns (0.645417ms)
+✔ constitutional grader rejects embedded CR while retaining CRLF support (0.130416ms)
+✔ release candidate needs a real scope (0.443416ms)
+✔ multiple count phrases do not count as evidence (0.04825ms)
+✔ blocked cannot be verified or frozen (0.050208ms)
+✔ control runner rejects absent negative fixture even if grader says FAIL (0.669333ms)
+✔ placement grader rejects each unsafe decision independently (1.952542ms)
+ℹ tests 7
+ℹ suites 0
+ℹ pass 7
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 58.691167

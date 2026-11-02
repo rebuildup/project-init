@@ -1,0 +1,16 @@
+  ok   positive: valid project-local materialization  -> PASS
+  ok   positive: project path contains spaces         -> PASS
+  ok   positive: project under home directory
+  ok   negative: unterminated frontmatter             -> FAIL engineering-decisions: frontmatter has no 'name' field or is not 
+  ok   negative: empty computedHash value             -> FAIL skills-lock.json provenance invalid
+  ok   negative: no list transcript                   -> FAIL skills list transcript missing
+  ok   negative: installed skill absent from listing  -> FAIL skills list did not report project-scope skill: engineering-decis
+  ok   negative: .claude link ignored only by codex rule -> FAIL agent link directory .claude/skills exists but is not gitignored;
+  ok   negative: frontmatter name mismatch            -> FAIL engineering-decisions: frontmatter name 'engineering-decision' do
+  ok   negative: unquoted description with colon-space -> FAIL engineering-decisions: description is a bare scalar containing ':
+  ok   negative: missing computedHash in lock         -> FAIL skills-lock.json provenance invalid
+  ok   negative: SKILL.md listed as Skipped by the CLI -> FAIL skills list reported 1 skipped skill(s) with a frontmatter error
+  ok   negative: agent link directory not gitignored  -> FAIL agent link directory .claude/skills exists but is not gitignored;
+  ok   negative: referenced references/ file missing  -> FAIL SKILL.md references absent files: engineering-decisions:reference
+  ok   regression: xyt-media unquoted-Triggers shape  -> FAIL sandbox-runtime: description is a bare scalar containing ': ', wh
+controls OK: grader discriminates

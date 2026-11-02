@@ -158,7 +158,7 @@ export async function run(argv: string[]): Promise<unknown> {
   if (args.command==='plan') return resolveRoute(config,args.role);
   if (args.command==='start') {
     const route=resolveRoute(config,args.role);
-    const cwd=resolve(args.cwd);
+    const cwd=realpathSync(resolve(args.cwd));
     if (!existsSync(cwd)) fail('worker cwd does not exist');
     const projectRoot=realpathSync(resolve(args['project-root'] ?? discoverProjectRoot(cwd)));
     if (!existsSync(cwd) || !existsSync(projectRoot)) fail('workspace/project root does not exist');

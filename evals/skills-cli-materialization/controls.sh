@@ -78,7 +78,8 @@ printf '%s\n' '---' 'name: engineering-decisions' 'description: Valid text' > "$
 expect "negative: unterminated frontmatter" "$tmp/unclosed-frontmatter" FAIL
 
 cp -R "$tmp/positive" "$tmp/empty-provenance"
-sed -i 's/"computedHash": "abc123"/"computedHash": ""/' "$tmp/empty-provenance/skills-lock.json"
+sed 's/"computedHash": "abc123"/"computedHash": ""/' "$tmp/empty-provenance/skills-lock.json" > "$tmp/empty-provenance/skills-lock.tmp"
+mv "$tmp/empty-provenance/skills-lock.tmp" "$tmp/empty-provenance/skills-lock.json"
 expect "negative: empty computedHash value" "$tmp/empty-provenance" FAIL
 
 cp -R "$tmp/positive" "$tmp/missing-list"

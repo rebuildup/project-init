@@ -19,6 +19,12 @@ if (runControls(dir, '../shared/record-grader.mts', [
   ['merge auth positive', 'fixtures/merge-authorization-positive.txt', 'PASS'],
 ], 'EVAL', ['merge-authorization-grade']) !== 0) failed = true;
 
+if (runControls(dir, '../shared/record-grader.mts', [
+  ['placement negative', 'fixtures/placement-negative.txt', 'FAIL'],
+  ['placement stale-SHA regression', 'fixtures/placement-regression.txt', 'FAIL'],
+  ['placement positive', 'fixtures/placement-positive.txt', 'PASS'],
+], 'EVAL', ['execution-placement']) !== 0) failed = true;
+
 const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash', path: string, args: string[]]> = [
   ['constitutional contract', 'bun', 'text-contracts.mts', ['constitutional-contract']],
   ['merge method contract', 'bun', 'text-contracts.mts', ['merge-method-contract']],
@@ -28,6 +34,7 @@ const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash',
   ['vendored skills contract', 'bun', 'vendored-skills-contract.mts', []],
   ['skill catalog contract', 'bun', 'skill-catalog-contract.mts', []],
   ['context budget regression', 'bun', 'context-budget.mts', []],
+  ['placement routing contract', 'bun', 'text-contracts.mts', ['execution-placement-contract']],
   ['Herdr orchestration contract', 'bun', 'text-contracts.mts', ['herdr-orchestration-contract']],
   ['constitutional refinement controls', 'bun', 'constitutional-refinement-controls.mts', []],
 ];

@@ -471,5 +471,44 @@
         "tool/workflow-specific term leaked into Constitution: mise"
       ]
     ]
+  },
+  "execution-placement-contract": {
+    "contains": [
+      [
+        "organization/execution-placement.md",
+        "Windows native and its WSL2 distributions normally share physical CPU, RAM, GPU/VRAM, SSD, power and thermal budgets."
+      ],
+      [
+        "organization/execution-placement.md",
+        "Do not count them as independent capacity when choosing placements."
+      ]
+    ],
+    "routes": [
+      [
+        "PROMPT.ja.md",
+        "Mac / Windows native / WSL",
+        "organization/execution-placement.md",
+        "herdr-runtime",
+        "quality-gate"
+      ],
+      [
+        "skills/herdr-runtime/SKILL.md",
+        "execution-placement.md"
+      ],
+      [
+        "skills/quality-gate/SKILL.md",
+        "execution-placement.md"
+      ],
+      [
+        "organization/profiles/release-driven-solo.md",
+        "execution-placement.md"
+      ]
+    ],
+    "forbid": [],
+    "matches": [],
+    "files": [
+      "organization/execution-placement.md",
+      "evals/policy-evaluation/execution-placement-scenario.md"
+    ]
   }
 }

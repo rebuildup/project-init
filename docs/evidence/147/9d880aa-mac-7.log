@@ -1,0 +1,17 @@
+✔ free review route stays free and excludes fallback (0.5505ms)
+✔ implementation uses separately configured route (0.070667ms)
+✔ unknown roles and native supervisor fail closed (0.148209ms)
+✔ fallback, native substitution and model override are rejected (0.061292ms)
+✔ shell metacharacters cannot enter route names (0.043833ms)
+✔ command validation rejects unknown flags (0.095083ms)
+✔ plan requires no installed agent/herdr binary (50.641667ms)
+✔ native Claude Agent/Task tool invocations are rejected by hook (123.072ms)
+✔ linked Git worktrees identify the common project root automatically (67.865125ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 9
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 301.298167
