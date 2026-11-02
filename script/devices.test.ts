@@ -1,5 +1,5 @@
 import {expect, test} from 'bun:test';
-import {validateNode, validateRegistry, renderSSH, assertIdentity,preflightSSH,installSSH} from './devices';
+import {validateNode, validateRegistry, renderSSH, assertIdentity,preflightSSH,installSSH,identityCommand,localInstance} from './devices';
 const node = {id:'wsl',label:'Ubuntu',os:'linux',instanceId:'306ab9474cff458ca563e7807ded1da5',host:'100.118.123.62',port:2222,user:'basic',hostKey:'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB7vsV/ZP4V/Z1+MyVUCRAomZRpDsMWUm6A2rzOFv7ce',session:'default'};
 test('rejects SSH config and command injection before effects',()=>{
  for(const patch of [{host:'ok\nProxyCommand evil'},{user:'$(id)'},{session:'a;id'},{id:'../x'},{hostKey:'ssh-ed25519 nope'},{port:0},{os:'other'},{privateKey:'secret'}]) expect(()=>validateNode({...node,...patch})).toThrow();
@@ -7,14 +7,25 @@ test('rejects SSH config and command injection before effects',()=>{
 test('rejects duplicate logical nodes, endpoint sessions and shared host key across instances',()=>{
  expect(()=>validateRegistry([node,{...node}])).toThrow();
  expect(()=>validateRegistry([node,{...node,id:'other'}])).toThrow();
+ expect(()=>validateRegistry([node,{...node,id:'other',host:'100.118.123.63',hostKey:'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIFCZ5DX93f5H0F/4MtxNIYmo+f1OZQkLT54BZkrETXZP',instanceId:'AA600942-3101-5070-BABE-8BB07631D097',label:node.label}])).toThrow();
  expect(()=>validateRegistry([node,{...node,id:'other',port:2223,instanceId:'different'}])).toThrow();
 });
 test('pins dedicated SSH identity and host key; never inherits proxy or agent forwarding',()=>{
  const text=renderSSH([validateNode(node)],'/home/user');
  expect(text).toContain('StrictHostKeyChecking yes');
  expect(text).toContain('HostKeyAlias device-wsl');
+ expect(text).toContain('IdentityFile "/home/user/.ssh/id_ed25519_devices"');
+ expect(text).toContain('UserKnownHostsFile "/home/user/.ssh/devices_known_hosts"');
  expect(text).toContain('ProxyCommand none');
  expect(text).toContain('ForwardAgent no');
+});
+test('Windows remote identity command reads the registry MachineGuid',()=>{
+ expect(identityCommand('windows')).toContain('HKLM:\\SOFTWARE\\Microsoft\\Cryptography');
+ expect(identityCommand('windows')).toContain('MachineGuid');
+});
+const windowsTest=process.platform==='win32'?test:test.skip;
+windowsTest('Windows local identity is the machine GUID from the registry',()=>{
+ expect(localInstance()).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
 });
 test('wrong instance or execution user fails closed',()=>{
  expect(()=>assertIdentity(validateNode(node),'Linux\nbasic\n306ab9474cff458ca563e7807ded1da5\n')).not.toThrow();
@@ -39,10 +50,15 @@ unixTest('real CLI sync is idempotent, isolates foreign profiles and rejects wro
  writeFileSync(join(bin,'herdr'),prelude+`const f=${JSON.stringify(db)},p=JSON.parse(read(f,'utf8'));if(args[1]==='list')console.log(JSON.stringify(p));else if(args[1]==='add'){p.push({id:'managed',label:args.at(-1),target:args[2],session:args[4],enabled:true});write(f,JSON.stringify(p));}else if(args[1]==='remove')write(f,JSON.stringify(p.filter(x=>x.id!==args[2])));else if(args[1]==='disable'||args[1]==='enable'){p.find(x=>x.id===args[2]).enabled=args[1]==='enable';write(f,JSON.stringify(p));}else process.exit(1);`,{mode:0o755});
  const runSync=(args=['sync'])=>Bun.spawnSync([process.execPath,join(import.meta.dir,'devices.ts'),...args],{env:{...process.env,HOME:home,PATH:bin+':'+process.env.PATH},stdout:'pipe',stderr:'pipe'});
  try{
-  const first=runSync();expect(first.stderr.toString()).toBe('');expect(first.exitCode).toBe(0);
+  const state=join(home,'.local/state/dotfiles/devices'),lock=join(state,'lock');
+  mkdirSync(lock,{recursive:true});writeFileSync(join(lock,'pid'),'2147483647');
+  const first=runSync();expect(first.stderr.toString()).toContain('recovered stale devices lock from dead process 2147483647');expect(first.exitCode).toBe(0);
   const conf=readFileSync(join(home,'.ssh/devices.conf'),'utf8');expect(conf).toEndWith('Host *\n');
   expect(runSync().exitCode).toBe(0);
   expect(JSON.parse(readFileSync(db,'utf8'))).toHaveLength(2);
+  mkdirSync(lock);writeFileSync(join(lock,'pid'),String(process.pid));
+  const blocked=runSync(['list']);expect(blocked.exitCode).toBe(1);expect(blocked.stderr.toString()).toContain(`pid ${process.pid}`);
+  expect(readFileSync(join(lock,'pid'),'utf8')).toBe(String(process.pid));rmSync(lock,{recursive:true});
   writeFileSync(calls,'');
   expect(runSync(['check','wsl']).exitCode).toBe(0);
   expect(readFileSync(calls,'utf8')).not.toContain('"machine"');
@@ -55,7 +71,7 @@ unixTest('real CLI sync is idempotent, isolates foreign profiles and rejects wro
   const ownership=join(home,'.local/state/dotfiles/devices/profiles.json');
   const interrupted=JSON.parse(readFileSync(ownership,'utf8'));interrupted.wsl.profileId='';
   writeFileSync(ownership,JSON.stringify(interrupted));
-  expect(runSync().exitCode).toBe(1);
+  const interruptedRun=runSync();expect(interruptedRun.exitCode).toBe(1);expect(interruptedRun.stderr.toString()).toContain('remove the unclaimed profile explicitly');
   expect(JSON.parse(readFileSync(db,'utf8'))).toHaveLength(2);
   expect(JSON.parse(readFileSync(db,'utf8'))[1].enabled).toBe(true);
   interrupted.wsl.profileId='managed';writeFileSync(ownership,JSON.stringify(interrupted));
@@ -65,10 +81,11 @@ unixTest('real CLI sync is idempotent, isolates foreign profiles and rejects wro
   expect(JSON.parse(readFileSync(db,'utf8'))).toEqual([foreign]);
   writeFileSync(registry,'null');expect(runSync().exitCode).toBe(0);
   expect(JSON.parse(readFileSync(db,'utf8'))).toEqual([foreign]);
+  expect(readFileSync(join(home,'.ssh/devices.conf'),'utf8')).not.toContain('Host device-wsl');
+  expect(readFileSync(join(home,'.ssh/devices_known_hosts'),'utf8')).not.toContain('device-wsl');
  }finally{rmSync(dir,{recursive:true,force:true});}
 }, 20000);
 
-const windowsTest=process.platform==='win32'?test:test.skip;
 windowsTest('Windows ACL helper works without PowerShell modules and excludes inherited writers',()=>{
  const dir=mkdtempSync(join(tmpdir(),'devices-acl-')),file=join(dir,'config');
  writeFileSync(file,'Host example\n');
@@ -80,10 +97,49 @@ windowsTest('Windows ACL helper works without PowerShell modules and excludes in
  }finally{rmSync(dir,{recursive:true,force:true});}
 }, 30000);
 
-unixTest('SSH config symlink is rejected before creating generated files',()=>{
+unixTest('SSH config symlink to unmanaged config is rejected before creating generated files',()=>{
  const dir=mkdtempSync(join(tmpdir(),'devices-foreign-'));
  try{mkdirSync(join(dir,'.ssh'));writeFileSync(join(dir,'foreign'),'Host keep\n');symlinkSync(join(dir,'foreign'),join(dir,'.ssh/config'));
  expect(()=>preflightSSH(dir)).toThrow('symlink');expect(readFileSync(join(dir,'foreign'),'utf8')).toBe('Host keep\n');expect(existsSync(join(dir,'.ssh/devices.conf'))).toBe(false);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+unixTest('SSH config symlink with managed Include is preserved and usable',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'devices-managed-link-'));
+ try{
+  mkdirSync(join(dir,'.ssh'));const target=join(dir,'foreign'),config=join(dir,'.ssh/config');
+  const original=`Include "${join(dir,'.ssh/devices.conf')}"\nHost keep\n`;
+  writeFileSync(target,original);symlinkSync(target,config);
+  installSSH([validateNode(node)],dir);
+  expect(readFileSync(config,'utf8')).toBe(original);
+  expect(readFileSync(target,'utf8')).toBe(original);
+  expect(readFileSync(join(dir,'.ssh/devices.conf'),'utf8')).toContain('Host device-wsl');
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+unixTest('regular SSH config is backed up once and keeps its settings after the Include',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'devices-managed-config-'));
+ const original='Host keep\n  HostName example.invalid\n';
+ try{
+  mkdirSync(join(dir,'.ssh'));writeFileSync(join(dir,'.ssh/config'),original);
+  installSSH([validateNode(node)],dir);
+  const config=readFileSync(join(dir,'.ssh/config'),'utf8');
+  expect(config).toBe(`Include "${join(dir,'.ssh/devices.conf')}"\n${original}`);
+  expect(readFileSync(join(dir,'.ssh/config.before-devices'),'utf8')).toBe(original);
+  installSSH([validateNode(node)],dir);
+  expect(readFileSync(join(dir,'.ssh/config'),'utf8')).toBe(config);
+  expect(readFileSync(join(dir,'.ssh/config.before-devices'),'utf8')).toBe(original);
+ }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+unixTest('stale generated temp files do not block atomic SSH installation',()=>{
+ const dir=mkdtempSync(join(tmpdir(),'devices-stale-tmp-'));
+ try{
+  mkdirSync(join(dir,'.ssh'));const stale=join(dir,'.ssh/devices_known_hosts.tmp');
+  writeFileSync(stale,'preserve foreign temp');
+  installSSH([validateNode(node)],dir);
+  expect(readFileSync(stale,'utf8')).toBe('preserve foreign temp');
+  expect(readFileSync(join(dir,'.ssh/devices_known_hosts'),'utf8')).toContain('device-wsl');
  }finally{rmSync(dir,{recursive:true,force:true});}
 });
 

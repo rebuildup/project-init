@@ -372,8 +372,9 @@ SSH公開鍵の失効ではない。失効は接続先のSSH認可を別途変�
 不要profileだけを公式 `herdr machine remove ID` で除去してから再同期する。
 これはprofileの削除でありserver停止ではない。判別できなければ削除しない。
 
-異常終了でlockが残った場合は `devices unlock`。記録したPIDが存在しない場合だけ
-解除する。PID不明の旧lockやPID再利用時は自動解除しない。稼働中devicesプロセスが
-ないことを手動確認してからlockディレクトリだけを整理する。
+新しいlockには所有PIDを記録する。異常終了後の次回コマンドはPIDが存在しない場合だけ
+自動でlockを回収する。稼働中PID、PIDを確認できない旧lock、PID再利用の疑いがある場合は
+回収せず停止する。`devices unlock` は記録済みPIDのlockを明示的に回収する。PID不明の
+旧lockは稼働中devicesプロセスがないことを手動確認してからlockディレクトリだけを整理する。
 Windowsの非管理SSH configや秘密鍵のACLは同期で変更しない。不適合は事前に
 エラーとし、所有者が必要な権限修正を別途行う。

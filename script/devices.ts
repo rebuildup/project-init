@@ -1,8 +1,9 @@
 #!/usr/bin/env bun
 // Infisical owns destinations; OpenSSH and Herdr own transport and terminals.
-import {readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, lstatSync, rmSync, copyFileSync, rmdirSync, constants} from 'node:fs';
+import {readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, lstatSync, rmSync, copyFileSync, rmdirSync, readdirSync, openSync, fstatSync, closeSync, constants} from 'node:fs';
 import {homedir, platform, userInfo} from 'node:os';
 import {join, resolve} from 'node:path';
+import {randomUUID} from 'node:crypto';
 
 export type Device = {id:string; label:string; os:'linux'|'macos'|'windows'; instanceId:string; host:string; port:number; user:string; hostKey:string; session:string};
 type Profile = {id:string; label:string; target:string; session:string; enabled:boolean};
@@ -91,11 +92,11 @@ function readRegistry():Device[]{
  }));
 }
 function secretName(id:string){if(!idPattern.test(id))throw Error('invalid device ID');return 'DEVICE_'+id.toUpperCase().replaceAll('-','_');}
-function identityCommand(os:Device['os']){
+export function identityCommand(os:Device['os']){
  if(os==='windows')return 'powershell -NoProfile -Command "Write-Output Windows; Write-Output $env:USERNAME; (Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Cryptography).MachineGuid"';
  return os==='linux'?'uname -s; id -un; cat /etc/machine-id':"uname -s; id -un; ioreg -rd1 -c IOPlatformExpertDevice | awk -F '\"' '/IOPlatformUUID/ {print $(NF-1)}'";
 }
-function localInstance(){
+export function localInstance(){
  if(platform()==='win32')return run(['powershell','-NoProfile','-Command','(Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Cryptography).MachineGuid']).trim().toLowerCase();
  if(platform()==='linux')return readFileSync('/etc/machine-id','utf8').trim().toLowerCase();
  if(platform()==='darwin')return run(['ioreg','-rd1','-c','IOPlatformExpertDevice']).match(/"IOPlatformUUID" = "([^"]+)"/)?.[1].toLowerCase();
@@ -105,7 +106,15 @@ function check(n:Device,home:string){assertIdentity(n,run(['ssh','-F',join(home,
 export function secureFile(path:string){if(platform()==='win32')run(['powershell','-NoProfile','-File',join(root,'script/devices-acl.ps1'),path]);}
 function atomic(path:string,text:string){
  if(existsSync(path)&&lstatSync(path).isSymbolicLink())throw Error(`refusing symlink: ${path}`);
- const tmp=path+'.tmp'; writeFileSync(tmp,text,{mode:0o600,flag:'wx'});try{secureFile(tmp);renameSync(tmp,path);}finally{if(existsSync(tmp))rmSync(tmp);}
+ const tmp=`${path}.${process.pid}.${randomUUID()}.tmp`;
+ let fd:number|undefined,identity:{dev:number|bigint;ino:number|bigint}|undefined;
+ try{
+  fd=openSync(tmp,'wx',0o600);identity=fstatSync(fd);writeFileSync(fd,text);closeSync(fd);fd=undefined;
+  secureFile(tmp);renameSync(tmp,path);
+ }finally{
+  if(fd!==undefined)closeSync(fd);
+  if(identity){try{const current=lstatSync(tmp);if(current.dev===identity.dev&&current.ino===identity.ino)rmSync(tmp);}catch(e:any){if(e.code!=='ENOENT')throw e;}}
+ }
 }
 function generated(path:string,text:string){
  if(existsSync(path)){if(!readFileSync(path,'utf8').startsWith(marker))throw Error(`foreign file: ${path}`);if(readFileSync(path,'utf8')===text){secureFile(path);return;}}
@@ -113,13 +122,22 @@ function generated(path:string,text:string){
 }
 export function preflightSSH(home:string){
  const dir=join(home,'.ssh');
+ const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
+ let linkedConfig=false;
  for(const path of [dir,...['config','config.before-devices','devices.conf','devices_known_hosts'].map(p=>join(dir,p))]){
-  try{if(lstatSync(path).isSymbolicLink())throw Error(`refusing SSH symlink/reparse point: ${path}`);}catch(e:any){if(e.code!=='ENOENT')throw e;}
+  try{
+   if(lstatSync(path).isSymbolicLink()){
+    if(path===config){
+     if(!existsSync(config))throw Error(`refusing dangling SSH config symlink: ${config}`);
+     linkedConfig=true;
+    }else throw Error(`refusing SSH symlink/reparse point: ${path}`);
+   }
+  }catch(e:any){if(e.code!=='ENOENT')throw e;}
  }
  for(const name of ['devices.conf','devices_known_hosts']){const p=join(dir,name);if(existsSync(p)&&!readFileSync(p,'utf8').startsWith(marker))throw Error(`foreign ${name}`);}
- const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
  if(existsSync(config)){
   const old=readFileSync(config,'utf8');
+  if(linkedConfig&&!old.startsWith(include))throw Error('SSH config symlink must already contain the managed Include; refusing to modify its target');
   if(!old.startsWith(include)&&existsSync(config+'.before-devices'))throw Error('backup path already exists; preserve and reconcile explicitly');
   if(!old.startsWith(include)&&old.includes('devices.conf'))throw Error('managed Include already exists elsewhere');
   if(platform()==='win32')run(['ssh','-G','-F',config,'device-preflight']);
@@ -150,6 +168,26 @@ export function assertSyncedTarget(n:Device,home:string){
 }
 function profiles():Profile[]{return JSON.parse(run(['herdr','machine','list','--json']));}
 function saveOwned(file:string,owned:Owned){atomic(file,JSON.stringify(owned,null,2)+'\n');}
+function livePid(pid:number){
+ try{process.kill(pid,0);return true;}catch(e:any){if(e.code==='ESRCH')return false;throw e;}
+}
+function reclaimStaleLock(lock:string){
+ const identity=lstatSync(lock);
+ if(identity.isSymbolicLink()||!identity.isDirectory())throw Error(`lock path is not an owned directory; inspect manually: ${lock}`);
+ const pidFile=join(lock,'pid');
+ const owner=lstatSync(pidFile);
+ if(owner.isSymbolicLink()||!owner.isFile())throw Error(`lock owner record is not a regular file; inspect manually: ${pidFile}`);
+ const entries=readdirSync(lock);
+ if(entries.length!==1||entries[0]!=='pid')throw Error(`stale lock has no valid owner record; inspect manually: ${lock}`);
+ const pid=Number(readFileSync(pidFile,'utf8'));
+ if(!Number.isSafeInteger(pid)||pid<=0)throw Error(`invalid lock owner; inspect manually: ${lock}`);
+ if(livePid(pid))throw Error(`another devices command is running (pid ${pid})`);
+ const current=lstatSync(lock);
+ const currentOwner=lstatSync(pidFile);
+ if(current.isSymbolicLink()||!current.isDirectory()||current.dev!==identity.dev||current.ino!==identity.ino||currentOwner.isSymbolicLink()||!currentOwner.isFile()||Number(readFileSync(pidFile,'utf8'))!==pid)throw Error(`lock changed during stale-owner check; retry: ${lock}`);
+ rmSync(pidFile);rmdirSync(lock);
+ return pid;
+}
 function isLocal(n:Device,local=localInstance()){return n.instanceId.toLowerCase()===local && n.user.toLowerCase()===userInfo().username.toLowerCase() && n.os===({win32:'windows',darwin:'macos',linux:'linux'} as Record<string,string>)[platform()];}
 function requireSession(n:Device,home:string){
  const posix="if command -v herdr >/dev/null 2>&1; then h=$(command -v herdr); elif test -x \"$HOME/.local/share/mise/shims/herdr\"; then h=\"$HOME/.local/share/mise/shims/herdr\"; else h=\"$HOME/.local/bin/herdr\"; fi; \"$h\"";
@@ -202,14 +240,11 @@ export async function main(args=process.argv.slice(2)){
  const [cmd,...rest]=args,home=homedir(),state=join(home,'.local/state/dotfiles/devices');
  if(!cmd||cmd==='help'){console.log('devices list | sync | check ID | ssh ID | herdr ID | register NODE.json | forget ID | unlock\nSource: self-hosted Infisical /devices; keys stay in ~/.ssh/id_ed25519_devices.');return;}
  if(cmd==='unlock'){
-  const lock=join(state,'lock'),pid=Number(readFileSync(join(lock,'pid'),'utf8'));
-  if(!Number.isSafeInteger(pid)||pid<=0)throw Error('invalid lock owner; inspect manually');
-  try{process.kill(pid,0);throw Error(`process ${pid} still exists; refusing unlock`);}catch(e:any){if(e.code!=='ESRCH')throw e;}
-  rmSync(join(lock,'pid'));rmdirSync(lock);console.log('removed dead-process lock');return;
+  const lock=join(state,'lock'),pid=reclaimStaleLock(lock);console.log(`removed stale lock owned by dead process ${pid}`);return;
  }
  if(!['list','sync','check','ssh','herdr','register','forget'].includes(cmd))throw Error('unknown command');
  mkdirSync(state,{recursive:true,mode:0o700});const lock=join(state,'lock');let held=true;
- try{mkdirSync(lock);}catch{throw Error(`another devices command is running (or stale lock: ${lock})`);}
+ try{mkdirSync(lock);}catch(e:any){if(e.code!=='EEXIST')throw e;const pid=reclaimStaleLock(lock);console.error(`recovered stale devices lock from dead process ${pid}`);mkdirSync(lock);}
  writeFileSync(join(lock,'pid'),String(process.pid));
  try{
   const nodes=readRegistry();
