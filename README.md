@@ -293,8 +293,11 @@ Unix は `script/link` で `devices` を配置。Windows は
 
 新規端末では `ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519_devices` で
 **その端末だけの鍵**を作り、公開鍵を許可する相手の SSH に登録する。
-現在の入口は `IdentityAgent none` を明示するため、無人の machine 接続では
-端末のファイル権限で保護したパスフレーズなしの専用鍵が必要。
+パスフレーズ付き鍵も使用できる。通常の SSH agent に
+`ssh-add ~/.ssh/id_ed25519_devices` で鍵を読み込んでから接続する。
+Windows は Windows OpenSSH agent を使う。生成設定は agent を無効化せず、
+`IdentitiesOnly yes` と指定鍵で認証対象を限定する。
+バックグラウンド照合は BatchMode のため、未解錠なら明示エラーとなる。
 個人の既存鍵を置換・共有せず、接続先の公開鍵認可は別途管理する。
 OS側のSSH/経路セットアップは `pc-setup` が所有する。
 
@@ -353,3 +356,11 @@ Git で配布するのは `script/devices*`、入口、検証、手順だけ。
 Windows の SSH ログオンは通常ログオンの資格情報ストアを開けないことがあるため、
 認証情報をコピーせず通常ログオンから同期する。
 専用 checkout を使う場合も `main` を追跡し、手作業でスクリプトをコピーし続けない。
+
+通常の `ssh` / `herdr` / `check` は対象ノードだけを照合し、Herdr登録や
+他ノードへの接続確認を行わない。Infisical と生成SSH設定が一致しなければ
+`devices sync` を明示的に実行するよう案内して停止する。
+`sync` は全定義を登録する任意の操作であり、通信・再接続はHerdrが所有する。
+全ノード相互の認可は必須ではない。各接続先のauthorized_keysには実際に
+必要なクライアントの公開鍵のみを登録する。`forget` は接続定義の削除であり、
+SSH公開鍵の失効ではない。失効は接続先のSSH認可を別途変更する。

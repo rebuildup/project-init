@@ -40,7 +40,6 @@ export function renderSSH(nodes:Device[],home:string):string {
   User ${n.user}
   IdentityFile ${quotePath(join(home,'.ssh/id_ed25519_devices'))}
   IdentitiesOnly yes
-  IdentityAgent none
   HostKeyAlias device-${n.id}
   UserKnownHostsFile ${quotePath(join(home,'.ssh/devices_known_hosts'))}
   GlobalKnownHostsFile none
@@ -127,6 +126,13 @@ function installSSH(nodes:Device[],home:string){
   atomic(config,include+old);
  }
 }
+export function assertSyncedTarget(n:Device,home:string){
+ const config=join(home,'.ssh/devices.conf'),known=join(home,'.ssh/devices_known_hosts');
+ const expected=renderSSH([n],home).slice(marker.length).replace(/\nHost \*\n$/, '');
+ if(!existsSync(config)||!readFileSync(config,'utf8').includes(expected)||!existsSync(known)||!readFileSync(known,'utf8').split(/\r?\n/).includes(`device-${n.id} ${n.hostKey}`))throw Error(`${n.id}: SSH definition changed or missing; run devices sync explicitly`);
+ const userConfig=join(home,'.ssh/config');
+ if(!existsSync(userConfig)||!readFileSync(userConfig,'utf8').startsWith(`Include ${quotePath(config)}\n`))throw Error('managed SSH Include missing; run devices sync explicitly');
+}
 function profiles():Profile[]{return JSON.parse(run(['herdr','machine','list','--json']));}
 function saveOwned(file:string,owned:Owned){atomic(file,JSON.stringify(owned,null,2)+'\n');}
 function isLocal(n:Device,local=localInstance()){return n.instanceId.toLowerCase()===local && n.user.toLowerCase()===userInfo().username.toLowerCase() && n.os===({win32:'windows',darwin:'macos',linux:'linux'} as Record<string,string>)[platform()];}
@@ -201,8 +207,8 @@ export async function main(args=process.argv.slice(2)){
   if(cmd==='sync'){if(rest.length)throw Error('sync takes no arguments');if(!sync(nodes,home,state))throw Error('some devices unavailable or rejected; no fallback');return;}
   if(rest.length!==1)throw Error(`usage: devices ${cmd} ID`);
   const n=nodes.find(n=>n.id===rest[0]);if(!n)throw Error('unknown device');
-  // Reconcile owned profiles before changing SSH data; stale profiles cannot silently retarget.
-  sync(nodes,home,state);if(cmd==='ssh'||!isLocal(n)){check(n,home);if(cmd==='herdr')requireSession(n,home);}
+  // Connecting never mutates profiles or probes unrelated endpoints.
+  if(cmd==='ssh'||!isLocal(n)){assertSyncedTarget(n,home);check(n,home);if(cmd==='herdr')requireSession(n,home);}
   if(cmd==='check'){console.log(isLocal(n)?`${n.id}: verified local OS/user/instance; no SSH host-key probe`:`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
   const command=cmd==='herdr'&&isLocal(n)?['herdr','--session',n.session]:cmd==='ssh'?['ssh','-F',join(home,'.ssh/devices.conf'),`device-${n.id}`]:['herdr','--remote',`device-${n.id}`,'--session',n.session];
   // Do not hold the synchronization lock throughout an interactive session.
