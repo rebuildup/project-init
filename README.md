@@ -184,6 +184,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0025`](./docs/adr/ADR-0025.md) — adaptive fan-out / fan-in、native subagentとtop-level Workerのrouting、Herdrによるagent-driven Supervisor loopを定義する方針。
 - [`ADR-0026`](./docs/adr/ADR-0026.md) — Cloudflare利用projectで `cf` をprimary CLI、Wranglerを明示的compatibility fallbackとするPractice。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
+- [`ADR-0035`](./docs/adr/ADR-0035.md) — dedicated non-authoring SupervisorとWorkerの実権限分離、hookとOS/remote Broker境界の区別。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
