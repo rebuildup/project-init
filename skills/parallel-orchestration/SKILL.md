@@ -46,6 +46,8 @@ spawn前にroleだけでなくexecution attempt classを決める。
 
 orchestration strengthはtask sizeの印象ではなくexecution profileから決める。
 
+**Dedicated Supervisor exception:** `supervisor-boundary` が有効な場合、以下の `solo execution` は「単独のWorkerで処理する」という意味であり、Supervisorセッション自身による実装ではない。委譲不可の場合はblockedとし、同一セッションで自動的にWorkerへself-promotionしない。これは小さな実装にも適用する。
+
 - `mechanical`: solo executionをdefaultとし、deterministic tooling / focused validationを優先する。
 - `localized`: bounded scopeをsoloで進め、必要なvalidationと、policy/user-visible riskがある場合のcold final reviewを追加する。
 - `cross-boundary`: dependency graphへ分解し、安全なnodeのみparallelizeする。candidate artifact完了後はbuilderと分離したindependent cold reviewを必須とする。
