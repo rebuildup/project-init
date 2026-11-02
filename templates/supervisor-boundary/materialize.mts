@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Install ONLY in a dedicated Supervisor checkout, never in a Worker checkout.
 import { createHash } from 'node:crypto';
-import { existsSync, lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
+import { lstatSync, mkdirSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -17,14 +17,24 @@ const HOOK = {matcher: '*', hooks: [{
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
+function statOrMissing(path: string) {
+  try { return lstatSync(path); }
+  catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+}
 function read(path: string): string | undefined {
-  if (!existsSync(path)) return undefined;
-  if (lstatSync(path).isSymbolicLink()) throw new Error('symlink destination: ' + path);
+  const status = statOrMissing(path);
+  if (!status) return undefined;
+  if (status.isSymbolicLink()) throw new Error('symlink destination: ' + path);
+  if (!status.isFile()) throw new Error('not a regular file: ' + path);
   return readFileSync(path, 'utf8');
 }
 function checkParent(path: string): void {
-  if (existsSync(path) && lstatSync(path).isSymbolicLink())
-    throw new Error('symlink parent: ' + path);
+  const status = statOrMissing(path);
+  if (status?.isSymbolicLink()) throw new Error('symlink parent: ' + path);
+  if (status && !status.isDirectory()) throw new Error('not a directory: ' + path);
 }
 
 export function materialize(targetPath: string, check = false): string[] {
