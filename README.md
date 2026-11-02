@@ -364,3 +364,16 @@ Windows の SSH ログオンは通常ログオンの資格情報ストアを開�
 全ノード相互の認可は必須ではない。各接続先のauthorized_keysには実際に
 必要なクライアントの公開鍵のみを登録する。`forget` は接続定義の削除であり、
 SSH公開鍵の失効ではない。失効は接続先のSSH認可を別途変更する。
+
+通信断・Herdr停止だけでは既存machineを無効化せず、Herdrの再接続を維持する。
+実際のOS/user/instance不一致は無効化して停止する。
+登録途中に処理が終了し、所有IDを確定できなかった場合は名前一致でも自動採用しない。
+`herdr machine list --json` と端末内 `profiles.json` を照合し、所有者を確認できた
+不要profileだけを公式 `herdr machine remove ID` で除去してから再同期する。
+これはprofileの削除でありserver停止ではない。判別できなければ削除しない。
+
+異常終了でlockが残った場合は `devices unlock`。記録したPIDが存在しない場合だけ
+解除する。PID不明の旧lockやPID再利用時は自動解除しない。稼働中devicesプロセスが
+ないことを手動確認してからlockディレクトリだけを整理する。
+Windowsの非管理SSH configや秘密鍵のACLは同期で変更しない。不適合は事前に
+エラーとし、所有者が必要な権限修正を別途行う。

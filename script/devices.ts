@@ -60,10 +60,11 @@ export function renderSSH(nodes:Device[],home:string):string {
   ServerAliveCountMax 3
 `).join('\n')+'\nHost *\n';
 }
+export class IdentityMismatch extends Error {}
 export function assertIdentity(n:Device,output:string){
  const lines=output.trim().split(/\r?\n/).map(s=>s.trim());
  const os={linux:'Linux',macos:'Darwin',windows:'Windows'}[n.os];
- if(lines.length!==3||lines[0]!==os||lines[1].toLowerCase()!==n.user.toLowerCase()||lines[2].toLowerCase()!==n.instanceId.toLowerCase())throw Error(`${n.id}: OS/user/instance mismatch; refused`);
+ if(lines.length!==3||lines[0]!==os||lines[1].toLowerCase()!==n.user.toLowerCase()||lines[2].toLowerCase()!==n.instanceId.toLowerCase())throw new IdentityMismatch(`${n.id}: OS/user/instance mismatch; refused`);
 }
 const root=resolve(import.meta.dir,'..');
 function providerArgs(){
@@ -110,20 +111,32 @@ function generated(path:string,text:string){
  if(existsSync(path)){if(!readFileSync(path,'utf8').startsWith(marker))throw Error(`foreign file: ${path}`);if(readFileSync(path,'utf8')===text){secureFile(path);return;}}
  atomic(path,text);
 }
+export function preflightSSH(home:string){
+ const dir=join(home,'.ssh');
+ for(const path of [dir,...['config','devices.conf','devices_known_hosts'].map(p=>join(dir,p))]){
+  try{if(lstatSync(path).isSymbolicLink())throw Error(`refusing SSH symlink/reparse point: ${path}`);}catch(e:any){if(e.code!=='ENOENT')throw e;}
+ }
+ for(const name of ['devices.conf','devices_known_hosts']){const p=join(dir,name);if(existsSync(p)&&!readFileSync(p,'utf8').startsWith(marker))throw Error(`foreign ${name}`);}
+ const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
+ if(existsSync(config)){
+  const old=readFileSync(config,'utf8');
+  if(!old.startsWith(include)&&old.includes('devices.conf'))throw Error('managed Include already exists elsewhere');
+  if(platform()==='win32')run(['ssh','-G','-F',config,'device-preflight']);
+ }
+}
 function installSSH(nodes:Device[],home:string){
+ preflightSSH(home);
  const dir=join(home,'.ssh');mkdirSync(dir,{recursive:true,mode:0o700});
- // Refuse foreign outputs before changing either generated file.
- for(const p of ['devices.conf','devices_known_hosts'])if(existsSync(join(dir,p))&&!readFileSync(join(dir,p),'utf8').startsWith(marker))throw Error(`foreign ${p}`);
+ const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
+ const existed=existsSync(config),old=existed?readFileSync(config,'utf8'):'';
  generated(join(dir,'devices_known_hosts'),marker+nodes.map(n=>`device-${n.id} ${n.hostKey}\n`).join(''));
  generated(join(dir,'devices.conf'),renderSSH(nodes,home));
- const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
- if(existsSync(config))secureFile(config);
- const key=join(dir,'id_ed25519_devices');if(existsSync(key))secureFile(key);
- const old=existsSync(config)?readFileSync(config,'utf8'):'';
  if(!old.startsWith(include)){
-  if(old.includes('devices.conf'))throw Error('devices.conf already included elsewhere; place its Include first explicitly');
-  if(existsSync(config)&&!existsSync(config+'.before-devices'))copyFileSync(config,config+'.before-devices');
-  atomic(config,include+old);
+  if(existed){
+   if(!existsSync(config+'.before-devices'))copyFileSync(config,config+'.before-devices');
+   // Keep the existing inode and ACL. Never apply generated-file ACLs to user config.
+   writeFileSync(config,include+old);
+  }else atomic(config,include);
  }
 }
 export function assertSyncedTarget(n:Device,home:string){
@@ -144,13 +157,14 @@ function requireSession(n:Device,home:string){
 }
 function sync(nodes:Device[],home:string,state:string){
  const file=join(state,'profiles.json'),owned:Owned=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{};
+ preflightSSH(home);
  const current=profiles();const local=localInstance();
  // An empty ID records our intent before Herdr creates its opaque profile ID.
  for(const [id,entry] of Object.entries(owned))if(entry.profileId===''){
   const matches=current.filter(p=>p.target===`device-${id}`);
   if(matches.length>1||matches.some(p=>p.session!==entry.node.session||p.label!==entry.node.label))throw Error(`${id}: interrupted registration conflicts; inspect profiles`);
-  if(matches.length){entry.profileId=matches[0].id;run(['herdr','machine','disable',entry.profileId]);}
-  else delete owned[id];
+  if(matches.length)throw Error(`${id}: interrupted registration has no proven owner; inspect and remove the unclaimed profile explicitly before retrying`);
+  delete owned[id];
   saveOwned(file,owned);
  }
  // Disable changed/deleted registrations before changing their SSH resolution.
@@ -178,16 +192,23 @@ function sync(nodes:Device[],home:string,state:string){
    const added=profiles().filter(p=>p.target===`device-${n.id}`&&p.session===n.session);
    if(added.length!==1)throw Error('unexpected Herdr registration result');
    owned[n.id]={profileId:added[0].id,node:n};saveOwned(file,owned); console.log(`${n.id}: registered`);
-  }catch(e){if(owned[n.id]?.profileId){try{run(['herdr','machine','disable',owned[n.id].profileId]);}catch(disableError){console.error(String(disableError));}}console.error(`${n.id}: ${String(e)}`);failed=true;}
+  }catch(e){if(e instanceof IdentityMismatch && owned[n.id]?.profileId){try{run(['herdr','machine','disable',owned[n.id].profileId]);}catch(disableError){console.error(String(disableError));}}console.error(`${n.id}: ${String(e)}`);failed=true;}
  }
  return !failed;
 }
 export async function main(args=process.argv.slice(2)){
  const [cmd,...rest]=args,home=homedir(),state=join(home,'.local/state/dotfiles/devices');
- if(!cmd||cmd==='help'){console.log('devices list | sync | check ID | ssh ID | herdr ID | register NODE.json | forget ID\nSource: self-hosted Infisical /devices; keys stay in ~/.ssh/id_ed25519_devices.');return;}
+ if(!cmd||cmd==='help'){console.log('devices list | sync | check ID | ssh ID | herdr ID | register NODE.json | forget ID | unlock\nSource: self-hosted Infisical /devices; keys stay in ~/.ssh/id_ed25519_devices.');return;}
+ if(cmd==='unlock'){
+  const lock=join(state,'lock'),pid=Number(readFileSync(join(lock,'pid'),'utf8'));
+  if(!Number.isSafeInteger(pid)||pid<=0)throw Error('invalid lock owner; inspect manually');
+  try{process.kill(pid,0);throw Error(`process ${pid} still exists; refusing unlock`);}catch(e:any){if(e.code!=='ESRCH')throw e;}
+  rmSync(join(lock,'pid'));rmdirSync(lock);console.log('removed dead-process lock');return;
+ }
  if(!['list','sync','check','ssh','herdr','register','forget'].includes(cmd))throw Error('unknown command');
  mkdirSync(state,{recursive:true,mode:0o700});const lock=join(state,'lock');let held=true;
  try{mkdirSync(lock);}catch{throw Error(`another devices command is running (or stale lock: ${lock})`);}
+ writeFileSync(join(lock,'pid'),String(process.pid));
  try{
   const nodes=readRegistry();
   if(cmd==='list'){console.log(JSON.stringify(nodes,null,2));return;}
@@ -212,7 +233,7 @@ export async function main(args=process.argv.slice(2)){
   if(cmd==='check'){console.log(isLocal(n)?`${n.id}: verified local OS/user/instance; no SSH host-key probe`:`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
   const command=cmd==='herdr'&&isLocal(n)?['herdr','--session',n.session]:cmd==='ssh'?['ssh','-F',join(home,'.ssh/devices.conf'),`device-${n.id}`]:['herdr','--remote',`device-${n.id}`,'--session',n.session];
   // Do not hold the synchronization lock throughout an interactive session.
-  rmdirSync(lock);held=false;const p=Bun.spawn(command,{stdin:'inherit',stdout:'inherit',stderr:'inherit'});process.exitCode=await p.exited;
- }finally{if(held&&existsSync(lock))rmdirSync(lock);}
+  rmSync(join(lock,'pid'));rmdirSync(lock);held=false;const p=Bun.spawn(command,{stdin:'inherit',stdout:'inherit',stderr:'inherit'});process.exitCode=await p.exited;
+ }finally{if(held&&existsSync(lock)){rmSync(join(lock,'pid'));rmdirSync(lock);}}
 }
 if(import.meta.main)main().catch(e=>{console.error(String(e));process.exitCode=1;});
