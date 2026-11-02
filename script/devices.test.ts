@@ -1,5 +1,5 @@
 import {expect, test} from 'bun:test';
-import {validateNode, validateRegistry, renderSSH, assertIdentity,preflightSSH} from './devices';
+import {validateNode, validateRegistry, renderSSH, assertIdentity,preflightSSH,installSSH} from './devices';
 const node = {id:'wsl',label:'Ubuntu',os:'linux',instanceId:'306ab9474cff458ca563e7807ded1da5',host:'100.118.123.62',port:2222,user:'basic',hostKey:'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIB7vsV/ZP4V/Z1+MyVUCRAomZRpDsMWUm6A2rzOFv7ce',session:'default'};
 test('rejects SSH config and command injection before effects',()=>{
  for(const patch of [{host:'ok\nProxyCommand evil'},{user:'$(id)'},{session:'a;id'},{id:'../x'},{hostKey:'ssh-ed25519 nope'},{port:0},{os:'other'},{privateKey:'secret'}]) expect(()=>validateNode({...node,...patch})).toThrow();
@@ -85,4 +85,25 @@ unixTest('SSH config symlink is rejected before creating generated files',()=>{
  try{mkdirSync(join(dir,'.ssh'));writeFileSync(join(dir,'foreign'),'Host keep\n');symlinkSync(join(dir,'foreign'),join(dir,'.ssh/config'));
  expect(()=>preflightSSH(dir)).toThrow('symlink');expect(readFileSync(join(dir,'foreign'),'utf8')).toBe('Host keep\n');expect(existsSync(join(dir,'.ssh/devices.conf'))).toBe(false);
  }finally{rmSync(dir,{recursive:true,force:true});}
+});
+
+unixTest('backup conflicts fail before touching config or generated files',()=>{
+ for(const kind of ['dangling','existing-link','file','directory']){
+  const dir=mkdtempSync(join(tmpdir(),'devices-backup-'));
+  try{
+   mkdirSync(join(dir,'.ssh'));const config=join(dir,'.ssh/config'),backup=config+'.before-devices',target=join(dir,'foreign');
+   writeFileSync(config,'Host keep\n');
+   if(kind==='existing-link')writeFileSync(target,'keep target');
+   if(kind==='dangling'||kind==='existing-link')symlinkSync(target,backup);
+   if(kind==='file')writeFileSync(backup,'keep backup');
+   if(kind==='directory')mkdirSync(backup);
+   expect(()=>installSSH([validateNode(node)],dir)).toThrow();
+   expect(readFileSync(config,'utf8')).toBe('Host keep\n');
+   expect(existsSync(join(dir,'.ssh/devices.conf'))).toBe(false);
+   expect(existsSync(join(dir,'.ssh/devices_known_hosts'))).toBe(false);
+   if(kind==='dangling')expect(existsSync(target)).toBe(false);
+   if(kind==='existing-link')expect(readFileSync(target,'utf8')).toBe('keep target');
+   if(kind==='file')expect(readFileSync(backup,'utf8')).toBe('keep backup');
+  }finally{rmSync(dir,{recursive:true,force:true});}
+ }
 });

@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 // Infisical owns destinations; OpenSSH and Herdr own transport and terminals.
-import {readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, lstatSync, rmSync, copyFileSync, rmdirSync} from 'node:fs';
+import {readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, lstatSync, rmSync, copyFileSync, rmdirSync, constants} from 'node:fs';
 import {homedir, platform, userInfo} from 'node:os';
 import {join, resolve} from 'node:path';
 
@@ -113,27 +113,29 @@ function generated(path:string,text:string){
 }
 export function preflightSSH(home:string){
  const dir=join(home,'.ssh');
- for(const path of [dir,...['config','devices.conf','devices_known_hosts'].map(p=>join(dir,p))]){
+ for(const path of [dir,...['config','config.before-devices','devices.conf','devices_known_hosts'].map(p=>join(dir,p))]){
   try{if(lstatSync(path).isSymbolicLink())throw Error(`refusing SSH symlink/reparse point: ${path}`);}catch(e:any){if(e.code!=='ENOENT')throw e;}
  }
  for(const name of ['devices.conf','devices_known_hosts']){const p=join(dir,name);if(existsSync(p)&&!readFileSync(p,'utf8').startsWith(marker))throw Error(`foreign ${name}`);}
  const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
  if(existsSync(config)){
   const old=readFileSync(config,'utf8');
+  if(!old.startsWith(include)&&existsSync(config+'.before-devices'))throw Error('backup path already exists; preserve and reconcile explicitly');
   if(!old.startsWith(include)&&old.includes('devices.conf'))throw Error('managed Include already exists elsewhere');
   if(platform()==='win32')run(['ssh','-G','-F',config,'device-preflight']);
  }
 }
-function installSSH(nodes:Device[],home:string){
+export function installSSH(nodes:Device[],home:string){
  preflightSSH(home);
  const dir=join(home,'.ssh');mkdirSync(dir,{recursive:true,mode:0o700});
  const config=join(dir,'config'),include=`Include ${quotePath(join(dir,'devices.conf'))}\n`;
  const existed=existsSync(config),old=existed?readFileSync(config,'utf8'):'';
+ // Exclusive backup must succeed before any generated or user SSH file changes.
+ if(existed&&!old.startsWith(include))copyFileSync(config,config+'.before-devices',constants.COPYFILE_EXCL);
  generated(join(dir,'devices_known_hosts'),marker+nodes.map(n=>`device-${n.id} ${n.hostKey}\n`).join(''));
  generated(join(dir,'devices.conf'),renderSSH(nodes,home));
  if(!old.startsWith(include)){
   if(existed){
-   if(!existsSync(config+'.before-devices'))copyFileSync(config,config+'.before-devices');
    // Keep the existing inode and ACL. Never apply generated-file ACLs to user config.
    writeFileSync(config,include+old);
   }else atomic(config,include);
