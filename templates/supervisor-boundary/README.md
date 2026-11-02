@@ -22,7 +22,7 @@ Requires Node.js with TypeScript stripping support (Node 22.18+ or compatible ru
 
 The default allowlist contains `Read`, `Glob`, `Grep`, `ToolSearch`. This intentionally blocks direct shell and unregistered MCP/connector tools, including GitHub mutations and Herdr's arbitrary shell controls. A Supervisor with only this default allowlist cannot start Workers: provision a separate, policy-enforcing broker tool first.
 
-A trusted parent launcher can provide an exact allowlist via:
+A trusted parent launcher can provide an exact allowlist of capability-named broker operations (spawn/observe/wait/cancel/recover/get/admit worker result) via:
 
 ```sh
 SUPERVISOR_BROKER_TOOLS='["mcp__trusted-broker__spawn_worker","mcp__trusted-broker__observe_worker"]'
