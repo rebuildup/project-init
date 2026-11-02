@@ -45,7 +45,7 @@ test('exact broker capability permits only specified MCP tools', () => {
   const unknown = invoke(JSON.stringify({tool_name:'mcp__trusted-broker__shell_exec'}), allow);
   assert.equal(JSON.parse(unknown.stdout).hookSpecificOutput.permissionDecision, 'deny');
   for (const invalid of [
-    '["Bash"]', '["mcp__trusted-broker__*"]', '["mcp__x__y","mcp__x__y"]', '{}', 'not JSON'
+    '["Bash"]', '["mcp__trusted-broker__*"]', '["mcp__trusted-broker__shell_exec"]', '["mcp__x__spawn_worker","mcp__x__spawn_worker"]', '{}', 'not JSON'
   ]) {
     assert.equal(invoke(JSON.stringify({tool_name:'Read'}), invalid).status, 2);
   }
