@@ -23,12 +23,12 @@ export function validateNode(value:unknown):Device {
  return n;
 }
 export function validateRegistry(values:unknown[]):Device[] {
- const nodes=values.map(validateNode); const ids=new Set(), destinations=new Set(); const keys=new Map();
+ const nodes=values.map(validateNode); const ids=new Set(), destinations=new Set(), labels=new Set(); const keys=new Map();
  for(const n of nodes){
   const dst=`${n.host.toLowerCase()}:${n.port}/${n.user.toLowerCase()}/${n.session}`;
-  if(ids.has(n.id)||destinations.has(dst)) throw Error('duplicate node or destination/session');
+  if(ids.has(n.id)||destinations.has(dst)||labels.has(n.label)) throw Error('duplicate node or destination/session');
   if(keys.has(n.hostKey)&&keys.get(n.hostKey)!==n.instanceId.toLowerCase()) throw Error('host key reused across different instances');
-  ids.add(n.id);destinations.add(dst);keys.set(n.hostKey,n.instanceId.toLowerCase());
+  ids.add(n.id);labels.add(n.label);destinations.add(dst);keys.set(n.hostKey,n.instanceId.toLowerCase());
  }
  return nodes.sort((a,b)=>a.id.localeCompare(b.id));
 }
@@ -139,6 +139,14 @@ function requireSession(n:Device,home:string){
 function sync(nodes:Device[],home:string,state:string){
  const file=join(state,'profiles.json'),owned:Owned=existsSync(file)?JSON.parse(readFileSync(file,'utf8')):{};
  const current=profiles();const local=localInstance();
+ // An empty ID records our intent before Herdr creates its opaque profile ID.
+ for(const [id,entry] of Object.entries(owned))if(entry.profileId===''){
+  const matches=current.filter(p=>p.target===`device-${id}`);
+  if(matches.length>1||matches.some(p=>p.session!==entry.node.session||p.label!==entry.node.label))throw Error(`${id}: interrupted registration conflicts; inspect profiles`);
+  if(matches.length){entry.profileId=matches[0].id;run(['herdr','machine','disable',entry.profileId]);}
+  else delete owned[id];
+  saveOwned(file,owned);
+ }
  // Disable changed/deleted registrations before changing their SSH resolution.
  for(const [id,entry] of Object.entries(owned)){
   const p=current.find(p=>p.id===entry.profileId); if(!p){delete owned[id];continue;}
@@ -159,11 +167,12 @@ function sync(nodes:Device[],home:string,state:string){
    if(owned[n.id]){if(!profiles().find(p=>p.id===owned[n.id].profileId)?.enabled)run(['herdr','machine','enable',owned[n.id].profileId]);console.log(`${n.id}: unchanged`);continue;}
    const existing=profiles();
    if(existing.some(p=>p.target===`device-${n.id}`||p.label===n.label))throw Error('foreign target or label collision; no adoption');
+   owned[n.id]={profileId:'',node:n};saveOwned(file,owned);
    run(['herdr','machine','add',`device-${n.id}`,'--remote-session',n.session,'--label',n.label],60000);
    const added=profiles().filter(p=>p.target===`device-${n.id}`&&p.session===n.session);
    if(added.length!==1)throw Error('unexpected Herdr registration result');
    owned[n.id]={profileId:added[0].id,node:n};saveOwned(file,owned); console.log(`${n.id}: registered`);
-  }catch(e){if(owned[n.id])run(['herdr','machine','disable',owned[n.id].profileId]);console.error(`${n.id}: ${String(e)}`);failed=true;}
+  }catch(e){if(owned[n.id]?.profileId){try{run(['herdr','machine','disable',owned[n.id].profileId]);}catch(disableError){console.error(String(disableError));}}console.error(`${n.id}: ${String(e)}`);failed=true;}
  }
  return !failed;
 }
@@ -194,7 +203,7 @@ export async function main(args=process.argv.slice(2)){
   const n=nodes.find(n=>n.id===rest[0]);if(!n)throw Error('unknown device');
   // Reconcile owned profiles before changing SSH data; stale profiles cannot silently retarget.
   sync(nodes,home,state);if(!isLocal(n)){check(n,home);if(cmd==='herdr')requireSession(n,home);}
-  if(cmd==='check'){console.log(`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
+  if(cmd==='check'){console.log(isLocal(n)?`${n.id}: verified local OS/user/instance; no SSH host-key probe`:`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
   const command=cmd==='herdr'&&isLocal(n)?['herdr','--session',n.session]:cmd==='ssh'?['ssh','-F',join(home,'.ssh/devices.conf'),`device-${n.id}`]:['herdr','--remote',`device-${n.id}`,'--session',n.session];
   // Do not hold the synchronization lock throughout an interactive session.
   rmdirSync(lock);held=false;const p=Bun.spawn(command,{stdin:'inherit',stdout:'inherit',stderr:'inherit'});process.exitCode=await p.exited;
