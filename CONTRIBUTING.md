@@ -138,6 +138,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - ADR-0025: adaptive agent-driven orchestration with Herdr
 - ADR-0026: cf-first Cloudflare CLI with explicit Wrangler compatibility fallback
 - ADR-0027: autonomous ticket landing / Issue close / branch cleanup / guarded release merge boundary
+- ADR-0035: dedicated non-authoring Supervisor capability boundary; prompt / hookをOS・remote APIの隔離証明にしない
 
 これらのcanonical decisionを変更する場合はnew ADRまたは明示的revisionを追加してください。
 ADR-0008はADR-0004のticket PR base / sprint cadence / PR state lifecycleを拡張・revisionします。
