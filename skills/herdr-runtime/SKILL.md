@@ -110,13 +110,7 @@ Supervisor loop:
 
 official Herdr Agent Skillはcommand adapterとして利用できるが、project-initのattempt / ownership / evidence / admission semanticsを置換しない。導入する場合はproject-local Skill policyに従うか、`herdr --skill` 等のinstalled releaseに対応したsourceを利用し、global installationをproject correctnessの前提にしない。
 
-remote machineを使う場合はtargetを明示する。machine/server failure後に別machineやlocalへsilent fallbackして同じmutable attemptを二重継続しない。
-
-## Cross-device placement (Mac / Windows native / WSL)
-
-For OS-specific validation, resource-heavy jobs, GUI/device singleton work and remote background attempts, determine **where the work actually runs** before creating a Herdr pane. Apply [the cross-device execution placement Practice](../../organization/execution-placement.md): target capabilities, physical-host resource group, ownership/lease, immutable input SHA, explicit failure policy and evidence. Windows native and its WSL share physical capacity; remote Herdr machine availability is neither a resource lease nor execution authority.
-
-Dotfiles/Infisical owns the node/SSH/session registry, Herdr owns attach/observe, and project-init owns placement/admission/fencing. Do not create another registry, scheduler or SSH layer. In an environment where `devices` is available and accepted, `devices list`, `devices check <id>`, and `devices herdr <id>` are conditional entry points; confirm installed versions and actual target session before mutation. No silent machine switch, forced remote Herdr restart, GUI E2E claim from terminal-only results, or Supervisor authorization bypass.
+remote配置は[execution placement](../../organization/execution-placement.md)に従う。失敗時の別host/localへの無断移動とmutable attemptの二重実行は禁止する。
 
 ## Spawn flow
 
