@@ -34,6 +34,7 @@ test('default Supervisor allows only observational read tools', () => {
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny');
     assert.equal(isAllowed(tool_name, new Set()), false);
+    assert.equal(isAllowed(tool_name, new Set([tool_name])), false);
   }
 });
 
