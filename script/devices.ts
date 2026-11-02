@@ -202,7 +202,7 @@ export async function main(args=process.argv.slice(2)){
   if(rest.length!==1)throw Error(`usage: devices ${cmd} ID`);
   const n=nodes.find(n=>n.id===rest[0]);if(!n)throw Error('unknown device');
   // Reconcile owned profiles before changing SSH data; stale profiles cannot silently retarget.
-  sync(nodes,home,state);if(!isLocal(n)){check(n,home);if(cmd==='herdr')requireSession(n,home);}
+  sync(nodes,home,state);if(cmd==='ssh'||!isLocal(n)){check(n,home);if(cmd==='herdr')requireSession(n,home);}
   if(cmd==='check'){console.log(isLocal(n)?`${n.id}: verified local OS/user/instance; no SSH host-key probe`:`${n.id}: verified OS/user/instance and pinned SSH host key`);return;}
   const command=cmd==='herdr'&&isLocal(n)?['herdr','--session',n.session]:cmd==='ssh'?['ssh','-F',join(home,'.ssh/devices.conf'),`device-${n.id}`]:['herdr','--remote',`device-${n.id}`,'--session',n.session];
   // Do not hold the synchronization lock throughout an interactive session.
