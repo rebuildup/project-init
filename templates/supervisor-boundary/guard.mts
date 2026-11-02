@@ -20,7 +20,7 @@ export function brokerAllowlist(raw: string | undefined): Set<string> {
 
 export function isAllowed(toolName: unknown, brokerTools: ReadonlySet<string>): boolean {
   return typeof toolName === 'string' &&
-    (READ_ONLY_TOOLS.has(toolName) || brokerTools.has(toolName));
+    (READ_ONLY_TOOLS.has(toolName) || (BROKER_NAME.test(toolName) && brokerTools.has(toolName)));
 }
 
 export function guardDecision(input: unknown, brokerTools: ReadonlySet<string>): object | null {
