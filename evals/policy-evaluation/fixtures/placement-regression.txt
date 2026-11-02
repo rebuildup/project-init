@@ -1,0 +1,14 @@
+windows=windows-native
+linux=wsl-linux
+apple=mac-native
+capacity=probe-before-placement
+physical=windows-wsl-shared
+singleton=queue
+disconnect=reconcile-before-reassign
+supervisor=deny-authoring
+completion=verify-result
+gui=pending-screen-evidence
+sha=admit-stale
+attempt=reject-stale
+session=preserve-user-state
+credentials=device-local
