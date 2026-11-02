@@ -6,6 +6,7 @@ on:
       - 'docs/adr/**'
       - 'templates/quality/**'
       - 'templates/agent-routing/**'
+      - 'templates/supervisor-boundary/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -59,6 +60,8 @@ jobs:
         run: node --test templates/agent-routing/routing-regressions.test.mts
       - name: Test project-local routing materialization
         run: node --test templates/agent-routing/materialize.test.mts
+      - name: Test dedicated Supervisor boundary
+        run: bun run test:supervisor-boundary
       - name: Run deterministic controls
         shell: bash
         run: |
