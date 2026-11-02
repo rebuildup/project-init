@@ -137,6 +137,10 @@ UI/UX、native platform、hardware integration等でautomationが十分でない
 
 manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
 
+### Cross-device verification placement
+
+Where the target can run on multiple OS environments, apply [execution placement](../../organization/execution-placement.md) before selecting a verifier. Prefer the actual native target for OS-specific claims; Windows native and WSL/Linux are not interchangeable. For resource-heavy and singleton GUI/device checks, consider real physical-host contention and lease/serialization. Herdr/SSH connectivity and green cross-OS CI do not prove real-user GUI E2E. Record candidate SHA, host/OS identity and evidence provenance.
+
 ### Verification Executor / native environment
 
 verificationはimplementation workerと同じworkspace topologyを必須にしない。ADR-0020に従い、検証対象をimmutable candidate identityへpinし、environment identityとevidence provenanceを記録する。

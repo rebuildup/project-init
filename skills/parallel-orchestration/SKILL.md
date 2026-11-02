@@ -74,6 +74,10 @@ competitive mutable implementationは、各attemptが独立mutable ownership bou
 
 fan-in時はtask/attempt/base/fencing/result identityとapplicable evidenceを確認する。複数agentの同意だけをcorrectness evidenceにしない。
 
+## Cross-device placement and physical capacity
+
+When an independent attempt could run on Mac, Windows native, or WSL/Linux, select the execution **location** separately from role, function, attempt class, harness/provider and Herdr pane. Use [execution placement](../../organization/execution-placement.md) to match native capabilities and validated resource/lease constraints before starting the Worker. Windows native and WSL on that Windows host are different runtime environments **but one physical resource group**. Remote failure never authorizes a second mutable attempt without reconciling/fencing the first. Do not create cross-host mutable workspace sharing or a new scheduler by default. Evidence includes actual host/OS and the immutable candidate SHA.
+
 ## Capacity / delivery-estimation coupling
 
 scheduleやroadmapを理由にWIP / spawn数 / agent数を増減する場合は、`agent-delivery-estimation` Skillを参照する。
