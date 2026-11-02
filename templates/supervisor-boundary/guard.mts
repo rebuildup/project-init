@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 
 const READ_ONLY_TOOLS = new Set(['Read', 'Glob', 'Grep', 'ToolSearch']);
-const BROKER_NAME = /^mcp__[A-Za-z0-9_-]+__[A-Za-z0-9_-]+$/;
+const BROKER_NAME = /^mcp__[A-Za-z0-9_-]+__(spawn_worker|observe_worker|wait_worker|cancel_worker|recover_worker|get_worker_result|admit_worker_result)$/;
 
 export function brokerAllowlist(raw: string | undefined): Set<string> {
   if (raw === undefined || raw === '') return new Set();
