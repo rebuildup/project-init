@@ -1,0 +1,12 @@
+{
+  "provider": "opencode-go",
+  "model": "mimo-v2.6-flash",
+  "custom_providers": {
+    "opencode-go": {
+      "url": "https://opencode.ai/inference/go/v1",
+      "protocol": "openai",
+      "model": "mimo-v2.6-flash",
+      "api_key_cmd": "ocr-go-key"
+    }
+  }
+}
