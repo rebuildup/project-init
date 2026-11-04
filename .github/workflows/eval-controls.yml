@@ -47,6 +47,8 @@ jobs:
         run: |
           bun run test:interaction
           bun run test:linear
+      - name: Test delivery-status classification
+        run: bun run test:delivery-status
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
