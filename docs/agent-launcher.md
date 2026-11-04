@@ -295,10 +295,18 @@ omp --provider <omp_id> --model <model>
   trusted destructive-guard extension still runs on every `bash` tool call.
 - For the `omp` adapter, the passthrough additionally rejects
   `--profile`, `--config`, `--cwd`, `--smol`, `--slow`, `--plan`, `--prewalk`,
-  `--prewalk-into`, `--plan-yolo` and `--plan-yolo-into`. The first three
-  would move the auth/config source after the launcher's checks (a profile,
-  an overlay, or a different cwd's `.omp` config and `.env`); the rest would
-  re-point or implicitly switch the pinned model roles. The list is
+  `--prewalk-into`, `--plan-yolo`, `--plan-yolo-into`, `--trusted-extension`,
+  `--extension`, `-e`, `--hook`, `--advisor`, `--tools` and `--models`.
+  The first three would move the auth/config source after the launcher's
+  checks (a profile, an overlay, or a different cwd's `.omp` config and
+  `.env`); `--smol` … `--plan-yolo-into` would re-point or implicitly switch
+  the pinned model roles; `--trusted-extension`/`--extension`/`-e`/`--hook`
+  would load an extra module, and a module can register a credential/model
+  fallback outside the guard (the launcher names every trusted module);
+  `--advisor` would enable the advisor runtime even when config says
+  `advisor.enabled: false`; a later `--tools` replaces the launcher's
+  `--tools read,bash,edit,write` list (OMP keeps the last occurrence); and
+  `--models` feeds unvalidated ids to Ctrl+P cycling. The list is
   adapter-scoped: other harnesses are unaffected.
 - The guard path is resolved at plan time next to the launcher. A missing
   `script/omp-destructive-guard.ts` makes the launcher exit 1 before a
@@ -376,10 +384,14 @@ instruction; outside Herdr only the destructive guard is trusted.
 - `--provider <omp_id>` and `--model <id>` are always explicit, so OMP does
   not choose from its own catalog.
 - On `require_infisical` routes, `--smol/--slow/--plan` pin the same
-  selector and the guard below rejects implicit-switch settings.
-- No fallback is configured: OMP `retry.modelFallback` may default to true,
-  but a non-empty `retry.fallbackChains` is rejected; `advisor.enabled` and
-  `contextPromotion.enabled` are rejected too (see next section).
+  selector.
+- No fallback is configured on **any** omp route: OMP
+  `retry.modelFallback` may default to true, but a non-empty
+  `retry.fallbackChains` is rejected, and `advisor.enabled: true` and
+  `contextPromotion.enabled: true` are rejected too. This implicit-switch
+  check runs at plan time for every `omp` route before a process starts —
+  it is a model-pinning boundary, not part of the `require_infisical`
+  credential check below.
 
 ### Credential-source guard (`require_infisical` only)
 
@@ -408,16 +420,12 @@ is true:
   empty value) or assigned in one of OMP's dotenv layers: project cwd
   `.env`, `~/.omp/agent/.env`, `~/.omp/.env`, `~/.env`. The guard always
   inspects `~/.omp/agent`; a relocated directory is rejected rather than
-  followed.
+  followed. A dotenv assignment of `XDG_DATA_HOME` is rejected the same way:
+  OMP would relocate `agent.db` there while the launcher follows only the
+  ambient `XDG_DATA_HOME` (an ambient value is followed, not rejected).
 - **Auth broker**: `OMP_AUTH_BROKER_URL` in the ambient environment or any
   dotenv layer, or a non-empty `auth.broker.url` (nested or the flat
   `auth.broker.url` key) in `~/.omp/agent/config.yml` or `config.yaml`.
-- **Implicit model/provider switch**: a non-empty `retry.fallbackChains`,
-  `advisor.enabled: true`, or `contextPromotion.enabled: true` in
-  `~/.omp/agent/config.yml`, `~/.omp/agent/config.yaml`,
-  `~/.omp/agent/settings.json`, project `.omp/config.yml`, or project
-  `.omp/settings.json`. `retry.modelFallback: true` with an empty chain,
-  explicit `false` switches, and `modelRoles` alone are allowed.
 - **Provider override**: a `providers.<route-provider>` entry in
   `~/.omp/agent/models.yml`, `models.yaml`, or the legacy `models.json`.
   Entries for other providers are allowed.
@@ -432,12 +440,13 @@ SQLite store that is unreadable, invalid, or not a mapping makes the guard
 fail closed, because the credential source cannot be verified. Nothing is
 edited, moved or deleted, and no secret value is printed.
 
-The check runs **twice**: before secret fetch (fail fast) and again inside
-the `script/with-secrets` child immediately before spawn
+The credential check runs **twice**: before secret fetch (fail fast) and
+again inside the `script/with-secrets` child immediately before spawn
 (`--omp-guard-id` / `--omp-guard-env`). This narrows the window where a
 concurrent writer could add `agent.db` or `models.yml`, but it is not atomic
 with OMP's own read. Do not edit `~/.omp` while an Infisical-backed OMP route
-is launching.
+is launching. The implicit-switch check (previous section) runs once, at
+plan time, on every omp route; it is not part of the pre-spawn recheck.
 
 Known residual risks are stated in ADR-0014: an extension can register a
 config fallback (`keys.setConfig(..., { fallback: true })`) that this
@@ -654,9 +663,12 @@ criteria:
   `--no-lsp`, `--no-pty`, `--no-title`, guard path under
   `--trusted-extension`, `OMP_SKIP_SETUP=1`, no
   `--models`/approval/credential flags), OMP
-  credential-source guard (profile/relocation, four dotenv layers, auth
-  broker, implicit switch settings, models.yml/yaml/json, stored
-  auth_credentials rows, disabled rows, corrupt store), pre-spawn re-check
+  credential-source guard (profile/relocation, four dotenv layers incl.
+  the rejected dotenv `XDG_DATA_HOME`, auth broker,
+  models.yml/yaml/json, stored
+  auth_credentials rows, disabled rows, corrupt store), implicit-switch
+  guard on every omp route (fallback chain/advisor/context promotion,
+  including `omp.openrouter-free`), pre-spawn re-check
   (concurrent agent.db/models.yml creation stops before spawn), Herdr
   extension allowlist and fail-closed behavior, destructive-guard rule
   table, `agent pi` migration hint and stale `pi-*` shortcut retirement
@@ -766,6 +778,15 @@ rm ~/.local/bin/pi-deepseek ~/.local/bin/pi-minimax \
    ~/.local/bin/pi-openrouter-free
 ```
 
+On Windows the shortcuts are `.cmd` entry points instead; remove the same
+five files from `$HOME\.local\bin` (already-removed files are skipped):
+
+```powershell
+Remove-Item "$HOME\.local\bin\pi-deepseek.cmd", "$HOME\.local\bin\pi-minimax.cmd", `
+  "$HOME\.local\bin\pi-opencode-go.cmd", "$HOME\.local\bin\pi-openrouter.cmd", `
+  "$HOME\.local\bin\pi-openrouter-free.cmd" -ErrorAction SilentlyContinue
+```
+
 If a stale `pi-*` link is invoked before removal, it fails closed (exit 2)
 with the retirement error above, names the corresponding `omp-*` command,
 and never starts a harness or fetches a credential. `agent pi …` itself also
@@ -867,8 +888,9 @@ bun test script/agent.entrypoint.windows.test.ts  # native `agent` entry point (
 ```
 
 The POSIX suite includes the OMP-specific cases: route argv and tool surface,
-credential-source guard (profile, dotenv, broker, implicit switch, models
-overrides, stored credentials, corrupt store), pre-spawn re-check, Herdr
+credential-source guard (profile, dotenv, broker, models
+overrides, stored credentials, corrupt store), the implicit-switch guard on
+every omp route (free route included), pre-spawn re-check, Herdr
 extension allowlist, destructive-guard rules, and the `agent pi` migration
 hint. It also asserts that no `pi.*` route and no `omp.zen` route exists.
 
