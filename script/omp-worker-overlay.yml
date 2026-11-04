@@ -1,0 +1,31 @@
+# Launcher-owned OMP settings overlay for Worker sessions (ADR-0014 items 4/5).
+# planOmp resolves this file next to script/agent.ts and passes it with
+# `--config`; a missing file fails the launch closed. The omp passthrough still
+# rejects a user-supplied `--config`: a later overlay layer replaces these
+# arrays, so a user overlay could re-enable what this file switches off.
+#
+# `--tools read,bash,edit,write` only filters OMP's built-in tools. In OMP
+# 18.16.0 MCP servers are mounted independently of that list (no `--no-mcp`
+# flag; `enableMCP`/`restrictToolNames` are SDK-only), so the discovery
+# providers that can contribute MCP servers to a launcher session are disabled
+# here instead:
+#   agent-plugins   Agent-Plugins-standard packages. Observed mounting the
+#                   account's chrome-devtools-mcp plugin (36-tool list,
+#                   2026-11-04): it reads the Claude plugin registry without
+#                   the foreign-source opt-in the other providers apply.
+#   claude          Claude Code config dir: its own MCP server config, and it
+#                   turns on when CLAUDE_CONFIG_DIR is set.
+#   claude-plugins  Claude Code marketplace plugins' MCP servers. Off by
+#                   default via enabledProviders, but a user/project opt-in
+#                   would otherwise re-enable it under the launcher.
+# `disabledProviders` wins over `enabledProviders`, so no user or project
+# settings layer can re-enable these for a launcher session.
+disabledProviders:
+  - agent-plugins
+  - claude
+  - claude-plugins
+
+mcp:
+  # No project-scoped MCP servers (project .mcp.json / mcp.json) in a Worker
+  # session; the tool surface stays the four built-in tools.
+  enableProjectConfig: false

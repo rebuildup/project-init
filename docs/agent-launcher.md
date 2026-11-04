@@ -11,16 +11,19 @@ agent claude openrouter                   # Claude Code via OpenRouter
 agent claude openrouter-free -- -p 'hi'   # Claude Code via the fixed OpenRouter free model
 agent claude deepseek -- -p 'say ok'      # Claude Code via DeepSeek
 agent claude opencode-go -- -p 'say ok'   # Go plan, DeepSeek V4.1 Flash (fixed default)
-agent pi opencode-go -- -p 'hello'        # Go plan, MiMo V2.6 Flash (fixed default)
 agent claude minimax -- -p 'say ok'       # default MiniMax-M3.1-Flash; --model overrides
 agent opencode zen                        # OpenCode on the free zen models
 agent opencode zen -- run "explain this repo"
-agent pi deepseek -- -p 'hello'
+agent omp opencode-go -- -p 'hello'       # Go plan, MiMo V2.6 Flash (fixed default)
+agent omp openrouter-free -- -p 'hello'   # OMP Worker on the fixed OpenRouter free model
+agent omp deepseek -- -p 'hello'
 agent dsh deepseek -- web                 # dsh keeps its own native auth
 agent claude -p 'say ok'                  # native mode: no provider at all —
                                            # subscription login, zero injection
 agent opencode -- run "explain this repo"  # native opencode (own account)
+agent omp -- -p 'hello'                   # native omp (own account)
 opencode-zen -- run "explain this repo"   # shortcut form of the line above it
+omp-opencode-go -p 'hello'                # shortcut form; default MiMo V2.6 Flash
 claude-minimax -p 'say ok'                # default MiniMax-M3.1-Flash; --agent-model overrides
 agent models deepseek                     # provider details + models
 agent check                               # validate the config (CI runs this)
@@ -31,9 +34,9 @@ claude                                    # plain claude: official native auth
 Design contract:
 
 - **Thin**: read `config/agents.toml` → build a filtered process-scoped
-  environment → `exec` the native CLI. No daemon, proxy, router or new
-  dependency; credentials come from the existing `script/with-secrets`
-  (Infisical) wrapper.
+  environment → spawn the native CLI as a single child process with inherited
+  stdio. No daemon, proxy, router or new dependency; credentials come from the
+  existing `script/with-secrets` (Infisical) wrapper.
 - **Declarative**: model ids, endpoints, credential names and route
   availability live only in `config/agents.toml`. Adding or changing them
   is a TOML edit; the launcher source contains adapter logic only.
@@ -44,11 +47,19 @@ Design contract:
 - **Native by default**: plain `claude` is never wrapped, aliased or
   overridden by this repository (no shell function, no PATH shim).
 
+The Worker slot is `omp` (Oh My Pi). It replaces the former `pi` harness and
+its `pi.*` routes; `omp` is not a fifth harness alongside a retained Pi
+harness. Claude Code remains the Supervisor in its existing `claude.*` routes;
+the OMP migration does not change the Supervisor contract. See
+[ADR-0014](adr/ADR-0014.md).
+
 Non-goals: per-combination mise tasks (the draft approach this replaces),
 an implicit `claude()` override, cross-provider auth migration, any
 persistent write of a `--model` choice (`--model` affects one process),
 runtime OpenRouter free-model selection (issue #76 reverted that direction),
-and any new harness/daemon/proxy/router.
+an `omp.zen` route (the Worker slot does not use OMP's `opencode-zen`
+provider), dual Pi/OMP route maintenance, and any new harness/daemon/proxy/
+router.
 
 ## Usage
 
@@ -62,7 +73,7 @@ agent list | models <provider> | shortcuts [list|check|create|remove] | check | 
 - **Native mode (provider omitted)**: `agent <harness>` runs the harness
   exactly as-is — the environment is passed through untouched: no endpoint,
   no model and no credential injection, no `script/with-secrets` stage
-  (Claude Code uses its subscription login, opencode/pi their own account,
+  (Claude Code uses its subscription login, opencode/omp their own account,
   dsh its own auth). Harness arguments follow a leading flag or `--`
   (`agent claude -p 'say ok'`, `agent opencode -- run …`); a non-flag
   second token is still parsed as a provider, so typos keep failing closed
@@ -70,6 +81,11 @@ agent list | models <provider> | shortcuts [list|check|create|remove] | check | 
   use plain `<harness>` for the harness's own model flags. Route mode never
   falls back to native mode on failure (and vice versa): both are explicit
   choices only.
+- **`agent pi` fails closed.** The Pi harness is retired from the launcher;
+  both `agent pi <provider>` and `agent pi` exit 2 with a migration hint
+  pointing at `agent omp <provider>`. This is launcher routing only: the
+  native `pi` binary is untouched and remains usable directly (pc-setup keeps
+  it installed for rollback and native use).
 - Everything after `--` is passed to the harness verbatim
   (`agent claude openrouter -- --help` asks the harness for help;
   `agent claude openrouter --help` shows this launcher's help).
@@ -87,8 +103,8 @@ agent list | models <provider> | shortcuts [list|check|create|remove] | check | 
 ## Short commands (`<harness>-<provider>`)
 
 Every route additionally gets a short command name — `opencode-zen`,
-`claude-minimax`, `pi-openrouter`, … — that behaves exactly like
-`agent <harness> <provider>`:
+`claude-minimax`, `omp-openrouter`, `omp-opencode-go`, … — that behaves
+exactly like `agent <harness> <provider>`:
 
 - **Definition**: the routes in `config/agents.toml` remain the single
   source of truth. A short name exists only for a configured route; it is
@@ -106,15 +122,25 @@ Every route additionally gets a short command name — `opencode-zen`,
   only); `--model`, `-m`, `--provider`, `--api-key` and `--fallback-model`
   stay rejected, so a shortcut can neither switch the provider nor inject
   credentials.
-- **Native commands are untouched**: plain `claude`, `opencode`, `pi` and
+- **Native commands are untouched**: plain `claude`, `opencode`, `omp` and
   `dsh` remain the official binaries with their own auth; short names only
-  ever add new commands, never wrap an existing one.
+  ever add new commands, never wrap an existing one. The native `pi` binary
+  is likewise untouched outside the launcher, but `agent pi` is retired.
+- **Stale Pi shortcuts are not migrated automatically.** `agent shortcuts
+  remove` only iterates the names derived from the *current* routes, so old
+  `pi-*` symlinks that point at the launcher are not seen by it. If invoked,
+  such a link fails closed (exit 2) with a retirement error naming the
+  replacement and the exact removal command, for example:
+  `'pi-deepseek' is a retired Pi Worker shortcut; the slot moved to OMP. Use 'omp-deepseek' after 'agent shortcuts create', and remove the stale link if present: rm ~/.local/bin/pi-deepseek`.
+  Remove the former links manually after migration:
+  `rm ~/.local/bin/pi-deepseek ~/.local/bin/pi-minimax ~/.local/bin/pi-opencode-go ~/.local/bin/pi-openrouter ~/.local/bin/pi-openrouter-free`
+  (adjust for the actual paths; `AGENT_BIN_DIR` defaults to `~/.local/bin`).
 - **MiniMax** uses the official `MiniMax-M3.1-Flash` model ID (2026-10-19).
   Reasoning is always enabled, with `max` as the default effort. Live M Plan
   verification for the formal ID is still pending. The `opencode.minimax`
   route continues to default to `MiniMax-M3`, since the formal ID has not
   yet been verified in OpenCode and an unsupported ID may silently fall back.
-  On `claude.minimax` and `pi.minimax`, `MiniMax-M3` can still be selected
+  On `claude.minimax` and `omp.minimax`, `MiniMax-M3` can still be selected
   explicitly with `--agent-model` or `--model`.
 - **Runtime**: Bun executes `script/agent.ts`; the config is read with
   `Bun.TOML.parse()` — no dependencies, no Python anywhere in the
@@ -167,13 +193,13 @@ models = ["deepseek-flash", "deepseek-v4-pro"]
 # require_model = true         # fail closed: --model mandatory when no default exists
 # require_infisical = true     # always source <secret> from Infisical;
 #                              # strip ambient values before the wrapper
-# opencode_id = "opencode"     # provider id when it differs from the key (zen)
-# pi_id = "deepseek"           # pi --provider value (defaults to the key)
+# opencode_id = "opencode"     # OpenCode provider id when it differs from the key
+# omp_id = "deepseek"          # OMP --provider value (defaults to the key)
 
 [harnesses.claude]
 label = "Claude Code"
 command = "claude"
-adapter = "anthropic"          # anthropic | opencode | pi | passthrough
+adapter = "anthropic"          # anthropic | opencode | omp | passthrough
 [harnesses.claude.env]         # adapter env names (names only, no values)
 base_url = "ANTHROPIC_BASE_URL"
 auth_token = "ANTHROPIC_AUTH_TOKEN"
@@ -184,11 +210,21 @@ default_opus = "ANTHROPIC_DEFAULT_OPUS_MODEL"
 default_sonnet = "ANTHROPIC_DEFAULT_SONNET_MODEL"
 default_haiku = "ANTHROPIC_DEFAULT_HAIKU_MODEL"
 
+[harnesses.omp]
+label = "Oh My Pi"
+command = "omp"
+adapter = "omp"
+
 [routes."claude.deepseek"]     # explicit harness × provider combinations
 models = ["deepseek-flash"]    # optional route-level model list override
 note = "..."                   # optional, shown by `agent list`
 # default_model / require_model also override the provider defaults
 ```
+
+`omp_id` is the provider id passed to `omp --provider`. It is separate from
+the launcher route key and from `opencode_id`, so one provider can be
+addressed correctly by each harness (`openrouter-free` maps to native
+`openrouter` for both OpenCode and OMP; `opencode-go` is native for OMP).
 
 Validation (`agent check`, run by CI) rejects: unknown adapter, route keys
 that reference unknown harnesses/providers, missing defaults without
@@ -211,10 +247,10 @@ name, and route keys whose `harness-provider` shortcut names would collide.
   (merged last over global/project config, so both `opencode` TUI and
   `opencode run` pick it up). The global `opencode --model` flag does not
   exist in v2 — it silently prints help — so it is never used.
-- **pi**: `pi --provider <id> --model <id> ...` with the provider credential
-  in its native env var. pi accepts ids outside its built-in catalog with a
-  warning and passes them through (its catalog is shown by
-  `pi --list-models`).
+- **omp (Oh My Pi)**: explicit provider/model selection with
+  `omp --provider <omp_id> --model <id>`, a fixed Worker tool surface, and
+  the destructive guard loaded as a trusted extension. The full contract is
+  in [OMP Worker harness](#omp-worker-harness-replaces-the-pi-slot) below.
 - **passthrough (dsh)**: argv only, plus the provider credential env;
   `--model` is rejected (dsh selects its model natively). dsh is installed
   machine-wide through mise (`npm:@deepseek-ai/dsh`, pinned because every
@@ -222,25 +258,254 @@ name, and route keys whose `harness-provider` shortcut names would collide.
   `agent dsh deepseek -- --version` (Infisical injection, exit 0). A live
   DeepSeek session stays unverified until the account balance allows it.
 
+## OMP Worker harness (replaces the Pi slot)
+
+OMP (Oh My Pi) is the Worker harness. It is installed by pc-setup, not by
+this repository: **OMP 18.16.0** from the `mise` tool `oh-my-pi`
+(`github:can1357/oh-my-pi`, bins `["omp"]`), added by pc-setup PR #158. That
+PR leaves the native Pi binary installed so rollback and native `pi` use do
+not require a reinstall.
+
+### Launch contract
+
+Every `agent omp <provider>` route produces this shape (the launcher adds
+the route's harness arguments after `--`):
+
+```text
+omp --provider <omp_id> --model <model>
+    [--smol <omp_id>/<model> --slow <omp_id>/<model> --plan <omp_id>/<model>]
+    --tools read,bash,edit,write
+    --no-lsp --no-pty --no-title
+    --trusted-extension <absolute path to script/omp-destructive-guard.ts>
+    --config <absolute path to script/omp-worker-overlay.yml>
+    [--trusted-extension ~/.omp/agent/extensions/herdr-omp-agent-state.ts]
+```
+
+- `--smol`, `--slow` and `--plan` are added only for `require_infisical`
+  routes (currently `omp.opencode-go`). They pin the smol/slow/plan roles to
+  the same route selector, so an ambient or stored role setting cannot
+  redirect a Worker session.
+- `--models` is **not** passed. OMP documents it as
+  "comma-separated model patterns for Ctrl+P cycling"; it is not a
+  allowlist and does not constrain which model can run. The explicit
+  `--model` plus the TOML allowlist does that.
+- The launcher never generates `--auto-approve`, `--approval-mode` or
+  `--api-key`; `--api-key` is also rejected in the harness-argument
+  passthrough. `--auto-approve`/`--approval-mode` are OMP's own flags and are
+  not filtered from arguments an operator deliberately places after `--`; the
+  trusted destructive-guard extension still runs on every `bash` tool call.
+- For the `omp` adapter, the passthrough additionally rejects
+  `--profile`, `--config`, `--cwd`, `--smol`, `--slow`, `--plan`, `--prewalk`,
+  `--prewalk-into`, `--plan-yolo`, `--plan-yolo-into`, `--trusted-extension`,
+  `--extension`, `-e`, `--hook`, `--advisor`, `--tools` and `--models`.
+  The first three would move the auth/config source after the launcher's
+  checks (a profile, an overlay, or a different cwd's `.omp` config and
+  `.env`); the launcher's own `--config` is the tool-surface overlay, and a
+  user overlay would apply after it and re-place its `disabledProviders`
+  array; `--smol` … `--plan-yolo-into` would re-point or implicitly switch
+  the pinned model roles; `--trusted-extension`/`--extension`/`-e`/`--hook`
+  would load an extra module, and a module can register a credential/model
+  fallback outside the guard (the launcher names every trusted module);
+  `--advisor` would enable the advisor runtime even when config says
+  `advisor.enabled: false`; a later `--tools` replaces the launcher's
+  `--tools read,bash,edit,write` list (OMP keeps the last occurrence); and
+  `--models` feeds unvalidated ids to Ctrl+P cycling. The list is
+  adapter-scoped: other harnesses are unaffected.
+- The guard path is resolved at plan time next to the launcher. A missing
+  `script/omp-destructive-guard.ts` makes the launcher exit 1 before a
+  harness starts; it never runs OMP without the guard.
+- Every OMP route assigns `OMP_SKIP_SETUP=1` to the child environment. On a
+  fresh machine, OMP's first interactive launch would otherwise block on its
+  setup wizard before the Worker can accept a Herdr prompt. The launcher's
+  flags already define the Worker slot, so onboarding choices must not be
+  made implicitly. `omp setup` remains available explicitly outside the
+  launcher for first-run configuration.
+
+### Tool and approval boundary
+
+The former Pi Worker slot exposed `read`, `bash`, `edit` and `write` only.
+`--tools read,bash,edit,write` reproduces that surface and removes OMP's
+`task` (sub-agents), `web`, `browser`, `python` and `todo` tools.
+`--no-lsp --no-pty --no-title` remove further ambient capabilities.
+
+`--tools` only filters OMP's **built-in** tools; MCP servers are mounted
+independently in OMP 18.16.0 (no `--no-mcp` flag exists, and
+`enableMCP`/`restrictToolNames` are SDK-only options). Observed on
+2026-11-04: before the overlay, a launcher session listed **36 tools** —
+the four built-ins plus 32 `chrome-devtools` MCP tools from the account's
+Claude Code plugin `chrome-devtools-mcp@claude-plugins-official`. The
+admitting path was OMP's `agent-plugins` discovery provider: it reads the
+Claude plugin registry without the `enabledProviders` foreign-source opt-in
+that gates `claude`/`claude-plugins`, and the plugin ships an
+Agent-Plugins-standard root, which the legacy providers skip. The launcher
+therefore resolves `script/omp-worker-overlay.yml` next to itself (exit 1
+if missing, like the guard) and passes it with `--config`. The overlay sets
+`disabledProviders: [agent-plugins, claude, claude-plugins]` —
+`disabledProviders` wins over `enabledProviders`, so no user or project
+settings layer can re-enable them for a launcher session — plus
+`mcp.enableProjectConfig: false` for project-scoped MCP config. After the
+overlay the same probe returns exactly `read`, `bash`, `edit`, `write`
+(verified 2026-11-04). Residual: the overlay does not disable OMP's native
+user MCP config (`~/.omp/agent/mcp.json`, the `builtin` discovery provider),
+which is empty on this machine; OMP 18.16.0 has no per-run switch that
+disables MCP mounting outright.
+
+OMP's `tools.approvalMode` defaults to **`yolo`**, and its built-in bash
+critical-pattern override is ignored in that mode. The ported
+`omp-destructive-guard.ts` extension is therefore the permission boundary,
+not a convenience check. It runs on OMP's `tool_call` hook for the `bash`
+tool and blocks (returns `{ block: true, reason }`) when a command segment
+matches:
+
+- `rm` with recursive + force (`rm -rf`, `rm -fr`, `rm -r -f`, including
+  after `sudo`, `&&`, `;`, `|`, or inside a subshell);
+- `git push --force` / `--force-with-lease`, `git push -f`,
+  `git push --delete`, and `+ref:dst` force refspecs;
+- `git reset --hard`;
+- `git clean` forced (`-f`) unless `-n` / `--dry-run` is also present;
+- `git checkout -f`, `git checkout --`, `git checkout .` (and `./`/`../`
+  paths);
+- `git restore` unless `--staged` is present (`--worktree` always blocked);
+- `git branch -D`, and `--delete` combined with `--force`;
+- `git tag -d` / `--delete`;
+- `git stash drop` / `clear`.
+
+The rule list mirrors `~/.claude/hooks/destructive-guard.ts` and the native
+Pi copy; it is intentionally narrow. Two short-form gaps are inherited from
+that shared rule set and are **not** closed by this migration: `git push -d`
+(remote ref deletion; the long `--delete` form is blocked) and
+`git branch -d -f` (`-D` and long forms are blocked). They are recorded as a
+follow-up so all copies change together rather than only the OMP port. The
+guard is not an OS sandbox and does not cover every destructive command. It
+is the boundary for the Worker slot
+because OMP's own approval mode does not enforce one in `yolo`.
+
+### `--trusted-extension` and Herdr
+
+`--trusted-extension` is repeatable in OMP 18.16.0, hidden from `--help`,
+and aborts startup if a module is missing or cannot be parsed. The launcher
+relies on that fail-closed behavior, and additionally resolves the guard path
+itself so a missing file is reported as a launcher error before spawn.
+
+Loading a trusted extension **disables ambient extension discovery**. OMP
+therefore loads exactly the modules the launcher names. When the launcher
+runs inside Herdr, it requires and passes Herdr's integration explicitly.
+"Inside Herdr" matches OMP's own detection: `HERDR_ENV=1` or any of
+`HERDR_PANE_ID`, `HERDR_TAB_ID`, `HERDR_WORKSPACE_ID`:
+
+```text
+~/.omp/agent/extensions/herdr-omp-agent-state.ts
+```
+
+Install it with `herdr integration install omp` (verified current
+integration v10). Inside Herdr a missing integration exits 1 with that
+instruction; outside Herdr only the destructive guard is trusted.
+
+### Deterministic model selection
+
+- The model comes from `--model`, the route default, or the provider default,
+  and is validated against the route/provider model list before any process
+  starts. An unlisted id exits 2.
+- `--provider <omp_id>` and `--model <id>` are always explicit, so OMP does
+  not choose from its own catalog.
+- On `require_infisical` routes, `--smol/--slow/--plan` pin the same
+  selector.
+- No fallback is configured on **any** omp route: OMP
+  `retry.modelFallback` may default to true, but a non-empty
+  `retry.fallbackChains` is rejected, and `advisor.enabled: true` and
+  `contextPromotion.enabled: true` are rejected too. This implicit-switch
+  check runs at plan time for every `omp` route before a process starts and,
+  on `require_infisical` routes, again immediately before spawn — it is a
+  model-pinning boundary, run alongside (not as part of) the
+  `require_infisical` credential check below.
+
+### Credential-source guard (`require_infisical` only)
+
+OMP's credential ladder is, highest first:
+
+1. runtime `--api-key`;
+2. `models.yml` `providers.<id>.apiKey`;
+3. stored OAuth;
+4. stored login API key;
+5. extension config fallback;
+6. environment / `.env`;
+7. another stored key.
+
+For an Infisical-backed route the launcher's process-scoped environment must
+be authoritative, so `guardOmpCredentialSource()` rejects the local file/env
+sources it can inspect that could outrank it. It runs **only** on routes with
+`require_infisical = true` (today `omp.opencode-go`); the other OMP routes
+keep the normal provider-credential behavior.
+
+The guard fails closed (exit 1, before OMP starts) when any of the following
+is true:
+
+- **Profile or relocated directory**: any of `OMP_PROFILE`, `PI_PROFILE`,
+  `PI_CONFIG_DIR`, `OMP_CONFIG_DIR`, `PI_CODING_AGENT_DIR`,
+  `OMP_CODING_AGENT_DIR` is defined in the ambient environment (even as an
+  empty value) or assigned in one of OMP's dotenv layers: project cwd
+  `.env`, `~/.omp/agent/.env`, `~/.omp/.env`, `~/.env`. The guard always
+  inspects `~/.omp/agent`; a relocated directory is rejected rather than
+  followed. A dotenv assignment of `XDG_DATA_HOME` is rejected the same way:
+  OMP would relocate `agent.db` there while the launcher follows only the
+  ambient `XDG_DATA_HOME` (an ambient value is followed, not rejected).
+- **Auth broker**: `OMP_AUTH_BROKER_URL` in the ambient environment or any
+  dotenv layer, or a non-empty `auth.broker.url` (nested or the flat
+  `auth.broker.url` key) in `~/.omp/agent/config.yml` or `config.yaml`.
+- **Provider override**: a `providers.<route-provider>` entry in
+  `~/.omp/agent/models.yml`, `models.yaml`, or the legacy `models.json`.
+  Entries for other providers are allowed.
+- **Stored credential**: an active row (`disabled_cause IS NULL`) for the
+  route's provider in the `auth_credentials` table of
+  `~/.omp/agent/agent.db`, or of `$XDG_DATA_HOME/omp/agent.db` when the
+  `$XDG_DATA_HOME/omp` directory already exists. Disabled rows are ignored,
+  matching OMP's behavior.
+
+Only a missing file (`ENOENT`) proves "no override". A dotenv, YAML, JSON or
+SQLite store that is unreadable, invalid, or not a mapping makes the guard
+fail closed, because the credential source cannot be verified. Nothing is
+edited, moved or deleted, and no secret value is printed.
+
+The credential check runs **twice**: before secret fetch (fail fast) and
+again inside the `script/with-secrets` child immediately before spawn
+(`--omp-guard-id` / `--omp-guard-env`). This narrows the window where a
+concurrent writer could add `agent.db` or `models.yml`, but it is not atomic
+with OMP's own read. Do not edit `~/.omp` while an Infisical-backed OMP route
+is launching. The implicit-switch check (previous section) runs at plan
+time on every omp route, and on `require_infisical` routes it is re-checked
+immediately before spawn alongside this credential check.
+
+Known residual risks are stated in ADR-0014: an extension can register a
+config fallback (`keys.setConfig(..., { fallback: true })`) that this
+file-based guard does not inspect, and internal helper roles the user
+configures (for example an advisor or subagent role with its own model) are
+outside the guard. The explicit `--smol/--slow/--plan` pinning is the
+defense-in-depth stop for the latter.
+
 ## Credential handling (no leakage, no argv secrets)
 
 1. **Fast path**: for a normal route, if the harness `env` name or the
    Infisical `secret` name is already present, no secret is fetched
-   (`script/with-secrets` is not invoked).
-2. **`require_infisical` routes** (`opencode-go`) never take the fast path.
-   The launcher always runs the with-secrets stage, and **removes the route's
-   credential names from the wrapper's environment first**. Only Infisical can
-   supply them; a missing Infisical value fails instead of reusing a stale
-   shell value. This is stronger than "prefer Infisical over env".
+   (`script/with-secrets` is not invoked). The OMP credential-source guard
+   does not run on these routes; it is scoped to `require_infisical`.
+2. **`require_infisical` routes** (`opencode-go`, including
+   `omp.opencode-go`) never take the fast path. The launcher always runs the
+   with-secrets stage, and **removes the route's credential names from the
+   wrapper's environment first**. Only Infisical can supply them; a missing
+   Infisical value fails instead of reusing a stale shell value. This is
+   stronger than "prefer Infisical over env".
 3. Otherwise the launcher re-executes itself *inside* the existing
    `script/with-secrets` (self-hosted Infisical project binding, environment
    `dev`), which injects the whole dev secret set.
-4. The in-wrapper stage then filters the environment before `exec`:
+4. The in-wrapper stage then filters the environment before spawn:
    - variables injected by Infisical that the route did not select are
      dropped (baseline diff),
    - every credential name declared in the config (including legacy ones
      such as `MINIMAX_TOKEN_PLAN_KEY`) is dropped unless the route needs it,
-   - `defaults.drop_env` names never reach the child,
+   - `defaults.drop_env` names never reach the child; this includes the
+     OMP model-role selectors `PI_SMOL_MODEL`, `PI_SLOW_MODEL` and
+     `PI_PLAN_MODEL`; on the Infisical-backed OMP route, profile/relocation
+     variables are rejected by the OMP guard rather than silently dropped,
    - only then are the adapter's `ANTHROPIC_*` values derived — secret
      values are referenced by *name* inside the child stage and are never
      placed in argv, files or logs.
@@ -258,7 +523,11 @@ Infisical value fails instead of using it.
 | route | harness | default model | endpoint | credential |
 | --- | --- | --- | --- | --- |
 | `claude.opencode-go` | Claude Code | `deepseek-v4.1-flash` | `https://opencode.ai/inference/go/anthropic` (`ANTHROPIC_BASE_URL`) | Infisical `OPENCODE_API_KEY` as `ANTHROPIC_AUTH_TOKEN` |
-| `pi.opencode-go` | Pi | `mimo-v2.6-flash` | Pi's native `opencode-go` provider (`https://opencode.ai/zen/go/v1`) | Infisical `OPENCODE_API_KEY` as `OPENCODE_API_KEY` |
+| `omp.opencode-go` | OMP | `mimo-v2.6-flash` | OMP's native `opencode-go` provider (`https://opencode.ai/inference/go/v1`; legacy `/zen/go`) | Infisical `OPENCODE_API_KEY` as `OPENCODE_API_KEY` |
+
+The `omp.opencode-go` model list also contains `deepseek-v4.1-flash`, so
+`--model deepseek-v4.1-flash` is valid; the pinned `--smol/--slow/--plan`
+selectors follow whichever model is resolved.
 
 - **There are no per-product keys.** The same account/workspace key
   (`OPENCODE_API_KEY`) serves Zen and Go. The **endpoint** and the workspace's
@@ -268,10 +537,11 @@ Infisical value fails instead of using it.
 - **What the launcher does guarantee** (`require_infisical = true`): the
   credential always comes from Infisical. The ambient `OPENCODE_API_KEY` is
   removed from the wrapper's environment before Infisical runs, so a stale
-  shell value cannot be used; a missing Infisical value exits 1. Pi's local
-  `auth.json`/`models.json` cannot override the credential or endpoint (see
-  below). No runtime model selection and no fallback to Zen, pay-as-you-go or
-  another model/provider.
+  shell value cannot be used; a missing Infisical value exits 1. OMP's local
+  `models.yml`/`models.yaml`/`models.json` and stored credential cannot
+  override the credential, endpoint or provider (see the credential-source
+  guard above). No runtime model selection and no fallback to Zen,
+  pay-as-you-go or another model/provider.
 - **Claude Code: verified.** On 2026-11-01, with an ambient bogus
   `OPENCODE_API_KEY` set, `agent claude opencode-go` ignored it, used the
   Infisical key, and returned `GO_CLAUDE_OK` from a Bash tool call with
@@ -279,15 +549,13 @@ Infisical value fails instead of using it.
   the custom model id (200k assumed context) but sends `ANTHROPIC_BASE_URL` /
   `ANTHROPIC_AUTH_TOKEN` unchanged. Go recognizes Claude Code's native session
   header.
-- **Pi: verified with the new distribution.** `agent pi opencode-go` returned
-  `GO_PI_OK` from a Bash tool call with Pi **1.4.0** on 2026-11-01. Pi moved
-  its npm package on 2026-05-07 from `@mariozechner/pi-coding-agent` to
-  `@earendil-works/pi-coding-agent`; the old 0.73.1 does not send
-  `x-opencode-session` and gets HTTP 400. 1.4.0 sends the real per-conversation
-  session id (the session log contains a fresh UUID), and reuses the existing
-  `~/.pi/agent` auth/settings/sessions/extensions. No manual `models.json`
-  header is needed. `pc-setup` must select the new package
-  (`mise.global.toml`/`.lock`) before this route works.
+- **OMP: verified 2026-11-04.** `agent omp opencode-go` returned a real
+  response and completed a bash tool call with `mimo-v2.6-flash` on OMP
+  18.16.0. This route uses OMP's native provider endpoint
+  (`https://opencode.ai/inference/go/v1`), not the Anthropic-compatible
+  endpoint used by Claude Code. The former Pi Worker route (Pi 1.4.0,
+  `@earendil-works/pi-coding-agent`, verified 2026-11-01) is no longer
+  configured; ADR-0014 records the migration.
 - **Go billing proof (2026-11-01).** Direct probes with the Infisical key
   (never in argv) returned `usage.cost = 0` and
   `opencode.billing_source = "go"` on both endpoints:
@@ -296,23 +564,6 @@ Infisical value fails instead of using it.
   (`allowance` 5.85e-06). This confirms the Go allowance, not pay-as-you-go,
   for both. Extra Usage OFF should still be confirmed in the Console because
   the launcher cannot read that setting.
-- **Pi auth precedence (fail closed).** Pi resolves credentials as
-  CLI `--api-key` > `auth.json` > env > `models.json` provider keys, and
-  `models.json` can override a provider's `baseUrl`/`api`. `agent pi
-  opencode-go` therefore reads `$PI_CODING_AGENT_DIR` (or `~/.pi/agent`)
-  before launch and **exits 1** if `auth.json` has an `opencode-go` entry or
-  `models.json` defines an `opencode-go` provider. It never edits or deletes
-  those files; other providers' entries are unaffected. Only a missing file
-  (`ENOENT`) counts as "no override"; an unreadable or invalid file fails
-  closed because the credential source cannot be proven. Only
-  `require_infisical` routes get this guard, so existing Pi routes keep their
-  previous behaviour. The check runs **twice**: before fetching secrets (fail
-  fast) and again inside the with-secrets stage immediately before spawning Pi
-  (`--pi-guard-id`). This closes the window where `auth.json`/`models.json`
-  changes between the first check and the launch, but it is not atomic with
-  Pi's own read: a concurrent writer can still race in the final instant.
-  The launcher does not lock Pi's config, so do not edit `~/.pi/agent` while a
-  Go route is launching.
 - **Claude Code existing login.** OpenCode's docs advise `/logout` first when
   Claude Code is signed in. In the tested version (2.1.314) the injected
   `ANTHROPIC_BASE_URL`/`ANTHROPIC_AUTH_TOKEN` took precedence: with a real
@@ -320,7 +571,8 @@ Infisical value fails instead of using it.
   printed that "another auth source ... takes precedence over your claude.ai
   login". This was re-confirmed on the Go route (Claude Code succeeded with
   the same login present). If a future version changes precedence, treat the
-  route as blocked rather than logging the user out automatically.
+  route as blocked rather than logging the user out automatically. This is
+  a Claude Code adapter property and is unaffected by the Pi→OMP migration.
 - **Privacy prerequisite.** DeepSeek V4.1 Flash (and V4 Pro) require
   **Settings › Privacy › Regions = Global** in the Go workspace
   (owner/admin). Without it the request is rejected; the launcher must not
@@ -341,14 +593,14 @@ Real verification (cheap prompts, no unattended loops):
 # Claude Code: verified 2026-11-01
 agent claude opencode-go -- -p 'Use the Bash tool to run: echo GO_CLAUDE_OK'
 
-# Pi: verified 2026-11-01 with @earendil-works/pi-coding-agent 1.4.0
-agent pi opencode-go -- -p 'Use the bash tool to run: echo GO_PI_OK'
+# OMP Worker: verified 2026-11-04 (OMP 18.16.0)
+agent omp opencode-go -- -p 'Use the bash tool to run: echo OMP_GO_OK'
 ```
 
 For Claude, `/status` inside a session shows the base URL; the Console shows
-the model and allowance counters. With the old Pi 0.73.1 package the same Pi
-call returns HTTP 400 (`x-opencode-session` missing); update the package via
-`pc-setup` instead of adding a manual header.
+the model and allowance counters. The OMP route uses the native OMP provider
+catalog; do not add a manual `models.yml` endpoint override — the credential
+guard rejects it before launch.
 
 ## OpenRouter free: one fixed model (no automatic selection)
 
@@ -362,15 +614,21 @@ paid — exits 2 before a process starts.
 
 Current id: `nvidia/nemotron-3-ultra-550b-a55b:free`.
 
-Verified on 2026-11-01 (macOS, real calls through the launcher, Infisical
-`OPENROUTER_API_KEY`):
+The OMP route addresses OpenRouter through its native provider id
+`openrouter` (`omp_id = "openrouter"`); the `openrouter-free` launcher route
+key is routing only and never reaches OMP. `agent omp openrouter-free` starts
+OMP with `--provider openrouter --model nvidia/nemotron-3-ultra-550b-a55b:free`.
+
+Verified on 2026-11-01 and 2026-11-04 (macOS, real calls through the
+launcher, Infisical `OPENROUTER_API_KEY`):
 
 - public `/api/v1/models`: `pricing.prompt = "0"`, `pricing.completion = "0"`,
   `tools` supported, no expiry;
 - Claude Code 2.1.314: `-p` answer + Bash tool call (`ROUTE_OK`) succeeded;
-- Pi 1.4.0 (`@earendil-works/pi-coding-agent`): `-p` answer + bash tool call
-  (`PI_FREE_OK`) succeeded;
-- OpenCode 2.2.3: `run` answer + bash tool call (`OC_ROUTE_OK`) succeeded.
+- OpenCode 2.2.3: `run` answer + bash tool call (`OC_ROUTE_OK`) succeeded;
+- OMP 18.16.0: `-p` answer + bash tool call (`OMP_FREE_OK`) succeeded on
+  2026-11-04. (The former Pi worker had also passed on 2026-11-01; that route
+  is retired.)
 
 Not verified: Windows/WSL real calls, long sessions, rate-limit behaviour, and
 whether those ids remain free (re-check before relying on them). Free-tier
@@ -387,16 +645,17 @@ not an active code path.
 
 | harness \ provider | zen | opencode-go | openrouter | openrouter-free | deepseek | minimax |
 | --- | --- | --- | --- | --- | --- | --- |
-| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound: pi got `403 … only … within OpenCode`) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
-| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this PR adds only the two required routes) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
-| pi | — (free tier refused outside OpenCode) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; requires Pi >= 1.4.0 from `@earendil-works`; **real response + tool call verified 2026-11-01**) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`pi_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, default `MiniMax-M3.1-Flash` (official ID; verify real M Plan response and catalog behavior) |
+| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
+| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this launcher does not add the route) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
+| omp | — (`omp.zen` is not configured; OMP knows `opencode-zen` natively, but the Worker slot does not use it) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; `require_infisical` + credential-source guard; **real response + tool call verified 2026-11-04**) | yes, default `z-ai/glm-5.3-flash` (**no live E2E recorded in this migration**) | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`omp_id = "openrouter"`; live E2E 2026-11-04) | yes, default `deepseek-flash`; `--model deepseek-v4-pro` is also accepted by the configured provider list. Live call reached the provider but the account returned **HTTP 402 Insufficient Balance** on 2026-11-04, so response/tool success is **unverified**; no fallback | yes, default `MiniMax-M3.1-Flash`; other configured ids including `MiniMax-M3` are selectable. Live call reached the provider but the M Plan account returned **HTTP 429 Token Plan limit** on 2026-11-04, so response/tool success is **unverified**; no fallback |
 | dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
 
-Not covered on purpose: `opencode.opencode-go` (possible follow-up; the two
-required Go routes are the scope), `opencode`/`pi` on other providers, paid
-zen models (add them to the TOML deliberately), any automatic fallback
-between models or providers, and any second model on an `openrouter-free`
-route (the free allowlist is a single id — an unlisted id fails closed).
+Not covered on purpose: `omp.zen` (the Worker slot uses OMP's native
+`opencode-go`, `openrouter`, `deepseek` and `minimax` providers only),
+`opencode.opencode-go` (possible follow-up), paid zen models (add them to the
+TOML deliberately), any automatic fallback between models or providers, and
+any second model on an `openrouter-free` route (the free allowlist is a
+single id — an unlisted id fails closed).
 
 **The static allowlist is not a price or availability guarantee.** It only
 prevents the launcher from selecting a different id. If OpenRouter later
@@ -420,42 +679,65 @@ launcher never creates or rotates API keys.
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (40 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (54 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
   credential as the paid provider), OpenCode Go defaults/endpoint/auth-token
   mapping, `require_infisical` behavior (ambient key stripped before the
   wrapper, missing Infisical value fails even with an ambient key, zen keeps
-  its fast path), Pi `auth.json`/`models.json` override guard
-  (`PI_CODING_AGENT_DIR` honored, unrelated providers allowed, invalid JSON
-  and non-ENOENT read errors fail closed), pre-spawn re-check
-  (concurrent auth.json creation stops before spawn), secret filtering both ways,
-  forbidden passthrough flags, shortcut equivalence/args/`--agent-model`/
-  unknown names/link management, native commands staying unwrapped, config
+  its fast path), OMP route argv/tool surface (`--tools read,bash,edit,write`,
+  `--no-lsp`, `--no-pty`, `--no-title`, guard path under
+  `--trusted-extension`, `--config script/omp-worker-overlay.yml` with its
+  `disabledProviders`/`mcp.enableProjectConfig` content, `OMP_SKIP_SETUP=1`, no
+  `--models`/approval/credential flags), OMP
+  credential-source guard (profile/relocation, four dotenv layers incl.
+  the rejected dotenv `XDG_DATA_HOME`, auth broker,
+  models.yml/yaml/json, stored
+  auth_credentials rows, disabled rows, corrupt store), implicit-switch
+  guard on every omp route (fallback chain/advisor/context promotion,
+  including `omp.openrouter-free`), pre-spawn re-check
+  (concurrent agent.db/models.yml/fallback-chain creation stops before
+  spawn), Herdr
+  extension allowlist and fail-closed behavior, destructive-guard rule
+  table, `agent pi` migration hint and stale `pi-*` shortcut retirement
+  hint, secret filtering both ways, forbidden
+  passthrough flags, shortcut equivalence/args/`--agent-model`/unknown
+  names/link management, native commands staying unwrapped, config
   validation failures) plus `agent check`, `agent shortcuts` and
   `bun script/agent.ts …` smoke runs in CI.
 - **Real machine E2E**: recorded in the PR/issue after running a cheap
   prompt per combination (`agent <harness> <provider> -- -p '…'`); combos
   run only in the mock tier stay marked unverified here. OpenRouter-free was
-  live-tested on 2026-11-01. OpenCode Go/Claude Code and OpenCode Go/Pi
-  (Pi 1.4.0) were live-tested the same day (response + tool call).
+  live-tested on 2026-11-01 and again with OMP on 2026-11-04. OpenCode Go/
+  Claude Code was live-tested on 2026-11-01; OpenCode Go/OMP was live-tested
+  on 2026-11-04 (response + tool call). The tool-surface probe
+  (`… -- -p --no-session --mode json 'List the exact names of every tool …'`)
+  listed 36 tools before the overlay and exactly `read`, `bash`, `edit`,
+  `write` after it, both on 2026-11-04. DeepSeek and MiniMax OMP calls
+  reached the provider but were rejected by the account (402/429); success
+  remains unverified. The destructive probe was blocked by the guard, and no
+  deletion occurred.
 
 Verification status per platform (implementation is identical; what
 differs is which entry-point layer was exercised on a real machine):
 
 | platform | launcher + config + secrets | shortcut symlink form | interactive TUI start | PowerShell entry / `.cmd` |
 | --- | --- | --- | --- | --- |
-| macOS | verified (real routes) | verified (`ps` name recovery) | verified | n/a |
+| macOS | verified (real routes; OMP Go/free E2E 2026-11-04) | verified (`ps` name recovery) | verified | n/a |
 | WSL/Linux | unverified on a real machine yet (post-merge step) | unverified (`/proc/self/cmdline` path not yet exercised) | unverified | n/a |
 | Windows native | CI-verified only (windows-latest job: batch-shim argv/injection/`%`+`"` rejection, `.cmd` shortcut create+exec, `with-secrets.ps1` workspaceId/API-URL pinning) | n/a (`.cmd` used instead) | unverified (no real machine) | CI-verified (PowerShell 7 on windows-latest); real machine (2026-10-17, PowerShell 7.6): `agent.ps1 list/check`, `with-secrets.ps1` injection and `bun test script/agent.windows.test.ts` verified; **shortcut creation and interactive harness start still unverified** |
 
-The OpenCode Go routes add no new entry-point or injection layer, so they
-inherit the platform status above. Claude Code/Go and Pi/Go (Pi 1.4.0) were
-live-tested on macOS on 2026-11-01. Windows/WSL real Go calls remain
-unverified.
+The OMP Worker migration was exercised on macOS only. Windows native and
+WSL/Linux real OMP route calls, `--trusted-extension` loading, Herdr
+integration and the destructive guard remain **unverified on those
+platforms**. The launcher code path is shared, but platform-specific loading,
+path resolution and batch/PowerShell behavior are not proven by the macOS
+runs.
 
-## Installation and migration (replaces the draft mise tasks)
+## Installation and migration
+
+### Install/update the launcher
 
 The draft PR #46 approach — ten per-combination global mise tasks in
 `~/.config/mise/conf.d/agent-routes.toml` — is replaced by this launcher.
@@ -473,19 +755,110 @@ agent shortcuts check             # verify (also useful in script/check runs)
 # (it is gone from home/) and re-run script/link / script/check
 ```
 
+OMP itself is a pc-setup responsibility, not a dotfiles link. Verify the
+installed tool before relying on the Worker routes:
+
+```bash
+mise ls | grep oh-my-pi          # expect github:can1357/oh-my-pi 18.16.0
+omp --version                    # expect 18.16.0 (after a global version is set)
+# or, without a global shim version:
+mise exec github:can1357/oh-my-pi@18.16.0 -- omp --version
+test -f script/omp-destructive-guard.ts   # launcher fails closed if missing
+```
+
+`omp` must be on `PATH` when a route runs; the launcher reports
+`harness not found: omp` otherwise. pc-setup PR #158 adds the mise tool and
+leaves native Pi installed. Managed OMP routes set `OMP_SKIP_SETUP=1`, so a
+fresh machine's first interactive launch does not block on OMP's setup
+wizard; run `omp setup` directly if you want that onboarding outside the
+launcher.
+
 On Windows (PowerShell, no Bash/WSL/Python): run
 `& <checkout>\script\agent.ps1 check`, and `agent.ps1 shortcuts create`
 generates the `.cmd` entry points into `~/.local/bin` (add it to `PATH`).
 
 The bare `agent` command on Windows is `script\agent.cmd`, a thin wrapper over
-`script/agent.ts` usable from cmd.exe and PowerShell. Register it with
-`pwsh script\agent-entrypoint.ps1 install` (creates a managed `agent.cmd` shim in
-`~/.local/bin`; `check` and `remove` also exist). The script never edits `PATH`
-and never overwrites or removes another `agent` (for example Grok Build's
-`~/.grok/bin/agent.exe`). It verifies that both `Get-Command agent` and
-`where.exe agent` resolve to the shim, and exits 1 naming the shadowing path
-otherwise, so a name collision is never reported as success. Resolve it by
-placing `~/.local/bin` before the shadowing directory on `PATH` yourself.
+`script\agent.ts` usable from cmd.exe and PowerShell. Register it with
+`pwsh script\agent-entrypoint.ps1 install` (creates a managed `agent.cmd` shim
+in `~/.local/bin`; `check` and `remove` also exist). The script never edits
+`PATH` and never overwrites or removes another `agent` (for example Grok
+Build's `~/.grok/bin/agent.exe`). It verifies that both `Get-Command agent`
+and `where.exe agent` resolve to the shim, and exits 1 naming the shadowing
+path otherwise, so a name collision is never reported as success. Resolve it
+by placing `~/.local/bin` before the shadowing directory on `PATH` yourself.
+
+### Migrating from the Pi Worker slot
+
+The migration changes the harness key (`pi` → `omp`), the route keys
+(`pi.*` → `omp.*`) and the shortcut names (`pi-*` → `omp-*`). Do not keep
+both sets of routes alive: `omp` owns the Worker slot, and ADR-0014 records
+that rollback is a revert rather than dual maintenance.
+
+```bash
+cd ~/.dotfiles
+git pull --ff-only
+./script/link && ./script/check
+agent check
+agent list                       # omp.* routes; no pi.* routes
+agent shortcuts create
+agent shortcuts check
+
+# Remove the retired Pi short commands. `agent shortcuts remove` only sees
+# current route names, so these stale links must be removed by hand.
+rm ~/.local/bin/pi-deepseek ~/.local/bin/pi-minimax \
+   ~/.local/bin/pi-opencode-go ~/.local/bin/pi-openrouter \
+   ~/.local/bin/pi-openrouter-free
+```
+
+On Windows the shortcuts are `.cmd` entry points instead; remove the same
+five files from `$HOME\.local\bin` (already-removed files are skipped):
+
+```powershell
+Remove-Item "$HOME\.local\bin\pi-deepseek.cmd", "$HOME\.local\bin\pi-minimax.cmd", `
+  "$HOME\.local\bin\pi-opencode-go.cmd", "$HOME\.local\bin\pi-openrouter.cmd", `
+  "$HOME\.local\bin\pi-openrouter-free.cmd" -ErrorAction SilentlyContinue
+```
+
+If a stale `pi-*` link is invoked before removal, it fails closed (exit 2)
+with the retirement error above, names the corresponding `omp-*` command,
+and never starts a harness or fetches a credential. `agent pi …` itself also
+exits 2 with the explicit `the Pi Worker slot moved to OMP` hint. The native
+`pi` binary remains available directly (outside `agent`) for rollback and
+native use.
+
+If you use Herdr, install its OMP integration once:
+`herdr integration install omp`. Inside a Herdr pane (`HERDR_ENV=1` or a
+`HERDR_PANE_ID`/`HERDR_TAB_ID`/`HERDR_WORKSPACE_ID` variable) the launcher
+requires the extension at
+`~/.omp/agent/extensions/herdr-omp-agent-state.ts` and exits 1 with that
+instruction if it is absent.
+
+### Rollback to the Pi route
+
+Rollback is a repository revert; there is no OMP/Pi dual configuration to
+maintain. Run `agent shortcuts remove` **before** reverting so the current
+launcher removes the shortcut links it owns (including `omp-*`):
+
+```bash
+cd ~/.dotfiles
+agent shortcuts remove            # current launcher: removes omp-* links
+git revert <the Pi→OMP migration commit(s)>
+# if remove was not run first, delete leftover omp-* links manually:
+# rm ~/.local/bin/omp-deepseek ~/.local/bin/omp-minimax \
+#    ~/.local/bin/omp-opencode-go ~/.local/bin/omp-openrouter \
+#    ~/.local/bin/omp-openrouter-free
+./script/link && ./script/check
+agent check
+agent list                        # pi.* routes restored
+agent shortcuts create
+agent shortcuts check
+```
+
+Native Pi was never removed by this migration, so rollback needs no
+reinstall. The revert restores ADR-0012's Pi route behavior, including the
+Pi-local `auth.json`/`models.json` guard; OMP's guard and Herdr allowlist
+disappear with the reverted launcher. A leftover `omp-*` symlink after the
+revert fails closed as an unknown shortcut and must be removed manually.
 
 - `AGENT_MODEL=… mise run agent:…` → `agent <harness> <provider> --model …`.
 - `script/agent/mimo` and `script/agent/minimax` stay as explicit,
@@ -494,10 +867,10 @@ placing `~/.local/bin` before the shadowing directory on `PATH` yourself.
   (issue #104); project-init profiles describe the launcher instead of mise
   tasks (issue #100).
 
-Rollback: the launcher itself keeps no state — native CLI config, provider
-accounts, billing and shell rc files are never modified — so undoing it is a
-repository-level operation. `script/link` only creates or updates links and
-**never deletes them**, so the shim has to be removed explicitly:
+Rollback of the launcher itself (without specifically restoring Pi) keeps no
+state — native CLI config, provider accounts, billing and shell rc files are
+never modified. `script/link` only creates or updates links and **never
+deletes them**, so the shim has to be removed explicitly:
 
 ```bash
 cd ~/.dotfiles
@@ -529,6 +902,9 @@ was: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`,
   `OPENCODE_API_KEY`; the Go endpoint and the workspace subscription select
   the allowance. The launcher still forces the value to come from Infisical
   (`require_infisical`) so a stale ambient key cannot be used.
+- The OMP credential-source guard reads local OMP config/dotenv/auth files to
+  reject overrides. It never edits, moves or deletes them, and it never prints
+  a secret value.
 - Legacy/untouched names that are deliberately filtered out of every child:
   `MINIMAX_TOKEN_PLAN_KEY`, `MIMO_API_KEY`.
 
@@ -540,7 +916,17 @@ bun test script/agent.test.ts          # mock harness + mock Infisical wrapper (
 bun test script/agent.windows.test.ts  # Windows layers (runs on windows CI only)
 bun test script/agent.entrypoint.windows.test.ts  # native `agent` entry point (windows only)
 ./script/test && ./script/check-secrets
+./script/test-workflow
 ```
+
+The POSIX suite includes the OMP-specific cases: route argv and tool surface,
+the launcher-owned `--config` tool-surface overlay (argv and
+`disabledProviders` content), credential-source guard (profile, dotenv,
+broker, models
+overrides, stored credentials, corrupt store), the implicit-switch guard on
+every omp route (free route included), pre-spawn re-check, Herdr
+extension allowlist, destructive-guard rules, and the `agent pi` migration
+hint. It also asserts that no `pi.*` route and no `omp.zen` route exists.
 
 CI installs Bun (pinned `oven-sh/setup-bun`) and runs the config
 validation plus the mock suite on every pull request; a second
