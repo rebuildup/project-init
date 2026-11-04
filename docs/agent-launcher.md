@@ -51,7 +51,7 @@ The Worker slot is `omp` (Oh My Pi). It replaces the former `pi` harness and
 its `pi.*` routes; `omp` is not a fifth harness alongside a retained Pi
 harness. Claude Code remains the Supervisor in its existing `claude.*` routes;
 the OMP migration does not change the Supervisor contract. See
-[ADR-0013](adr/ADR-0013.md).
+[ADR-0014](adr/ADR-0014.md).
 
 Non-goals: per-combination mise tasks (the draft approach this replaces),
 an implicit `claude()` override, cross-provider auth migration, any
@@ -439,7 +439,7 @@ concurrent writer could add `agent.db` or `models.yml`, but it is not atomic
 with OMP's own read. Do not edit `~/.omp` while an Infisical-backed OMP route
 is launching.
 
-Known residual risks are stated in ADR-0013: an extension can register a
+Known residual risks are stated in ADR-0014: an extension can register a
 config fallback (`keys.setConfig(..., { fallback: true })`) that this
 file-based guard does not inspect, and internal helper roles the user
 configures (for example an advisor or subagent role with its own model) are
@@ -519,7 +519,7 @@ selectors follow whichever model is resolved.
   (`https://opencode.ai/inference/go/v1`), not the Anthropic-compatible
   endpoint used by Claude Code. The former Pi Worker route (Pi 1.4.0,
   `@earendil-works/pi-coding-agent`, verified 2026-11-01) is no longer
-  configured; ADR-0013 records the migration.
+  configured; ADR-0014 records the migration.
 - **Go billing proof (2026-11-01).** Direct probes with the Infisical key
   (never in argv) returned `usage.cost = 0` and
   `opencode.billing_source = "go"` on both endpoints:
@@ -747,7 +747,7 @@ by placing `~/.local/bin` before the shadowing directory on `PATH` yourself.
 
 The migration changes the harness key (`pi` → `omp`), the route keys
 (`pi.*` → `omp.*`) and the shortcut names (`pi-*` → `omp-*`). Do not keep
-both sets of routes alive: `omp` owns the Worker slot, and ADR-0013 records
+both sets of routes alive: `omp` owns the Worker slot, and ADR-0014 records
 that rollback is a revert rather than dual maintenance.
 
 ```bash

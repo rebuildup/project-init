@@ -1,7 +1,7 @@
 # Pi → Oh My Pi (OMP) Worker migration: harness comparison
 
 Research date: 2026-11-04 JST. Issue: rebuildup/dotfiles#80.
-Related: [ADR-0013](../adr/ADR-0013.md).
+Related: [ADR-0014](../adr/ADR-0014.md).
 
 This record documents what was measured before and after moving the Worker slot
 from Pi to OMP. It separates **measured** results from provider-claim and
