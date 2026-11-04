@@ -1480,8 +1480,10 @@ function ompAuthDbPaths(): string[] {
  *
  * This runs at plan time for EVERY omp route: agents.toml forbids implicit
  * model fallback on all routes, so it is a model-pinning boundary rather than
- * a credential-trust one (those checks stay require_infisical-only). It runs
- * before secret fetch; the pre-spawn recheck is credential-source only.
+ * a credential-trust one (those checks stay require_infisical-only). On
+ * require_infisical routes the cmdExec pre-spawn recheck runs it again
+ * alongside guardOmpCredentialSource, so those routes get plan-time plus
+ * immediately-before-spawn coverage.
  */
 function guardOmpImplicitSwitch(providerId: string): void {
   const agentDir = ompAgentDir();
@@ -1946,7 +1948,10 @@ function cmdExec(argv: string[]): Promise<number> {
     }
     // Re-check immediately before spawn: OMP config/dotenv/auth files may
     // have changed after the pre-fetch check (TOCTOU). Still not atomic with
-    // OMP's own read, but the window is reduced to the final exec.
+    // OMP's own read, but the window is reduced to the final exec. The
+    // omp_guard flags exist only on require_infisical routes, so the
+    // implicit-switch recheck is too; other omp routes check at plan time.
+    guardOmpImplicitSwitch(ompGuardId);
     guardOmpCredentialSource(ompGuardId, ompGuardEnv);
   }
   const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, drop, baseline };

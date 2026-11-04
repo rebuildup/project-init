@@ -114,6 +114,13 @@ const FAKE_WITH_SECRETS_MUTATES_OMP_MODELS = FAKE_WITH_SECRETS.replace(
   'mkdir -p "${HOME}/.omp/agent"\nprintf \'providers:\\n  opencode-go:\\n    apiKey: concurrent\\n\' > "${HOME}/.omp/agent/models.yml"\nexport FAKE_INFISICAL_INJECTED=yes',
 );
 
+// Writes a fallback chain during the with-secrets stage, after the plan-time
+// implicit-switch check: the pre-spawn recheck must stop OMP before spawn.
+const FAKE_WITH_SECRETS_MUTATES_OMP_CONFIG = FAKE_WITH_SECRETS.replace(
+  "export FAKE_INFISICAL_INJECTED=yes",
+  'mkdir -p "${HOME}/.omp/agent"\nprintf \'retry:\\n  fallbackChains:\\n    default:\\n      - openrouter/concurrent-paid\\n\' > "${HOME}/.omp/agent/config.yml"\nexport FAKE_INFISICAL_INJECTED=yes',
+);
+
 // The schema OMP 18.16.0 creates for its auth store (bun:sqlite fixture).
 const OMP_AUTH_SCHEMA = `
 CREATE TABLE auth_credentials (
@@ -1324,6 +1331,22 @@ test(
       !existsSync(fixture.out),
       "omp must not start when models.yml appears after the first check",
     );
+
+    // Same race for the implicit-switch config: a fallback chain written
+    // after the plan-time check must be caught by the pre-spawn recheck
+    // (require_infisical routes keep plan-time + before-spawn coverage).
+    unlinkSync(join(fixture.tmp, ".omp", "agent", "models.yml"));
+    fixture.writeWrapper(FAKE_WITH_SECRETS_MUTATES_OMP_CONFIG);
+    const configRace = fixture.run(["omp", "opencode-go"], { config: REAL_CONFIG });
+    check(configRace.exitCode === 1, `expected exit 1, got ${configRace.exitCode}`);
+    check(
+      configRace.stderr.toString().includes("retry.fallbackChains"),
+      configRace.stderr.toString(),
+    );
+    check(
+      !existsSync(fixture.out),
+      "omp must not start when a fallback chain appears after the plan-time check",
+    );
   }),
 );
 
@@ -1985,22 +2008,6 @@ test(
       [["omp", "openrouter", "--", "--cwd", "/tmp"], "--cwd"],
       [["omp", "openrouter", "--", "--smol", "openrouter/x"], "--smol"],
       [["omp", "opencode-go", "--", "--prewalk"], "--prewalk"],
-      // Extra extension loading: a module can register a credential/model
-      // fallback outside the guard (F3/A2), and the launcher names every
-      // trusted module itself.
-      [["omp", "openrouter", "--", "--trusted-extension", "/tmp/x.ts"], "--trusted-extension"],
-      [["omp", "openrouter", "--", "--extension", "/tmp/x.ts"], "--extension"],
-      [["omp", "openrouter", "--", "-e", "/tmp/x.ts"], "-e"],
-      [["omp", "openrouter", "--", "--hook", "/tmp/x.ts"], "--hook"],
-      // The CLI flag enables the advisor runtime even when config says
-      // advisor.enabled: false (A4).
-      [["omp", "openrouter", "--", "--advisor"], "--advisor"],
-      // A later --tools replaces the launcher's Worker list (last-wins), so
-      // it must not reach OMP (A1).
-      [["omp", "openrouter", "--", "--tools", "read,bash,edit,write,web"], "--tools"],
-      // Unvalidated model ids for Ctrl+P cycling bypass the route allowlist
-      // (A5).
-      [["omp", "openrouter-free", "--", "--models", "openrouter/anthropic/claude"], "--models"],
     ];
     for (const [args, needle] of cases) {
       const result = fixture.run(args, { config: REAL_CONFIG });
@@ -2016,6 +2023,36 @@ test(
       config: REAL_CONFIG,
     });
     check(claude.exitCode === 0, claude.stderr.toString());
+  }),
+);
+
+test(
+  "test_omp_extension_and_boundary_passthru_flags",
+  withFixture((fixture) => {
+    // Flags rejected only for the omp adapter: extra extension loading (a
+    // module can register a credential/model fallback outside the guard),
+    // the advisor override, a replacing --tools, and unvalidated cycling ids.
+    const cases: Array<[string[], string]> = [
+      [["omp", "openrouter", "--", "--trusted-extension", "/tmp/x.ts"], "--trusted-extension"],
+      [["omp", "openrouter", "--", "--extension", "/tmp/x.ts"], "--extension"],
+      [["omp", "openrouter", "--", "-e", "/tmp/x.ts"], "-e"],
+      [["omp", "openrouter", "--", "--hook", "/tmp/x.ts"], "--hook"],
+      [["omp", "openrouter", "--", "--advisor"], "--advisor"],
+      [["omp", "openrouter", "--", "--tools", "read,bash,edit,write,web"], "--tools"],
+      [["omp", "openrouter-free", "--", "--models", "openrouter/anthropic/claude"], "--models"],
+    ];
+    for (const [args, needle] of cases) {
+      const result = fixture.run(args, { config: REAL_CONFIG });
+      check(
+        result.exitCode === 2,
+        `${args.join(" ")} -> ${result.exitCode}: ${result.stderr.toString()}`,
+      );
+      check(
+        result.stderr.toString().includes(needle),
+        `${args.join(" ")}: ${result.stderr.toString()}`,
+      );
+    }
+    check(!existsSync(fixture.marker), "credentials must not be fetched");
   }),
 );
 

@@ -389,9 +389,10 @@ instruction; outside Herdr only the destructive guard is trusted.
   `retry.modelFallback` may default to true, but a non-empty
   `retry.fallbackChains` is rejected, and `advisor.enabled: true` and
   `contextPromotion.enabled: true` are rejected too. This implicit-switch
-  check runs at plan time for every `omp` route before a process starts —
-  it is a model-pinning boundary, not part of the `require_infisical`
-  credential check below.
+  check runs at plan time for every `omp` route before a process starts and,
+  on `require_infisical` routes, again immediately before spawn — it is a
+  model-pinning boundary, run alongside (not as part of) the
+  `require_infisical` credential check below.
 
 ### Credential-source guard (`require_infisical` only)
 
@@ -445,8 +446,9 @@ again inside the `script/with-secrets` child immediately before spawn
 (`--omp-guard-id` / `--omp-guard-env`). This narrows the window where a
 concurrent writer could add `agent.db` or `models.yml`, but it is not atomic
 with OMP's own read. Do not edit `~/.omp` while an Infisical-backed OMP route
-is launching. The implicit-switch check (previous section) runs once, at
-plan time, on every omp route; it is not part of the pre-spawn recheck.
+is launching. The implicit-switch check (previous section) runs at plan
+time on every omp route, and on `require_infisical` routes it is re-checked
+immediately before spawn alongside this credential check.
 
 Known residual risks are stated in ADR-0014: an extension can register a
 config fallback (`keys.setConfig(..., { fallback: true })`) that this
@@ -669,7 +671,8 @@ criteria:
   auth_credentials rows, disabled rows, corrupt store), implicit-switch
   guard on every omp route (fallback chain/advisor/context promotion,
   including `omp.openrouter-free`), pre-spawn re-check
-  (concurrent agent.db/models.yml creation stops before spawn), Herdr
+  (concurrent agent.db/models.yml/fallback-chain creation stops before
+  spawn), Herdr
   extension allowlist and fail-closed behavior, destructive-guard rule
   table, `agent pi` migration hint and stale `pi-*` shortcut retirement
   hint, secret filtering both ways, forbidden
