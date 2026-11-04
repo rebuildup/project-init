@@ -1102,6 +1102,27 @@ test(
     check(home.exitCode === 1, `expected exit 1, got ${home.exitCode}`);
     check(home.stderr.toString().includes("OMP_CONFIG_DIR"), home.stderr.toString());
     unlinkSync(homeEnv);
+
+    // A dotenv XDG_DATA_HOME relocates `agent.db` for OMP, but the
+    // launcher's ompAuthDbPaths() follows only the ambient process.env
+    // value, so the stored-credential check would inspect the wrong store.
+    // The assignment must be rejected (F5).
+    writeFileSync(homeEnv, "XDG_DATA_HOME=/tmp/elsewhere-data\n");
+    const xdg = fixture.run(["omp", "opencode-go"], { config: REAL_CONFIG });
+    check(xdg.exitCode === 1, `expected exit 1, got ${xdg.exitCode}`);
+    check(xdg.stderr.toString().includes("XDG_DATA_HOME"), xdg.stderr.toString());
+    check(xdg.stderr.toString().includes(homeEnv), xdg.stderr.toString());
+    check(!existsSync(fixture.out), "dotenv XDG_DATA_HOME must not start the harness");
+    check(!existsSync(fixture.marker), "credentials must not be fetched first");
+    unlinkSync(homeEnv);
+
+    // An ambient XDG_DATA_HOME is already followed by ompAuthDbPaths and
+    // stays allowed (the relocated store does not exist in the fixture).
+    const ambient = fixture.run(["omp", "opencode-go"], {
+      env: { XDG_DATA_HOME: join(fixture.tmp, "xdg-data") },
+      config: REAL_CONFIG,
+    });
+    check(ambient.exitCode === 0, ambient.stderr.toString());
   }),
 );
 
@@ -1215,6 +1236,44 @@ test(
     // No config at all is the default and stays allowed (other tests).
     const plain = fixture.run(["omp", "opencode-go"], { config: REAL_CONFIG });
     check(plain.exitCode === 0, plain.stderr.toString());
+  }),
+);
+
+test(
+  "test_omp_openrouter_free_implicit_switch_guard",
+  withFixture((fixture) => {
+    // The implicit-switch check is a model-pinning boundary for EVERY omp
+    // route, not only require_infisical: agents.toml forbids implicit model
+    // fallback on all routes, so a user fallback chain on the free route
+    // must fail closed before it can move a rate-limited free request to a
+    // paid model.
+    const configPath = fixture.writeOmpConfig(
+      "config.yml",
+      "retry:\n  modelFallback: true\n  fallbackChains:\n    default:\n      - openrouter/anthropic/claude-x\n",
+    );
+    const blocked = fixture.run(["omp", "openrouter-free"], { config: REAL_CONFIG });
+    check(
+      blocked.exitCode === 1,
+      `expected exit 1, got ${blocked.exitCode}: ${blocked.stderr.toString()}`,
+    );
+    check(blocked.stderr.toString().includes(configPath), blocked.stderr.toString());
+    check(blocked.stderr.toString().includes("retry.fallbackChains"), blocked.stderr.toString());
+    check(!existsSync(fixture.marker), "credentials must not be fetched first");
+    check(!existsSync(fixture.out), "free route must not start with a fallback chain");
+
+    // The advisor override is rejected on the free route too.
+    writeFileSync(configPath, "advisor:\n  enabled: true\n");
+    const advisor = fixture.run(["omp", "openrouter-free"], { config: REAL_CONFIG });
+    check(
+      advisor.exitCode === 1,
+      `expected exit 1, got ${advisor.exitCode}: ${advisor.stderr.toString()}`,
+    );
+    check(advisor.stderr.toString().includes("advisor.enabled"), advisor.stderr.toString());
+
+    // Without a chain the free route still passes.
+    unlinkSync(configPath);
+    const ok = fixture.run(["omp", "openrouter-free"], { config: REAL_CONFIG });
+    check(ok.exitCode === 0, ok.stderr.toString());
   }),
 );
 
@@ -1926,6 +1985,22 @@ test(
       [["omp", "openrouter", "--", "--cwd", "/tmp"], "--cwd"],
       [["omp", "openrouter", "--", "--smol", "openrouter/x"], "--smol"],
       [["omp", "opencode-go", "--", "--prewalk"], "--prewalk"],
+      // Extra extension loading: a module can register a credential/model
+      // fallback outside the guard (F3/A2), and the launcher names every
+      // trusted module itself.
+      [["omp", "openrouter", "--", "--trusted-extension", "/tmp/x.ts"], "--trusted-extension"],
+      [["omp", "openrouter", "--", "--extension", "/tmp/x.ts"], "--extension"],
+      [["omp", "openrouter", "--", "-e", "/tmp/x.ts"], "-e"],
+      [["omp", "openrouter", "--", "--hook", "/tmp/x.ts"], "--hook"],
+      // The CLI flag enables the advisor runtime even when config says
+      // advisor.enabled: false (A4).
+      [["omp", "openrouter", "--", "--advisor"], "--advisor"],
+      // A later --tools replaces the launcher's Worker list (last-wins), so
+      // it must not reach OMP (A1).
+      [["omp", "openrouter", "--", "--tools", "read,bash,edit,write,web"], "--tools"],
+      // Unvalidated model ids for Ctrl+P cycling bypass the route allowlist
+      // (A5).
+      [["omp", "openrouter-free", "--", "--models", "openrouter/anthropic/claude"], "--models"],
     ];
     for (const [args, needle] of cases) {
       const result = fixture.run(args, { config: REAL_CONFIG });

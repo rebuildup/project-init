@@ -927,6 +927,13 @@ const OMP_FORBIDDEN_PASSTHRU: Record<string, string> = {
   "--prewalk-into": "prewalk switches to another model automatically; implicit switching is unsupported",
   "--plan-yolo": "plan-yolo changes the model and auto-approves the plan; the launcher does not imply either",
   "--plan-yolo-into": "plan-yolo changes the model and auto-approves the plan; the launcher does not imply either",
+  "--trusted-extension": "the launcher names every trusted module; an extra module can register a credential/model fallback outside the guard",
+  "--extension": "an extra extension can register a credential/model fallback outside the guard and change routing mid-session",
+  "-e": "an extra extension can register a credential/model fallback outside the guard and change routing mid-session",
+  "--hook": "an extra hook/extension can register a credential/model fallback outside the guard and change routing mid-session",
+  "--advisor": "the launcher rejects advisor.enabled: true in config; the CLI flag must not enable the advisor runtime anyway",
+  "--tools": "the Worker tool surface is fixed at read,bash,edit,write; a later --tools replaces the launcher's list (last-wins)",
+  "--models": "the launcher validates the route model; --models feeds unvalidated ids to Ctrl+P cycling",
 };
 
 function checkPassthru(passthru: string[], harness: Harness): void {
@@ -1242,6 +1249,14 @@ function planOmp(plan: Plan, harness: Harness, provider: Provider, model: string
   const selector = `${provider.omp_id}/${model}`;
   const guardPath = ompDestructiveGuardPath();
 
+  // Model-pinning boundary for EVERY omp route, not just require_infisical:
+  // agents.toml forbids implicit model fallback on all routes, so
+  // omp.openrouter-free must fail closed on a user fallback chain that could
+  // move a rate-limited free request to a paid model. The credential-source
+  // checks below (dotenv/profile, broker, models.*, stored credentials) stay
+  // require_infisical-only.
+  guardOmpImplicitSwitch(provider.omp_id);
+
   const args: string[] = [
     "--provider", provider.omp_id,
     "--model", model,
@@ -1454,6 +1469,49 @@ function ompAuthDbPaths(): string[] {
 }
 
 /**
+ * Reject config that can switch the pinned model/provider implicitly: retry
+ * fallback chains (modelFallback is true by default, so a non-empty chain is
+ * the switch), the Advisor runtime, and context promotion. An absent retry
+ * block or `fallbackChains: {}` stays allowed. Legacy global settings.json is
+ * included because OMP migrates it at startup, after this check would
+ * otherwise have inspected the config files. Project config.yaml is
+ * deliberately not checked: OMP reads it only under the global agent
+ * directory; the project compatibility spelling is config.yml.
+ *
+ * This runs at plan time for EVERY omp route: agents.toml forbids implicit
+ * model fallback on all routes, so it is a model-pinning boundary rather than
+ * a credential-trust one (those checks stay require_infisical-only). It runs
+ * before secret fetch; the pre-spawn recheck is credential-source only.
+ */
+function guardOmpImplicitSwitch(providerId: string): void {
+  const agentDir = ompAgentDir();
+  const switchConfigs: Array<{ path: string; label: string; format: "yaml" | "json" }> = [
+    { path: join(agentDir, "config.yml"), label: "config.yml", format: "yaml" },
+    { path: join(agentDir, "config.yaml"), label: "config.yaml", format: "yaml" },
+    { path: join(agentDir, "settings.json"), label: "settings.json", format: "json" },
+    { path: join(process.cwd(), ".omp", "config.yml"), label: ".omp/config.yml", format: "yaml" },
+    {
+      path: join(process.cwd(), ".omp", "settings.json"),
+      label: ".omp/settings.json",
+      format: "json",
+    },
+  ];
+  for (const file of switchConfigs) {
+    const config = readOmpMapping(file.path, file.label, file.format);
+    if (config === null) continue;
+    const risk = ompImplicitSwitchRisk(config);
+    if (risk !== null) {
+      throw new AgentError(
+        `OMP ${file.label} (${file.path}) enables an implicit model switch for ` +
+          `the '${providerId}' OMP route: ${risk}. Remove that setting or run ` +
+          "native `omp`.",
+        EXIT_RUNTIME
+      );
+    }
+  }
+}
+
+/**
  * OMP credential ladder: runtime override > models.yml apiKey > stored OAuth >
  * stored login key > extension fallback > environment > other stored key.
  * For a `require_infisical` route the launcher's process-scoped env must be
@@ -1497,6 +1555,23 @@ function guardOmpCredentialSource(providerId: string, envName: string): void {
     }
   }
 
+  // A2. Reject a dotenv XDG_DATA_HOME: OMP would relocate `agent.db` there,
+  // but ompAuthDbPaths() follows only the ambient process.env value, so the
+  // stored-credential check below would inspect the wrong store and a stored
+  // credential could outrank the Infisical key. An ambient (process.env)
+  // XDG_DATA_HOME is already followed by ompAuthDbPaths and stays allowed.
+  for (const file of dotenv) {
+    if (file.names.has("XDG_DATA_HOME")) {
+      throw new AgentError(
+        `OMP XDG_DATA_HOME is assigned in ${file.path} for the Infisical-backed ` +
+          `'${envName}' route: it would relocate agent.db away from the store the ` +
+          "launcher verifies. Unset it (or remove the .env entry) or run native " +
+          "`omp`.",
+        EXIT_RUNTIME
+      );
+    }
+  }
+
   // B. Reject an auth broker: it replaces the local store and resolves
   // credentials outside the injected env.
   if ("OMP_AUTH_BROKER_URL" in process.env) {
@@ -1525,39 +1600,6 @@ function guardOmpCredentialSource(providerId: string, envName: string): void {
         `OMP ${name} configures auth.broker.url (${path}) for the ` +
           `Infisical-backed '${envName}' route; remove the broker setting or run ` +
           "native `omp`.",
-        EXIT_RUNTIME
-      );
-    }
-  }
-
-  // B2. Reject config that can switch the pinned model/provider implicitly:
-  // retry fallback chains (modelFallback is true by default, so a non-empty
-  // chain is the switch), the Advisor runtime, and context promotion. An
-  // absent retry block or `fallbackChains: {}` stays allowed. Legacy global
-  // settings.json is included because OMP migrates it at startup, after this
-  // guard would otherwise have inspected the config files. Project config.yaml
-  // is deliberately not checked: OMP reads it only under the global agent
-  // directory; the project compatibility spelling is config.yml.
-  const switchConfigs: Array<{ path: string; label: string; format: "yaml" | "json" }> = [
-    { path: join(agentDir, "config.yml"), label: "config.yml", format: "yaml" },
-    { path: join(agentDir, "config.yaml"), label: "config.yaml", format: "yaml" },
-    { path: join(agentDir, "settings.json"), label: "settings.json", format: "json" },
-    { path: join(process.cwd(), ".omp", "config.yml"), label: ".omp/config.yml", format: "yaml" },
-    {
-      path: join(process.cwd(), ".omp", "settings.json"),
-      label: ".omp/settings.json",
-      format: "json",
-    },
-  ];
-  for (const file of switchConfigs) {
-    const config = readOmpMapping(file.path, file.label, file.format);
-    if (config === null) continue;
-    const risk = ompImplicitSwitchRisk(config);
-    if (risk !== null) {
-      throw new AgentError(
-        `OMP ${file.label} (${file.path}) enables an implicit model switch for ` +
-          `the Infisical-backed '${envName}' route: ${risk}. Remove that setting ` +
-          "or run native `omp`.",
         EXIT_RUNTIME
       );
     }
