@@ -32,10 +32,11 @@
  * resolved against config/agents.toml. They are provided as symlinks to
  * this script (Unix) or generated .cmd entry points (Windows); the invoked
  * name is recovered from the kernel-level argv because Bun resolves
- * symlinked argv[1]. Native `claude`/`opencode`/`pi`/`dsh` are never
+ * symlinked argv[1]. Native `claude`/`opencode`/`omp`/`dsh` are never
  * wrapped or overridden.
  */
 
+import { Database } from "bun:sqlite";
 import { basename, delimiter, dirname, join } from "node:path";
 import {
   accessSync,
@@ -55,7 +56,7 @@ const PROGRAM = "agent";
 const EXIT_USAGE = 2;
 const EXIT_RUNTIME = 1;
 
-const ADAPTERS = ["anthropic", "opencode", "pi", "passthrough"];
+const ADAPTERS = ["anthropic", "opencode", "omp", "passthrough"];
 
 // argv-safe assign marker handled inside the child stage: only the model id
 // crosses argv, the surrounding config is merged from the environment.
@@ -109,7 +110,7 @@ shortcut form:
 native mode (provider omitted):
   \`agent <harness>\` runs the harness natively: the environment is passed
   through untouched — no endpoint, no model and no credential injection
-  (Claude Code uses its subscription login, opencode/pi their own account).
+  (Claude Code uses its subscription login, opencode/omp their own account).
   A leading flag or '--' passes harness arguments:
     agent claude -p "say ok"
     agent opencode -- run "explain this repo"
@@ -132,9 +133,9 @@ examples:
   agent opencode zen -- run "explain this repo"
   agent claude deepseek -- -p "say ok"
   agent claude opencode-go -- -p "say ok"   # Go plan, default DeepSeek V4.1 Flash
-  agent pi opencode-go -- -p "hello"        # Go plan, default MiMo V2.6 Flash
+  agent omp opencode-go -- -p "hello"       # Go plan, default MiMo V2.6 Flash
   agent claude minimax -- -p "say ok"   # default MiniMax-M3.1-Flash (--model overrides)
-  agent pi openrouter -- -p "hello"
+  agent omp openrouter -- -p "hello"
   agent dsh deepseek -- web
   agent claude -p "say ok"              # native: subscription login, no injection
   agent dsh -- web                      # native dsh (args after '--')
@@ -163,10 +164,10 @@ interface Provider {
   require_model: boolean;
   models: string[];
   opencode_id: string;
-  pi_id: string;
+  omp_id: string;
   // Always source the credential from `secret` (Infisical): the ambient env
   // value is removed before the with-secrets stage, a missing Infisical value
-  // fails, and Pi-local auth/model overrides are rejected. See
+  // fails, and OMP-local auth/model overrides are rejected. See
   // config/agents.toml [providers.opencode-go].
   require_infisical: boolean;
 }
@@ -207,8 +208,8 @@ interface Plan {
   require_cred: Array<[string, string]>;
   // always inject this route's credential from Infisical (no ambient fast path)
   require_infisical: boolean;
-  // Pi credential/endpoint override guard, re-checked immediately before spawn
-  pi_guard: { providerId: string; envName: string } | null;
+  // OMP credential/endpoint override guard, re-checked immediately before spawn
+  omp_guard: { providerId: string; envName: string } | null;
   drop: string[];
   baseline: string[] | null; // null = current process env
 }
@@ -336,7 +337,7 @@ function loadConfig(path?: string): Config {
       require_model,
       models,
       opencode_id: optionalStr(table, "opencode_id", where) || key,
-      pi_id: optionalStr(table, "pi_id", where) || key,
+      omp_id: optionalStr(table, "omp_id", where) || key,
       require_infisical,
     };
   }
@@ -565,6 +566,16 @@ function shortcutMap(config: Config): Record<string, string> {
 function resolveShortcut(config: Config, name: string): [string, string] {
   const routeKey = shortcutMap(config)[name];
   if (!routeKey) {
+    if (name.startsWith("pi-")) {
+      // Stale links from the retired Pi Worker slot still point at this
+      // launcher. Name the replacement and the exact path to remove; the
+      // launcher never deletes a link it did not create in this generation.
+      throw new AgentError(
+        `'${name}' is a retired Pi Worker shortcut; the slot moved to OMP. ` +
+          `Use '${name.replace(/^pi-/, "omp-")}' after 'agent shortcuts create', ` +
+          `and remove the stale link if present: rm ${join(binDir(), name)}`
+      );
+    }
     const known = Object.keys(shortcutMap(config)).sort().join(", ");
     throw new AgentError(
       `unknown shortcut '${name}'; shortcuts exist for these routes: ${known}\n` +
@@ -900,12 +911,34 @@ const FORBIDDEN_PASSTHRU: Record<string, string> = {
   "--fallback-model": "automatic model fallback is intentionally unsupported",
 };
 
+// OMP reads its credential/config ladder from files and env that the launcher
+// verifies before starting. These flags would move that source after the check
+// (or re-point the model roles), so they are rejected for the omp adapter.
+// The same flag spellings are harmless or meaningful to other harnesses, so
+// the list is adapter-scoped.
+const OMP_FORBIDDEN_PASSTHRU: Record<string, string> = {
+  "--profile": "profiles relocate OMP's auth/config dir; the launcher verifies only the default profile",
+  "--config": "an extra config overlay is outside the launcher's credential-source check",
+  "--cwd": "changing cwd changes the project .omp config and .env that OMP reads",
+  "--smol": "the launcher pins this model role to the route model",
+  "--slow": "the launcher pins this model role to the route model",
+  "--plan": "the launcher pins this model role to the route model",
+  "--prewalk": "prewalk switches to another model automatically; implicit switching is unsupported",
+  "--prewalk-into": "prewalk switches to another model automatically; implicit switching is unsupported",
+  "--plan-yolo": "plan-yolo changes the model and auto-approves the plan; the launcher does not imply either",
+  "--plan-yolo-into": "plan-yolo changes the model and auto-approves the plan; the launcher does not imply either",
+};
+
 function checkPassthru(passthru: string[], harness: Harness): void {
+  const forbidden =
+    harness.adapter === "omp"
+      ? { ...FORBIDDEN_PASSTHRU, ...OMP_FORBIDDEN_PASSTHRU }
+      : FORBIDDEN_PASSTHRU;
   for (const token of passthru) {
     // Match `--flag` and `--flag=value` forms alike so an inline value
     // cannot smuggle a forbidden selector past this filter.
     const flag = token.startsWith("-") ? token.split("=", 1)[0] : token;
-    const reason = FORBIDDEN_PASSTHRU[flag];
+    const reason = forbidden[flag];
     if (reason) {
       throw new AgentError(
         `harness argument '${token}' is not allowed for adapter '${harness.adapter}': ${reason}`
@@ -1067,7 +1100,7 @@ function buildPlan(
     assign: [],
     require_cred,
     require_infisical: provider.require_infisical,
-    pi_guard: null,
+    omp_guard: null,
     drop: [...new Set([...config.drop_env, ...providerCreds])].sort(),
     baseline: null,
   };
@@ -1076,8 +1109,8 @@ function buildPlan(
     planAnthropic(plan, harness, provider, route, model);
   } else if (harness.adapter === "opencode") {
     planOpencode(plan, harness, provider, model);
-  } else if (harness.adapter === "pi") {
-    planPi(plan, harness, provider, model);
+  } else if (harness.adapter === "omp") {
+    planOmp(plan, harness, provider, model);
   } else if (harness.adapter === "passthrough") {
     // Model selection stays native for passthrough harnesses; --model is
     // rejected in cmdRun before we get here.
@@ -1156,98 +1189,436 @@ function planOpencode(plan: Plan, harness: Harness, provider: Provider, model: s
   plan.command = [plan.command[0], "--standalone", ...passthru];
 }
 
-function planPi(plan: Plan, harness: Harness, provider: Provider, model: string | null): void {
-  if (model === null) {
-    throw new AgentError("resolved no model for adapter pi");
+const OMP_DESTRUCTIVE_GUARD = "omp-destructive-guard.ts";
+const OMP_WORKER_TOOLS = "read,bash,edit,write";
+
+/** Absolute real path of the destructive guard shipped next to this launcher.
+ * It is loaded with --trusted-extension, which aborts when loading fails, so
+ * a missing file must fail before a process starts. */
+function ompDestructiveGuardPath(): string {
+  const candidate = join(import.meta.dir, OMP_DESTRUCTIVE_GUARD);
+  try {
+    return realpathSync(candidate);
+  } catch {
+    throw new AgentError(
+      `missing OMP destructive guard: ${candidate}; refusing to start without ` +
+        "the Worker permission boundary",
+      EXIT_RUNTIME
+    );
   }
+}
+
+/** Herdr's OMP integration lives in the OMP agent extension directory.
+ * --trusted-extension disables ambient extension discovery, so it must be
+ * passed explicitly while the launcher runs inside Herdr. */
+function ompHerdrExtensionPath(): string {
+  const candidate = join(homedir(), ".omp", "agent", "extensions", "herdr-omp-agent-state.ts");
+  try {
+    return realpathSync(candidate);
+  } catch {
+    throw new AgentError(
+      `Herdr integration missing: ${candidate}; run 'herdr integration install omp' ` +
+        "or start the agent outside Herdr",
+      EXIT_RUNTIME
+    );
+  }
+}
+
+/** True when the launcher itself runs inside a Herdr pane. OMP treats any of
+ * its pane/tab/workspace variables as inside Herdr, not just HERDR_ENV. */
+function insideHerdr(): boolean {
+  return (
+    process.env.HERDR_ENV === "1" ||
+    Boolean(
+      process.env.HERDR_PANE_ID ||
+        process.env.HERDR_TAB_ID ||
+        process.env.HERDR_WORKSPACE_ID
+    )
+  );
+}
+
+function planOmp(plan: Plan, harness: Harness, provider: Provider, model: string | null): void {
+  if (model === null) throw new AgentError("resolved no model for adapter omp");
+  const selector = `${provider.omp_id}/${model}`;
+  const guardPath = ompDestructiveGuardPath();
+
+  const args: string[] = [
+    "--provider", provider.omp_id,
+    "--model", model,
+  ];
   if (provider.require_infisical) {
     const envName = provider.env || provider.secret;
     if (!envName) {
       throw new AgentError(`provider '${provider.key}' declares no credential env name`);
     }
-    guardPiCredentialSource(provider.pi_id, envName);
-    plan.pi_guard = { providerId: provider.pi_id, envName };
+    guardOmpCredentialSource(provider.omp_id, envName);
+    plan.omp_guard = { providerId: provider.omp_id, envName };
+    // Pin the model roles. --models only drives Ctrl+P cycling, so it is not
+    // a security allowlist and is intentionally not passed.
+    args.push(
+      "--smol", selector,
+      "--slow", selector,
+      "--plan", selector,
+    );
   }
-  plan.command = [harness.command, "--provider", provider.pi_id, "--model", model, ...plan.command.slice(1)];
+  // Worker tool parity with the former Pi slot: no task sub-agents, web,
+  // browser, python or todo tools. --trusted-extension disables ambient
+  // extension discovery; the destructive guard (and Herdr, when present) are
+  // the only extensions loaded.
+  args.push(
+    "--tools", OMP_WORKER_TOOLS,
+    "--no-lsp",
+    "--no-pty",
+    "--no-title",
+    "--trusted-extension", guardPath,
+  );
+  if (insideHerdr()) {
+    args.push("--trusted-extension", ompHerdrExtensionPath());
+  }
+  // A fresh machine's first interactive run otherwise blocks on OMP's setup
+  // wizard before the Worker can accept a Herdr prompt. The slot is fully
+  // configured by the launcher flags; onboarding choices must not be made
+  // implicitly. `omp setup` remains available explicitly outside the launcher.
+  plan.assign.push(["OMP_SKIP_SETUP", "1"]);
+  plan.command = [harness.command, ...args, ...plan.command.slice(1)];
 }
 
-function expandTildePath(path: string): string {
-  if (path === "~") return homedir();
-  if (path.startsWith("~/")) return join(homedir(), path.slice(2));
-  return path;
+const OMP_REJECTED_ENV_KEYS = [
+  "OMP_PROFILE",
+  "PI_PROFILE",
+  "PI_CONFIG_DIR",
+  "OMP_CONFIG_DIR",
+  "PI_CODING_AGENT_DIR",
+  "OMP_CODING_AGENT_DIR",
+];
+
+/** The default-profile OMP agent dir. A relocated dir is rejected, never
+ * followed: the guard must inspect the directory OMP actually reads. */
+function ompAgentDir(): string {
+  return join(homedir(), ".omp", "agent");
 }
 
-/** Pi's agent dir: $PI_CODING_AGENT_DIR or ~/.pi/agent (Pi 0.73 config.js). */
-function piAgentDir(): string {
-  const override = process.env.PI_CODING_AGENT_DIR;
-  return override ? expandTildePath(override) : join(homedir(), ".pi", "agent");
+/**
+ * Dotenv files OMP loads, in its own order: project cwd `.env`, active agent
+ * `.env`, config-root `.env`, home `.env`. OMP only fills keys absent from the
+ * process env and mirrors `OMP_*` to `PI_*` within each file, so any
+ * assignment is a conflict for an Infisical-backed route. Parsing is
+ * line-oriented and never evaluates or expands values.
+ */
+function readOmpDotenvAssignments(): Array<{ path: string; names: Set<string> }> {
+  const files: Array<{ path: string; names: Set<string> }> = [];
+  for (const path of [
+    join(process.cwd(), ".env"),
+    join(ompAgentDir(), ".env"),
+    join(homedir(), ".omp", ".env"),
+    join(homedir(), ".env"),
+  ]) {
+    let text: string;
+    try {
+      text = readFileSync(path, "utf8");
+    } catch (error) {
+      // Only ENOENT proves "no dotenv override". Any other error means the
+      // credential source cannot be verified, so the route must not start.
+      if ((error as NodeJS.ErrnoException)?.code === "ENOENT") continue;
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new AgentError(
+        `cannot read OMP dotenv file (${path}): ${detail}; refusing to start ` +
+          "because the credential source cannot be verified",
+        EXIT_RUNTIME
+      );
+    }
+    const names = new Set<string>();
+    for (const rawLine of text.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const match = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/.exec(line);
+      if (match) names.add(match[1]);
+    }
+    files.push({ path, names });
+  }
+  return files;
 }
 
-function readPiJsonObject(path: string, label: string): Record<string, unknown> | null {
+/**
+ * Read an OMP config/models file as a mapping. `null` means the file does not
+ * exist; empty content means an empty mapping; anything unreadable, invalid,
+ * or not a mapping fails closed (the override layer cannot be verified).
+ */
+function readOmpMapping(
+  path: string,
+  label: string,
+  format: "yaml" | "json"
+): Record<string, unknown> | null {
   let text: string;
   try {
     text = readFileSync(path, "utf8");
   } catch (error) {
-    // Only ENOENT proves "no Pi override". A permission/IO error means the
-    // credential source cannot be verified, so the route must not start.
     if ((error as NodeJS.ErrnoException)?.code === "ENOENT") return null;
     const detail = error instanceof Error ? error.message : String(error);
     throw new AgentError(
-      `cannot read Pi ${label} (${path}): ${detail}; refusing to start because ` +
+      `cannot read OMP ${label} (${path}): ${detail}; refusing to start because ` +
         "the credential source cannot be verified",
       EXIT_RUNTIME
     );
   }
+  if (text.trim() === "") return {};
   let parsed: unknown;
   try {
-    parsed = JSON.parse(text);
+    parsed = format === "yaml" ? Bun.YAML.parse(text) : JSON.parse(text);
   } catch {
     throw new AgentError(
-      `invalid JSON in Pi ${label} (${path}); refusing to start because the ` +
-        "credential source cannot be verified",
+      `invalid ${format.toUpperCase()} in OMP ${label} (${path}); refusing to start ` +
+        "because the credential source cannot be verified",
       EXIT_RUNTIME
     );
   }
+  if (parsed === null || parsed === undefined) return {};
   if (!isPlainObject(parsed)) {
     throw new AgentError(
-      `Pi ${label} (${path}) is not a JSON object; refusing to start because ` +
-        "the credential source cannot be verified",
+      `OMP ${label} (${path}) is not a mapping; refusing to start because the ` +
+        "credential source cannot be verified",
       EXIT_RUNTIME
     );
   }
   return parsed;
 }
 
+/** `auth.broker.url` as a nested key or a flat literal key, non-empty only. */
+function ompBrokerUrl(config: Record<string, unknown>): string | null {
+  const flat = config["auth.broker.url"];
+  if (typeof flat === "string" && flat.trim() !== "") return flat;
+  const auth = config["auth"];
+  if (isPlainObject(auth)) {
+    const broker = auth["broker"];
+    if (isPlainObject(broker)) {
+      const url = broker["url"];
+      if (typeof url === "string" && url.trim() !== "") return url;
+    }
+  }
+  return null;
+}
+
+function rejectOmpProviderOverride(
+  config: Record<string, unknown>,
+  path: string,
+  providerId: string,
+  envName: string
+): void {
+  const providers = config["providers"];
+  if (!isPlainObject(providers)) return;
+  if (!Object.prototype.hasOwnProperty.call(providers, providerId)) return;
+  throw new AgentError(
+    `OMP ${basename(path)} defines provider '${providerId}' (${path}), which can ` +
+      `override baseUrl/apiKey ahead of the injected ${envName}; remove that ` +
+      "provider entry or run native `omp`.",
+    EXIT_RUNTIME
+  );
+}
+
 /**
- * Pi resolves credentials in this order: CLI --api-key > auth.json > env >
- * models.json provider keys, and models.json can override a provider's
- * baseUrl/api. For `require_infisical` routes the launcher's process-scoped env
- * must be authoritative, so refuse to start when Pi has its own `opencode-go`
- * credential or provider override. Nothing is edited or deleted.
+ * Describe a setting that can move an Infisical-pinned session onto another
+ * model/provider, or enable a background runtime that does so. Only explicit
+ * opt-ins count: OMP's default `retry.modelFallback: true` with an empty
+ * `retry.fallbackChains` is safe, and `modelRoles` alone only renames roles
+ * (the launcher pins default/smol/slow/plan and the active model).
  */
-function guardPiCredentialSource(providerId: string, envName: string): void {
-  const dir = piAgentDir();
-  const authPath = join(dir, "auth.json");
-  const auth = readPiJsonObject(authPath, "auth.json");
-  if (auth && auth[providerId] !== undefined && auth[providerId] !== null) {
+function ompImplicitSwitchRisk(config: Record<string, unknown>): string | null {
+  const retry = config["retry"];
+  if (isPlainObject(retry)) {
+    const chains = retry["fallbackChains"];
+    if (isPlainObject(chains) && Object.keys(chains).length > 0) {
+      return `retry.fallbackChains declares ${Object.keys(chains).length} fallback chain(s)`;
+    }
+  }
+  const advisor = config["advisor"];
+  if (isPlainObject(advisor) && advisor["enabled"] === true) {
+    return "advisor.enabled is true";
+  }
+  const promotion = config["contextPromotion"];
+  if (isPlainObject(promotion) && promotion["enabled"] === true) {
+    return "contextPromotion.enabled is true";
+  }
+  return null;
+}
+
+/** Existing local OMP credential stores. XDG data relocates `agent.db` only
+ * when the corresponding `omp` directory already exists. */
+function ompAuthDbPaths(): string[] {
+  const paths = [join(ompAgentDir(), "agent.db")];
+  const xdgData = process.env.XDG_DATA_HOME;
+  if (xdgData) {
+    const base = join(xdgData, "omp");
+    if (existsSync(base)) paths.push(join(base, "agent.db"));
+  }
+  return paths;
+}
+
+/**
+ * OMP credential ladder: runtime override > models.yml apiKey > stored OAuth >
+ * stored login key > extension fallback > environment > other stored key.
+ * For a `require_infisical` route the launcher's process-scoped env must be
+ * authoritative, so refuse to start when OMP could resolve a profile/agent
+ * dir, a dotenv override, an auth broker, a models.* provider override, or a
+ * stored credential ahead of it. Nothing is edited or deleted and no secret
+ * value is printed.
+ *
+ * Known residual risk: an extension can register a config fallback
+ * (`keys.setConfig(..., { fallback: true })`) that this file-based guard does
+ * not inspect, and internal helper roles the user configures (for example an
+ * advisor or subagent role with its own model) are outside this guard. The
+ * explicit `--smol/--slow/--plan` pinning on the route is the
+ * defense-in-depth stop for those cases.
+ */
+function guardOmpCredentialSource(providerId: string, envName: string): void {
+  const dotenv = readOmpDotenvAssignments();
+  const agentDir = ompAgentDir();
+
+  // A. Reject relocated config/agent dir and profiles.
+  for (const key of OMP_REJECTED_ENV_KEYS) {
+    if (key in process.env) {
+      throw new AgentError(
+        `OMP ${key} is defined in the ambient environment for the ` +
+          `Infisical-backed '${envName}' route. Infisical-backed OMP routes ` +
+          "require the default OMP profile/agent directory; unset it (or remove " +
+          "the .env entry) or run native `omp`.",
+        EXIT_RUNTIME
+      );
+    }
+    for (const file of dotenv) {
+      if (file.names.has(key)) {
+        throw new AgentError(
+          `OMP ${key} is assigned in ${file.path} for the Infisical-backed ` +
+            `'${envName}' route. Infisical-backed OMP routes require the default ` +
+            "OMP profile/agent directory; unset it (or remove the .env entry) or " +
+            "run native `omp`.",
+          EXIT_RUNTIME
+        );
+      }
+    }
+  }
+
+  // B. Reject an auth broker: it replaces the local store and resolves
+  // credentials outside the injected env.
+  if ("OMP_AUTH_BROKER_URL" in process.env) {
     throw new AgentError(
-      `Pi would read its own '${providerId}' credential from ${authPath} before ` +
-        `${envName}; remove or relocate that auth.json entry (other providers ` +
-        "are unaffected), or run native `pi` explicitly. The launcher never edits Pi's " +
-        "auth file.",
+      `OMP_AUTH_BROKER_URL is defined in the ambient environment for the ` +
+        `Infisical-backed '${envName}' route; remove the broker setting or run ` +
+        "native `omp`.",
       EXIT_RUNTIME
     );
   }
-  const modelsPath = join(dir, "models.json");
-  const models = readPiJsonObject(modelsPath, "models.json");
-  const providers = models?.["providers"];
-  if (isPlainObject(providers) && providers[providerId] !== undefined) {
-    throw new AgentError(
-      `Pi models.json defines provider '${providerId}' (${modelsPath}), which can ` +
-        "override the fixed Go endpoint; remove that provider entry or run native " +
-        "`pi` explicitly.",
-      EXIT_RUNTIME
-    );
+  for (const file of dotenv) {
+    if (file.names.has("OMP_AUTH_BROKER_URL")) {
+      throw new AgentError(
+        `OMP_AUTH_BROKER_URL is assigned in ${file.path} for the Infisical-backed ` +
+          `'${envName}' route; remove the broker setting or run native \`omp\`.`,
+        EXIT_RUNTIME
+      );
+    }
+  }
+  for (const name of ["config.yml", "config.yaml"]) {
+    const path = join(agentDir, name);
+    const config = readOmpMapping(path, name, "yaml");
+    if (config === null) continue;
+    if (ompBrokerUrl(config) !== null) {
+      throw new AgentError(
+        `OMP ${name} configures auth.broker.url (${path}) for the ` +
+          `Infisical-backed '${envName}' route; remove the broker setting or run ` +
+          "native `omp`.",
+        EXIT_RUNTIME
+      );
+    }
+  }
+
+  // B2. Reject config that can switch the pinned model/provider implicitly:
+  // retry fallback chains (modelFallback is true by default, so a non-empty
+  // chain is the switch), the Advisor runtime, and context promotion. An
+  // absent retry block or `fallbackChains: {}` stays allowed. Legacy global
+  // settings.json is included because OMP migrates it at startup, after this
+  // guard would otherwise have inspected the config files. Project config.yaml
+  // is deliberately not checked: OMP reads it only under the global agent
+  // directory; the project compatibility spelling is config.yml.
+  const switchConfigs: Array<{ path: string; label: string; format: "yaml" | "json" }> = [
+    { path: join(agentDir, "config.yml"), label: "config.yml", format: "yaml" },
+    { path: join(agentDir, "config.yaml"), label: "config.yaml", format: "yaml" },
+    { path: join(agentDir, "settings.json"), label: "settings.json", format: "json" },
+    { path: join(process.cwd(), ".omp", "config.yml"), label: ".omp/config.yml", format: "yaml" },
+    {
+      path: join(process.cwd(), ".omp", "settings.json"),
+      label: ".omp/settings.json",
+      format: "json",
+    },
+  ];
+  for (const file of switchConfigs) {
+    const config = readOmpMapping(file.path, file.label, file.format);
+    if (config === null) continue;
+    const risk = ompImplicitSwitchRisk(config);
+    if (risk !== null) {
+      throw new AgentError(
+        `OMP ${file.label} (${file.path}) enables an implicit model switch for ` +
+          `the Infisical-backed '${envName}' route: ${risk}. Remove that setting ` +
+          "or run native `omp`.",
+        EXIT_RUNTIME
+      );
+    }
+  }
+
+  // C. Reject local provider/model overrides. Both YAML spellings are checked
+  // whenever present; the legacy JSON file is migrated by OMP only when no
+  // YAML exists, but it can still take effect, so it is checked too.
+  for (const name of ["models.yml", "models.yaml"]) {
+    const path = join(agentDir, name);
+    const models = readOmpMapping(path, name, "yaml");
+    if (models !== null) rejectOmpProviderOverride(models, path, providerId, envName);
+  }
+  const legacyPath = join(agentDir, "models.json");
+  const legacy = readOmpMapping(legacyPath, "models.json", "json");
+  if (legacy !== null) rejectOmpProviderOverride(legacy, legacyPath, providerId, envName);
+
+  // D. Reject stored credentials for the provider: a stored OAuth/login/API
+  // key outranks the injected environment variable.
+  for (const dbPath of ompAuthDbPaths()) {
+    if (!existsSync(dbPath)) continue;
+    let db: Database | null = null;
+    try {
+      db = new Database(dbPath, { readonly: true });
+      const table = db
+        .query(
+          "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'auth_credentials' LIMIT 1"
+        )
+        .get();
+      if (table) {
+        // OMP ignores disabled credentials; only an active row outranks env.
+        const row = db
+          .query(
+            "SELECT 1 FROM auth_credentials WHERE provider = ? AND disabled_cause IS NULL LIMIT 1"
+          )
+          .get(providerId);
+        if (row) {
+          throw new AgentError(
+            `OMP has a stored '${providerId}' credential in ${dbPath} that ` +
+              `outranks the injected ${envName}; remove or relocate it ` +
+              `(\`omp logout ${providerId}\` or the relevant auth UI) or run ` +
+              "native `omp`.",
+            EXIT_RUNTIME
+          );
+        }
+      }
+    } catch (error) {
+      if (error instanceof AgentError) throw error;
+      const detail = error instanceof Error ? error.message : String(error);
+      throw new AgentError(
+        `cannot verify the OMP credential store (${dbPath}): ${detail}; refusing ` +
+          "to start because the credential source cannot be verified",
+        EXIT_RUNTIME
+      );
+    } finally {
+      try {
+        db?.close();
+      } catch {
+        // already closed
+      }
+    }
   }
 }
 
@@ -1342,9 +1713,9 @@ async function startViaWithSecrets(plan: Plan, baseline: string[]): Promise<numb
   for (const [envName, secretName] of plan.require_cred) {
     payload.push("--cred", `${envName}=${secretName}`);
   }
-  if (plan.pi_guard) {
-    payload.push("--pi-guard-id", plan.pi_guard.providerId);
-    payload.push("--pi-guard-env", plan.pi_guard.envName);
+  if (plan.omp_guard) {
+    payload.push("--omp-guard-id", plan.omp_guard.providerId);
+    payload.push("--omp-guard-env", plan.omp_guard.envName);
   }
   payload.push("--", ...plan.command);
 
@@ -1483,8 +1854,8 @@ function cmdExec(argv: string[]): Promise<number> {
   let copy: Array<[string, string]> = [];
   let assign: Array<[string, string]> = [];
   let cred: Array<[string, string]> = [];
-  let piGuardId: string | null = null;
-  let piGuardEnv: string | null = null;
+  let ompGuardId: string | null = null;
+  let ompGuardEnv: string | null = null;
   let command: string[] = [];
   let index = 0;
   while (index < argv.length) {
@@ -1512,10 +1883,10 @@ function cmdExec(argv: string[]): Promise<number> {
       const raw = argv[index + 1];
       const eq = raw.indexOf("=");
       cred.push([raw.slice(0, eq), raw.slice(eq + 1)]);
-    } else if (token === "--pi-guard-id") {
-      piGuardId = argv[index + 1];
-    } else if (token === "--pi-guard-env") {
-      piGuardEnv = argv[index + 1];
+    } else if (token === "--omp-guard-id") {
+      ompGuardId = argv[index + 1];
+    } else if (token === "--omp-guard-env") {
+      ompGuardEnv = argv[index + 1];
     } else {
       throw new AgentError(`__exec: unexpected token '${token}'`);
     }
@@ -1527,14 +1898,14 @@ function cmdExec(argv: string[]): Promise<number> {
   if (baseline === null) {
     throw new AgentError("__exec: --baseline is required");
   }
-  if (piGuardId !== null || piGuardEnv !== null) {
-    if (!piGuardId || !piGuardEnv) {
-      throw new AgentError("__exec: --pi-guard-id and --pi-guard-env must be passed together");
+  if (ompGuardId !== null || ompGuardEnv !== null) {
+    if (!ompGuardId || !ompGuardEnv) {
+      throw new AgentError("__exec: --omp-guard-id and --omp-guard-env must be passed together");
     }
-    // Re-check immediately before spawn: auth.json/models.json may have
-    // changed after the pre-fetch check (TOCTOU). Still not atomic with Pi's
-    // own read, but the window is reduced to the final exec.
-    guardPiCredentialSource(piGuardId, piGuardEnv);
+    // Re-check immediately before spawn: OMP config/dotenv/auth files may
+    // have changed after the pre-fetch check (TOCTOU). Still not atomic with
+    // OMP's own read, but the window is reduced to the final exec.
+    guardOmpCredentialSource(ompGuardId, ompGuardEnv);
   }
   const stage: ExecStagePlan = { command, keep, copy, unset, assign, require_cred: cred, drop, baseline };
   return finalize(stage as unknown as Plan);
@@ -1549,6 +1920,12 @@ function usageText(): string {
 }
 
 function requireHarness(config: Config, harnessKey: string): Harness {
+  if (harnessKey === "pi") {
+    throw new AgentError(
+      "the Pi Worker slot moved to OMP; use 'agent omp <provider>' (native 'pi' " +
+        "is still available outside the launcher)"
+    );
+  }
   const harness = config.harnesses[harnessKey];
   if (!harness) {
     const known = Object.keys(config.harnesses).sort().join(", ");
@@ -1686,7 +2063,7 @@ function cmdModels(config: Config, providerKey: string): number {
   }
   if (provider.secret) {
     const note = provider.require_infisical
-      ? " [require_infisical: always sourced from Infisical; ambient env and Pi-local overrides are rejected]"
+      ? " [require_infisical: always sourced from Infisical; ambient env and OMP-local overrides are rejected]"
       : "";
     console.log(`credential: Infisical secret ${provider.secret} -> env ${provider.env}${note}`);
   } else {
@@ -1697,7 +2074,7 @@ function cmdModels(config: Config, providerKey: string): number {
   } else {
     console.log(`opencode model id format: ${provider.opencode_id}/<model>`);
   }
-  console.log(`pi provider id: ${provider.pi_id}`);
+  console.log(`omp provider id: ${provider.omp_id}`);
   const routes = Object.values(config.routes)
     .filter((r) => r.provider === providerKey)
     .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));

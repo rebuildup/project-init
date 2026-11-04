@@ -47,6 +47,13 @@ drop_env = [
   "MINIMAX_TOKEN_PLAN_KEY",
   "OPENCODE_API_KEY",
   "OPENROUTER_API_KEY",
+  # OMP model-role selectors. The launcher pins every role with explicit
+  # flags on Infisical-backed routes, so an ambient value must never redirect
+  # a route. Profile selection is not dropped silently: the OMP guard rejects
+  # an ambient/dotenv profile or relocated agent directory on those routes.
+  "PI_SMOL_MODEL",
+  "PI_SLOW_MODEL",
+  "PI_PLAN_MODEL",
   # Launcher/Infisical material, not harness material
   "INFISICAL_TOKEN",
   "INFISICAL_ACCESS_TOKEN",
@@ -88,8 +95,9 @@ models = [
 # Default verified live on 2026-11-01:
 #   - public /api/v1/models: pricing.prompt = "0", pricing.completion = "0",
 #     tools supported, no expiry;
-#   - real E2E response + Bash tool call on all three harnesses
-#     (claude 2.1.314, pi 1.4.0, opencode 2.2.3).
+#   - real E2E response + Bash tool call on claude 2.1.314, the then-current
+#     Pi worker (1.4.0) and opencode 2.2.3 on 2026-11-01;
+#   - OMP 18.16.0 real response + Bash tool call on 2026-11-04.
 # Re-check the catalog before changing this id; do not add experimental models
 # here. Same endpoint and credential as the paid `openrouter` provider, so no
 # new Infisical secret is needed. Free-tier limits are account-based
@@ -105,9 +113,9 @@ default_model = "nvidia/nemotron-3-ultra-550b-a55b:free"
 # paid provider above relies on the key == opencode_id default); the free
 # provider must map to the same id or OpenCode would see an unknown provider.
 opencode_id = "openrouter"
-# pi likewise knows OpenRouter natively as provider id `openrouter`; the
+# OMP likewise knows OpenRouter natively as provider id `openrouter`; the
 # launcher route key `openrouter-free` is launcher-side routing only.
-pi_id = "openrouter"
+omp_id = "openrouter"
 models = ["nvidia/nemotron-3-ultra-550b-a55b:free"]
 
 [providers.deepseek]
@@ -178,7 +186,8 @@ models = [
 #   - always take the value from Infisical (`require_infisical`), never a
 #     stale ambient shell value: the ambient credential names are removed
 #     before the with-secrets stage, so a missing Infisical value fails;
-#   - Pi-side auth.json/models.json overrides are rejected before launch;
+#   - OMP-side models.yml/models.yaml/models.json overrides and stored
+#     opencode-go credentials are rejected before launch;
 #   - no fallback to Zen, pay-as-you-go or another model on failure.
 #
 # Go usage is metered against the subscription allowance per model
@@ -190,14 +199,13 @@ models = [
 # https://opencode.ai/inference/go/v1/models catalog on 2026-11-01.
 [providers.opencode-go]
 label = "OpenCode Go"
-# Anthropic-compatible Go endpoint for Claude Code. Pi uses its own native Go
-# base URL (https://opencode.ai/zen/go/v1) from its provider catalog.
+# Anthropic-compatible Go endpoint for Claude Code. OMP uses its own native Go
+# base URL (https://opencode.ai/inference/go/v1) from its provider catalog.
 base_url = "https://opencode.ai/inference/go/anthropic"
 secret = "OPENCODE_API_KEY"
 env = "OPENCODE_API_KEY"
-# Always source from Infisical; ignore ambient env and Pi-local overrides.
+# Always source from Infisical; ignore ambient env and OMP-local overrides.
 require_infisical = true
-pi_id = "opencode-go"
 models = ["deepseek-v4.1-flash", "mimo-v2.6-flash"]
 
 # ---------------------------------------------------------------------------
@@ -214,10 +222,10 @@ label = "OpenCode"
 command = "opencode"
 adapter = "opencode"
 
-[harnesses.pi]
-label = "Pi"
-command = "pi"
-adapter = "pi"
+[harnesses.omp]
+label = "Oh My Pi"
+command = "omp"
+adapter = "omp"
 
 [harnesses.dsh]
 label = "DeepSeek Harness (dsh)"
@@ -285,20 +293,20 @@ default_model = "MiniMax-M3"
 models = ["MiniMax-M3"]
 note = "Keep MiniMax-M3 as the known working route default; the formal MiniMax-M3.1-Flash id needs a live OpenCode catalog/selection smoke test before it can be enabled. Unlisted ids are rejected with exit 2."
 
-[routes."pi.openrouter"]
+[routes."omp.openrouter"]
 
-[routes."pi.openrouter-free"]
-note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); pi may warn for ids outside its catalog and passes them through."
+[routes."omp.openrouter-free"]
+note = "Single fixed free model (pricing 0/0; Pi E2E 2026-11-01, OMP E2E 2026-11-04); omp_id = \"openrouter\" keeps the native OpenRouter provider id."
 
-[routes."pi.opencode-go"]
+[routes."omp.opencode-go"]
 default_model = "mimo-v2.6-flash"
-note = "Go endpoint via Pi's native opencode-go provider. Requires Pi >= 1.4.0 from @earendil-works/pi-coding-agent; the old 0.73.1 (@mariozechner) lacks x-opencode-session and gets HTTP 400. Real response + tool call verified 2026-11-01; no fallback."
+note = "Go endpoint via OMP's native opencode-go provider. Real response + tool call verified 2026-11-04; no zen/pay-as-you-go/model fallback."
 
-[routes."pi.deepseek"]
-note = "pi warns for ids outside its built-in catalog and passes them through."
+[routes."omp.deepseek"]
+note = "OMP resolves the native DeepSeek provider; both provider ids (deepseek-flash, deepseek-v4-pro) remain selectable. Live call reached the provider but the account returned HTTP 402 Insufficient Balance on 2026-11-04, so response/tool success is unverified; no fallback."
 
-[routes."pi.minimax"]
-note = "Default is the officially released MiniMax-M3.1-Flash (verify live M Plan response). Pi may warn when its catalog lags; verify actual model selection. MiniMax-M3 remains selectable with --model."
+[routes."omp.minimax"]
+note = "Default is the officially released MiniMax-M3.1-Flash. OMP selects the explicit model id; MiniMax-M3 remains selectable with --model. Live call reached the provider but the M Plan account returned HTTP 429 Token Plan limit on 2026-11-04, so response/tool success is unverified; no fallback."
 
 [routes."dsh.deepseek"]
 note = "Passthrough: dsh keeps its own native DeepSeek provider and auth (unverified here)."
