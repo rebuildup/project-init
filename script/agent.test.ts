@@ -32,6 +32,7 @@ const REPO = dirname(dirname(realpathSync(import.meta.path)));
 const LAUNCHER = join(REPO, "script", "agent.ts");
 const REAL_CONFIG = join(REPO, "config", "agents.toml");
 const OMP_GUARD = realpathSync(join(REPO, "script", "omp-destructive-guard.ts"));
+const OMP_OVERLAY = realpathSync(join(REPO, "script", "omp-worker-overlay.yml"));
 const OMP_WORKER_ARGV = [
   "--tools",
   "read,bash,edit,write",
@@ -40,6 +41,8 @@ const OMP_WORKER_ARGV = [
   "--no-title",
   "--trusted-extension",
   OMP_GUARD,
+  "--config",
+  OMP_OVERLAY,
 ];
 
 // shortcut names derived from the routes, exactly like the launcher does
@@ -1410,6 +1413,11 @@ test(
         `${provider}: guard path is not the absolute launcher-adjacent file: ` +
           JSON.stringify(argv[trusted + 1]),
       );
+      const config = argv.indexOf("--config");
+      check(
+        config !== -1 && argv[config + 1] === OMP_OVERLAY,
+        `${provider}: --config tool-surface overlay missing: ${JSON.stringify(argv)}`,
+      );
       for (const forbidden of ["--models", "--auto-approve", "--approval-mode", "--api-key"]) {
         check(
           !argv.includes(forbidden),
@@ -1422,6 +1430,22 @@ test(
         `${provider}: first-run setup must be skipped: ${JSON.stringify(env)}`,
       );
     }
+  }),
+);
+
+test(
+  "test_omp_worker_overlay_content",
+  withFixture(() => {
+    // The overlay is the MCP tool-surface boundary: OMP 18.16.0 mounts MCP
+    // servers independently of --tools, so these providers must stay off for
+    // every Worker session. agent-plugins mounted the account's
+    // chrome-devtools-mcp plugin (36-tool list) before this overlay existed.
+    const overlay = Bun.YAML.parse(readFileSync(OMP_OVERLAY, "utf8")) as {
+      disabledProviders?: string[];
+      mcp?: { enableProjectConfig?: boolean };
+    };
+    expect(overlay.disabledProviders).toEqual(["agent-plugins", "claude", "claude-plugins"]);
+    expect(overlay.mcp?.enableProjectConfig).toBe(false);
   }),
 );
 

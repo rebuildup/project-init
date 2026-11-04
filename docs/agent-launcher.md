@@ -277,6 +277,7 @@ omp --provider <omp_id> --model <model>
     --tools read,bash,edit,write
     --no-lsp --no-pty --no-title
     --trusted-extension <absolute path to script/omp-destructive-guard.ts>
+    --config <absolute path to script/omp-worker-overlay.yml>
     [--trusted-extension ~/.omp/agent/extensions/herdr-omp-agent-state.ts]
 ```
 
@@ -299,7 +300,9 @@ omp --provider <omp_id> --model <model>
   `--extension`, `-e`, `--hook`, `--advisor`, `--tools` and `--models`.
   The first three would move the auth/config source after the launcher's
   checks (a profile, an overlay, or a different cwd's `.omp` config and
-  `.env`); `--smol` … `--plan-yolo-into` would re-point or implicitly switch
+  `.env`); the launcher's own `--config` is the tool-surface overlay, and a
+  user overlay would apply after it and re-place its `disabledProviders`
+  array; `--smol` … `--plan-yolo-into` would re-point or implicitly switch
   the pinned model roles; `--trusted-extension`/`--extension`/`-e`/`--hook`
   would load an extra module, and a module can register a credential/model
   fallback outside the guard (the launcher names every trusted module);
@@ -324,6 +327,28 @@ The former Pi Worker slot exposed `read`, `bash`, `edit` and `write` only.
 `--tools read,bash,edit,write` reproduces that surface and removes OMP's
 `task` (sub-agents), `web`, `browser`, `python` and `todo` tools.
 `--no-lsp --no-pty --no-title` remove further ambient capabilities.
+
+`--tools` only filters OMP's **built-in** tools; MCP servers are mounted
+independently in OMP 18.16.0 (no `--no-mcp` flag exists, and
+`enableMCP`/`restrictToolNames` are SDK-only options). Observed on
+2026-11-04: before the overlay, a launcher session listed **36 tools** —
+the four built-ins plus 32 `chrome-devtools` MCP tools from the account's
+Claude Code plugin `chrome-devtools-mcp@claude-plugins-official`. The
+admitting path was OMP's `agent-plugins` discovery provider: it reads the
+Claude plugin registry without the `enabledProviders` foreign-source opt-in
+that gates `claude`/`claude-plugins`, and the plugin ships an
+Agent-Plugins-standard root, which the legacy providers skip. The launcher
+therefore resolves `script/omp-worker-overlay.yml` next to itself (exit 1
+if missing, like the guard) and passes it with `--config`. The overlay sets
+`disabledProviders: [agent-plugins, claude, claude-plugins]` —
+`disabledProviders` wins over `enabledProviders`, so no user or project
+settings layer can re-enable them for a launcher session — plus
+`mcp.enableProjectConfig: false` for project-scoped MCP config. After the
+overlay the same probe returns exactly `read`, `bash`, `edit`, `write`
+(verified 2026-11-04). Residual: the overlay does not disable OMP's native
+user MCP config (`~/.omp/agent/mcp.json`, the `builtin` discovery provider),
+which is empty on this machine; OMP 18.16.0 has no per-run switch that
+disables MCP mounting outright.
 
 OMP's `tools.approvalMode` defaults to **`yolo`**, and its built-in bash
 critical-pattern override is ignored in that mode. The ported
@@ -654,7 +679,7 @@ launcher never creates or rotates API keys.
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (51 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (54 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
@@ -663,7 +688,8 @@ criteria:
   wrapper, missing Infisical value fails even with an ambient key, zen keeps
   its fast path), OMP route argv/tool surface (`--tools read,bash,edit,write`,
   `--no-lsp`, `--no-pty`, `--no-title`, guard path under
-  `--trusted-extension`, `OMP_SKIP_SETUP=1`, no
+  `--trusted-extension`, `--config script/omp-worker-overlay.yml` with its
+  `disabledProviders`/`mcp.enableProjectConfig` content, `OMP_SKIP_SETUP=1`, no
   `--models`/approval/credential flags), OMP
   credential-source guard (profile/relocation, four dotenv layers incl.
   the rejected dotenv `XDG_DATA_HOME`, auth broker,
@@ -685,7 +711,10 @@ criteria:
   run only in the mock tier stay marked unverified here. OpenRouter-free was
   live-tested on 2026-11-01 and again with OMP on 2026-11-04. OpenCode Go/
   Claude Code was live-tested on 2026-11-01; OpenCode Go/OMP was live-tested
-  on 2026-11-04 (response + tool call). DeepSeek and MiniMax OMP calls
+  on 2026-11-04 (response + tool call). The tool-surface probe
+  (`… -- -p --no-session --mode json 'List the exact names of every tool …'`)
+  listed 36 tools before the overlay and exactly `read`, `bash`, `edit`,
+  `write` after it, both on 2026-11-04. DeepSeek and MiniMax OMP calls
   reached the provider but were rejected by the account (402/429); success
   remains unverified. The destructive probe was blocked by the guard, and no
   deletion occurred.
@@ -891,7 +920,9 @@ bun test script/agent.entrypoint.windows.test.ts  # native `agent` entry point (
 ```
 
 The POSIX suite includes the OMP-specific cases: route argv and tool surface,
-credential-source guard (profile, dotenv, broker, models
+the launcher-owned `--config` tool-surface overlay (argv and
+`disabledProviders` content), credential-source guard (profile, dotenv,
+broker, models
 overrides, stored credentials, corrupt store), the implicit-switch guard on
 every omp route (free route included), pre-spawn re-check, Herdr
 extension allowlist, destructive-guard rules, and the `agent pi` migration

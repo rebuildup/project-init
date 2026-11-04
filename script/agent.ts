@@ -918,7 +918,7 @@ const FORBIDDEN_PASSTHRU: Record<string, string> = {
 // the list is adapter-scoped.
 const OMP_FORBIDDEN_PASSTHRU: Record<string, string> = {
   "--profile": "profiles relocate OMP's auth/config dir; the launcher verifies only the default profile",
-  "--config": "an extra config overlay is outside the launcher's credential-source check",
+  "--config": "an extra config overlay is outside the launcher's credential-source check and would re-place the launcher's tool-surface overlay arrays",
   "--cwd": "changing cwd changes the project .omp config and .env that OMP reads",
   "--smol": "the launcher pins this model role to the route model",
   "--slow": "the launcher pins this model role to the route model",
@@ -1197,6 +1197,7 @@ function planOpencode(plan: Plan, harness: Harness, provider: Provider, model: s
 }
 
 const OMP_DESTRUCTIVE_GUARD = "omp-destructive-guard.ts";
+const OMP_WORKER_OVERLAY = "omp-worker-overlay.yml";
 const OMP_WORKER_TOOLS = "read,bash,edit,write";
 
 /** Absolute real path of the destructive guard shipped next to this launcher.
@@ -1210,6 +1211,25 @@ function ompDestructiveGuardPath(): string {
     throw new AgentError(
       `missing OMP destructive guard: ${candidate}; refusing to start without ` +
         "the Worker permission boundary",
+      EXIT_RUNTIME
+    );
+  }
+}
+
+/** Absolute real path of the Worker tool-surface overlay shipped next to this
+ * launcher. It disables the OMP discovery providers that mount MCP tools
+ * (ADR-0014 item 5): `--tools` only filters built-in tools. OMP's strict
+ * `--config` loader aborts on a missing file, but the launcher must fail
+ * before it builds a command — without the overlay a session would start
+ * with MCP servers mounted. */
+function ompWorkerOverlayPath(): string {
+  const candidate = join(import.meta.dir, OMP_WORKER_OVERLAY);
+  try {
+    return realpathSync(candidate);
+  } catch {
+    throw new AgentError(
+      `missing OMP worker overlay: ${candidate}; refusing to start without ` +
+        "the MCP tool-surface boundary",
       EXIT_RUNTIME
     );
   }
@@ -1279,13 +1299,15 @@ function planOmp(plan: Plan, harness: Harness, provider: Provider, model: string
   // Worker tool parity with the former Pi slot: no task sub-agents, web,
   // browser, python or todo tools. --trusted-extension disables ambient
   // extension discovery; the destructive guard (and Herdr, when present) are
-  // the only extensions loaded.
+  // the only extensions loaded. The overlay disables the discovery providers
+  // that would mount MCP servers: --tools only filters built-in tools.
   args.push(
     "--tools", OMP_WORKER_TOOLS,
     "--no-lsp",
     "--no-pty",
     "--no-title",
     "--trusted-extension", guardPath,
+    "--config", ompWorkerOverlayPath(),
   );
   if (insideHerdr()) {
     args.push("--trusted-extension", ompHerdrExtensionPath());
