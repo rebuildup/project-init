@@ -4,6 +4,7 @@
 
 - Config: `home/.opencodereview/config.json` → `~/.opencodereview/config.json` via `script/link` (POSIX) or `script/link.ps1 -Apply` (Windows).
 - Provider: custom `opencode-go`, protocol `openai`, base URL `https://opencode.ai/inference/go/v1`, model `mimo-v2.6-flash` (OpenAI-compatible chat completions).
+- Session: `extra_headers` sends `x-opencode-session: {ocr_session_key}`. OpenCode Go rejects any request without that header (HTTP 400 `MissingSessionID`); OCR expands the template to a stable per-conversation key, falling back to a generated key for session-less calls such as `ocr llm test`.
 - Credential: `api_key_cmd = "ocr-go-key"`, resolved by OCR's shell from `PATH`. POSIX and Windows launchers in `home/.local/bin/` run `script/ocr-go-key.ts` with Bun. That script strips an ambient `OPENCODE_API_KEY`, then invokes the existing self-hosted Infisical `script/with-secrets` / `script/with-secrets.ps1` boundary and prints only the freshly injected key. No secret value is stored in Git or OCR config.
 
 ## Apply and verify

@@ -6,7 +6,10 @@
       "url": "https://opencode.ai/inference/go/v1",
       "protocol": "openai",
       "model": "mimo-v2.6-flash",
-      "api_key_cmd": "ocr-go-key"
+      "api_key_cmd": "ocr-go-key",
+      "extra_headers": {
+        "x-opencode-session": "{ocr_session_key}"
+      }
     }
   }
 }
