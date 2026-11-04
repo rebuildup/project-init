@@ -1409,6 +1409,8 @@ test(
     const blocked = [
       "rm -rf x",
       "rm -fr x",
+      "rm -rf /tmp/x",
+      "rm -fr /tmp/x",
       "rm -r -f x",
       "sudo rm -rf x",
       "echo hi && rm -rf x",
@@ -1419,6 +1421,9 @@ test(
       "git reset --hard",
       "git clean -fd",
       "git clean -f",
+      // `--exclude=vendor` contains an `n`: substring matching counted it as
+      // dry-run and let the forced clean through (F7 bypass).
+      "git clean -fd --exclude=vendor",
       "git checkout -- .",
       "git checkout -f",
       "git restore file",
@@ -1433,8 +1438,13 @@ test(
     const allowed = [
       "rm file",
       "rm -r dir",
+      "rm -f file",
+      // Substring matching lowercased `--preserve-root` as recursive+force
+      // and blocked this safe command (F6 false block).
+      "rm --preserve-root -f file",
       "ls",
       "git clean -n",
+      "git clean -fdn",
       "git clean --dry-run -f",
       "git restore --staged file",
       "git status",

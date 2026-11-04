@@ -49,11 +49,22 @@ function hasFlag(flags: string[], letter: string, longName: string): boolean {
 }
 
 function isRmRecursiveForce(tokens: string[], idx: number): boolean {
-  const flags = flagsFrom(tokens, idx + 1);
-  if (flags.length === 0) return false;
-  const letters = flagLetters(flags);
-  const recursive = letters.some((x) => x.includes("r") || x.includes("recursive"));
-  const forced = letters.some((x) => x.includes("f") || x.includes("force"));
+  // Short clusters (`-rf`, `-fr`) and the exact long options only. Substring
+  // matching on lowercased long flags made `rm --preserve-root -f file` count
+  // as recursive+force (a false block).
+  let recursive = false;
+  let forced = false;
+  for (const flag of flagsFrom(tokens, idx + 1)) {
+    if (flag.startsWith("--")) {
+      const name = flag.slice(2).toLowerCase();
+      if (name === "recursive") recursive = true;
+      else if (name === "force") forced = true;
+      continue;
+    }
+    const letters = flag.slice(1).toLowerCase();
+    if (letters.includes("r")) recursive = true;
+    if (letters.includes("f")) forced = true;
+  }
   return recursive && forced;
 }
 
@@ -98,9 +109,23 @@ function checkGit(tokens: string[], idx: number): string | undefined {
       return undefined;
     }
     case "clean": {
-      const letters = flagLetters(flagsFrom(tokens, idx + 2));
-      const dry = letters.some((x) => x.includes("n") || x.includes("dry-run"));
-      const forced = letters.some((x) => x.includes("f") || x.includes("force"));
+      // Exact long options and short clusters only: `--exclude=vendor`
+      // contains an `n`, so substring matching counted it as dry-run and
+      // `git clean -fd --exclude=vendor` slipped past the guard (a real
+      // bypass that deletes untracked files).
+      let dry = false;
+      let forced = false;
+      for (const flag of flagsFrom(tokens, idx + 2)) {
+        if (flag.startsWith("--")) {
+          const name = flag.slice(2).toLowerCase();
+          if (name === "dry-run") dry = true;
+          else if (name === "force") forced = true;
+          continue;
+        }
+        const letters = flag.slice(1).toLowerCase();
+        if (letters.includes("n")) dry = true;
+        if (letters.includes("f")) forced = true;
+      }
       if (forced && !dry) {
         return "git clean -f 系（未追跡ファイル削除）は -n / --dry-run を伴わない限り禁止";
       }
