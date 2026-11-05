@@ -84,6 +84,7 @@ export FAKE_INFISICAL_INJECTED=yes
 export DEEPSEEK_API_KEY=secret-deepseek
 export OPENROUTER_API_KEY=secret-openrouter
 export OPENCODE_API_KEY=secret-opencode
+export LOGFARE_API_KEY=secret-logfare
 export MINIMAX_M_PLAN_KEY=secret-minimax-plan
 export MINIMAX_TOKEN_PLAN_KEY=secret-minimax-legacy
 export MIMO_API_KEY=secret-mimo
@@ -444,6 +445,7 @@ test(
       "claude.minimax",
       "claude.opencode-go",
       "opencode.zen",
+      "opencode.logfare",
       "omp.deepseek",
       "omp.opencode-go",
       "omp.openrouter",
@@ -464,6 +466,7 @@ test(
     check(stdout.includes("deepseek-v4.1-flash"), "Go claude default missing");
     check(stdout.includes("mimo-v2.6-flash"), "Go omp default missing");
     check(stdout.includes("opencode-zen"), "shortcut names must be listed");
+    check(stdout.includes("opencode-logfare"), "Logfare shortcut name missing");
     check(stdout.includes("claude-opencode-go"), "Go shortcut name missing");
     check(stdout.includes("omp-opencode-go"), "Go omp shortcut name missing");
   }),
@@ -501,6 +504,16 @@ test(
     result = fixture.run(["models", "nope"], { config: REAL_CONFIG });
     check(result.exitCode === 2, "unknown provider must exit 2");
     check(result.stderr.toString().includes("unknown provider"), result.stderr.toString());
+
+    result = fixture.run(["models", "logfare"], { config: REAL_CONFIG });
+    check(result.exitCode === 0, result.stderr.toString());
+    const logfareStdout = result.stdout.toString();
+    check(logfareStdout.includes("https://logfare.ai/v1"), logfareStdout);
+    check(logfareStdout.includes("@ai-sdk/openai-compatible"), logfareStdout);
+    check(logfareStdout.includes("LOGFARE_API_KEY"), logfareStdout);
+    check(logfareStdout.includes("deepseek-v4.1-flash-1017"), logfareStdout);
+    check(logfareStdout.includes("glm-5.3"), logfareStdout);
+    check(logfareStdout.includes("opencode.logfare"), logfareStdout);
   }),
 );
 
@@ -577,6 +590,7 @@ test(
       "DEEPSEEK_API_KEY",
       "OPENROUTER_API_KEY",
       "OPENCODE_API_KEY",
+      "LOGFARE_API_KEY",
       "MIMO_API_KEY",
       "INFISICAL_TOKEN",
       "FAKE_INFISICAL_INJECTED",
@@ -676,6 +690,7 @@ test(
     for (const leak of [
       "DEEPSEEK_API_KEY",
       "OPENCODE_API_KEY",
+      "LOGFARE_API_KEY",
       "MIMO_API_KEY",
       "INFISICAL_TOKEN",
       "FAKE_INFISICAL_INJECTED",
@@ -807,6 +822,7 @@ test(
     for (const leak of [
       "DEEPSEEK_API_KEY",
       "OPENROUTER_API_KEY",
+      "LOGFARE_API_KEY",
       "MIMO_API_KEY",
       "MINIMAX_M_PLAN_KEY",
       "MINIMAX_TOKEN_PLAN_KEY",
@@ -1374,6 +1390,7 @@ test(
       "MIMO_API_KEY",
       "DEEPSEEK_API_KEY",
       "OPENROUTER_API_KEY",
+      "LOGFARE_API_KEY",
       "INFISICAL_TOKEN",
       "FAKE_INFISICAL_INJECTED",
     ]) {
@@ -1972,6 +1989,120 @@ test(
   }),
 );
 
+// Shapes of the launcher-built OPENCODE_CONFIG_CONTENT on the logfare route
+// (JSON parsed from the child environment).
+interface OcInlineConfig {
+  model?: string;
+  permission?: unknown;
+  provider?: Record<string, OcProviderBlock>;
+}
+interface OcProviderBlock {
+  npm?: string;
+  name?: string;
+  env?: string[];
+  options?: { baseURL?: string };
+  models?: Record<string, { tool_call?: boolean; limit?: { context?: number; output?: number } }>;
+}
+
+test(
+  "test_logfare_route",
+  withFixture((fixture) => {
+    // Default model plus the custom-provider block: OpenCode does not know
+    // the `logfare` id natively, so the launcher registers it from config.
+    // No ambient key -> the with-secrets stage must supply LOGFARE_API_KEY.
+    const result = fixture.run(["opencode", "logfare"], { config: REAL_CONFIG });
+    check(result.exitCode === 0, result.stderr.toString());
+    const [argv, env] = fixture.child();
+    expect(argv, JSON.stringify(argv)).toEqual(["--standalone"]);
+    check(existsSync(fixture.marker), "with-secrets wrapper must run (no ambient key)");
+    const content = env["OPENCODE_CONFIG_CONTENT"];
+    check(typeof content === "string", `OPENCODE_CONFIG_CONTENT missing: ${JSON.stringify(env)}`);
+    const parsed = JSON.parse(content as string) as OcInlineConfig;
+    check(
+      parsed.model === "logfare/deepseek-v4.1-flash-1017",
+      `default model wrong: ${JSON.stringify(parsed)}`,
+    );
+    const block = parsed.provider?.["logfare"];
+    check(block !== undefined, `provider block missing: ${JSON.stringify(parsed)}`);
+    check(block?.npm === "@ai-sdk/openai-compatible", JSON.stringify(block));
+    check(block?.name === "Logfare", JSON.stringify(block));
+    check(
+      JSON.stringify(block?.env) === JSON.stringify(["LOGFARE_API_KEY"]),
+      `credential must travel as the env NAME only: ${JSON.stringify(block?.env)}`,
+    );
+    check(block?.options?.baseURL === "https://logfare.ai/v1", JSON.stringify(block));
+    // Model contract from the Logfare catalog: tool support + enforced limits.
+    const models = block?.models ?? {};
+    check(Object.keys(models).length === 2, `expected exactly 2 models: ${JSON.stringify(models)}`);
+    const deepseek = models["deepseek-v4.1-flash-1017"];
+    check(deepseek?.tool_call === true, JSON.stringify(deepseek));
+    check(deepseek?.limit?.context === 1048576, JSON.stringify(deepseek));
+    check(deepseek?.limit?.output === 384000, JSON.stringify(deepseek));
+    const glm = models["glm-5.3"];
+    check(glm?.tool_call === true, JSON.stringify(glm));
+    check(glm?.limit?.context === 262144, JSON.stringify(glm));
+    check(glm?.limit?.output === 131072, JSON.stringify(glm));
+    // The credential value must never enter the config content (argv/env of
+    // the harness are the only carriers, by name).
+    check(!content.includes("secret-logfare"), "secret leaked into config content");
+    check(env["LOGFARE_API_KEY"] === "secret-logfare", JSON.stringify(env["LOGFARE_API_KEY"]));
+    for (const leak of [
+      "DEEPSEEK_API_KEY",
+      "OPENROUTER_API_KEY",
+      "OPENCODE_API_KEY",
+      "MIMO_API_KEY",
+      "MINIMAX_M_PLAN_KEY",
+      "INFISICAL_TOKEN",
+      "FAKE_INFISICAL_INJECTED",
+    ]) {
+      check(!(leak in env), `secret leaked to child: ${leak}`);
+    }
+
+    // The second declared model is selectable explicitly.
+    const glmRun = fixture.run(["opencode", "logfare", "--model", "glm-5.3"], {
+      config: REAL_CONFIG,
+    });
+    check(glmRun.exitCode === 0, glmRun.stderr.toString());
+    const [, glmEnv] = fixture.child();
+    const glmParsed = JSON.parse(glmEnv["OPENCODE_CONFIG_CONTENT"] as string) as OcInlineConfig;
+    check(glmParsed.model === "logfare/glm-5.3", JSON.stringify(glmParsed));
+
+    // An id outside the two-model allowlist fails closed before credentials
+    // are fetched (no implicit routing to another model).
+    const rejected = fixture.run(["opencode", "logfare", "--model", "logfare-auto"], {
+      config: REAL_CONFIG,
+    });
+    check(rejected.exitCode === 2, `unknown model must exit 2, got ${rejected.exitCode}`);
+    check(rejected.stderr.toString().includes("unknown model"), rejected.stderr.toString());
+    check(!existsSync(fixture.marker), "credentials must not be fetched for a rejected model");
+
+    // A caller's existing inline config is merged, not replaced: model and
+    // provider block land beside the caller's own keys.
+    const merged = fixture.run(["opencode", "logfare"], {
+      config: REAL_CONFIG,
+      env: { OPENCODE_CONFIG_CONTENT: '{"permission":"allow"}' },
+    });
+    check(merged.exitCode === 0, merged.stderr.toString());
+    const [, mergedEnv] = fixture.child();
+    const mergedParsed = JSON.parse(
+      mergedEnv["OPENCODE_CONFIG_CONTENT"] as string,
+    ) as OcInlineConfig;
+    check(mergedParsed.permission === "allow", JSON.stringify(mergedParsed));
+    check(mergedParsed.model === "logfare/deepseek-v4.1-flash-1017", JSON.stringify(mergedParsed));
+    check(mergedParsed.provider?.["logfare"] !== undefined, JSON.stringify(mergedParsed));
+
+    // There is no claude Logfare route: the Anthropic adapter cannot use the
+    // OpenAI-compatible endpoint, so selection fails closed (the adapter
+    // rule itself is covered in test_invalid_configs).
+    const wrongAdapter = fixture.run(["claude", "logfare"], { config: REAL_CONFIG });
+    check(wrongAdapter.exitCode === 2, `expected exit 2, got ${wrongAdapter.exitCode}`);
+    check(
+      wrongAdapter.stderr.toString().includes("no route"),
+      wrongAdapter.stderr.toString(),
+    );
+  }),
+);
+
 test(
   "test_omp_deepseek",
   withFixture((fixture) => {
@@ -2274,6 +2405,115 @@ default_model = "m"
 models = ["m"]
 `,
         "require_infisical = true requires an Infisical 'secret' name",
+      ],
+      // OpenCode custom-provider registration needs an endpoint to point at.
+      [
+        `
+[providers.p1]
+label = "P"
+secret = "SOME_KEY"
+opencode_npm = "@ai-sdk/openai-compatible"
+default_model = "m"
+models = ["m"]
+[providers.p1.opencode_models.m]
+tool_call = true
+limit = { context = 1000, output = 100 }
+`,
+        "opencode_npm requires base_url",
+      ],
+      // ... and a credential env name to hand OpenCode for the key.
+      [
+        `
+[providers.p1]
+label = "P"
+base_url = "https://p1.example/v1"
+opencode_npm = "@ai-sdk/openai-compatible"
+default_model = "m"
+models = ["m"]
+[providers.p1.opencode_models.m]
+tool_call = true
+limit = { context = 1000, output = 100 }
+`,
+        "opencode_npm requires a credential",
+      ],
+      // opencode_models is only meaningful as part of that registration.
+      [
+        `
+[providers.p1]
+label = "P"
+default_model = "m"
+models = ["m"]
+[providers.p1.opencode_models.m]
+tool_call = true
+limit = { context = 1000, output = 100 }
+`,
+        "opencode_models requires opencode_npm",
+      ],
+      // Every declared model needs its tool/limit contract; a missing entry
+      // would let a model start without verified limits/tool support.
+      [
+        `
+[providers.p1]
+label = "P"
+base_url = "https://p1.example/v1"
+secret = "SOME_KEY"
+opencode_npm = "@ai-sdk/openai-compatible"
+default_model = "m1"
+models = ["m1", "m2"]
+[providers.p1.opencode_models.m1]
+tool_call = true
+limit = { context = 1000, output = 100 }
+`,
+        "opencode_models entry for every model; missing: m2",
+      ],
+      // A typo in the contract fails closed instead of being ignored.
+      [
+        `
+[providers.p1]
+label = "P"
+base_url = "https://p1.example/v1"
+secret = "SOME_KEY"
+opencode_npm = "@ai-sdk/openai-compatible"
+default_model = "m"
+models = ["m"]
+[providers.p1.opencode_models.m]
+tool_call = "yes"
+limit = { context = 1000, output = 100 }
+`,
+        "'tool_call' must be a boolean",
+      ],
+      // Only the opencode adapter can honor the registration; on another
+      // adapter's route it would sit silently inert.
+      [
+        `
+[providers.p1]
+label = "P"
+base_url = "https://p1.example/v1"
+secret = "SOME_KEY"
+opencode_npm = "@ai-sdk/openai-compatible"
+default_model = "m"
+models = ["m"]
+[providers.p1.opencode_models.m]
+tool_call = true
+limit = { context = 1000, output = 100 }
+
+[harnesses.h1]
+label = "H"
+command = "claude"
+adapter = "anthropic"
+[harnesses.h1.env]
+base_url = "ANTHROPIC_BASE_URL"
+auth_token = "ANTHROPIC_AUTH_TOKEN"
+api_key = "ANTHROPIC_API_KEY"
+model = "ANTHROPIC_MODEL"
+small_fast_model = "ANTHROPIC_SMALL_FAST_MODEL"
+default_opus = "ANTHROPIC_DEFAULT_OPUS_MODEL"
+default_sonnet = "ANTHROPIC_DEFAULT_SONNET_MODEL"
+default_haiku = "ANTHROPIC_DEFAULT_HAIKU_MODEL"
+
+[routes."h1.p1"]
+`,
+        "can only be registered on an 'opencode' route",
       ],
     ];
     for (const [index, [content, needle]] of cases.entries()) {

@@ -148,9 +148,9 @@ A new machine reuses this binding. Normal setup only needs user authentication a
 
 ## Agent launcher (`agent`)
 
-The native `claude` command keeps the official Claude Code login and is never wrapped, aliased or overridden. Routes to other API providers (OpenRouter, DeepSeek, MiniMax, OpenCode Zen) are explicit and opt-in through the unified `agent` launcher: one declarative config (`config/agents.toml`), one thin Bun/TypeScript implementation (`script/agent.ts`, linked to `~/.local/bin/agent` by `script/link`; PowerShell entry `script/agent.ps1` on Windows) that reads the TOML with `Bun.TOML.parse()`, builds a filtered process-scoped environment through the existing Infisical wrapper (`script/with-secrets`, or `script/with-secrets.ps1` on Windows) and starts the native harness CLI. Short `<harness>-<provider>` commands (e.g. `opencode-zen`) derive from the same routes.
+The native `claude` command keeps the official Claude Code login and is never wrapped, aliased or overridden. Routes to other API providers (OpenRouter, DeepSeek, MiniMax, OpenCode Zen, Logfare) are explicit and opt-in through the unified `agent` launcher: one declarative config (`config/agents.toml`), one thin Bun/TypeScript implementation (`script/agent.ts`, linked to `~/.local/bin/agent` by `script/link`; PowerShell entry `script/agent.ps1` on Windows) that reads the TOML with `Bun.TOML.parse()`, builds a filtered process-scoped environment through the existing Infisical wrapper (`script/with-secrets`, or `script/with-secrets.ps1` on Windows) and starts the native harness CLI. Short `<harness>-<provider>` commands (e.g. `opencode-zen`) derive from the same routes.
 
-See [agent launcher](docs/agent-launcher.md). For example `agent list`, `agent claude deepseek -- -p 'say ok'`, `agent opencode zen` or plain `agent claude` (native mode: no provider, no injection).
+See [agent launcher](docs/agent-launcher.md). For example `agent list`, `agent claude deepseek -- -p 'say ok'`, `agent opencode zen`, `agent opencode logfare -- run 'say ok'` or plain `agent claude` (native mode: no provider, no injection).
 
 ## Agent configuration
 

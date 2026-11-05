@@ -61,6 +61,12 @@ const ADAPTERS = ["anthropic", "opencode", "omp", "passthrough"];
 // argv-safe assign marker handled inside the child stage: only the model id
 // crosses argv, the surrounding config is merged from the environment.
 const MODEL_MARKER = "@@model:";
+// argv-safe marker for the OpenCode custom-provider block: the payload is a
+// JSON object mapping the provider id to its block (npm package, endpoint
+// URL, credential env NAME, model specs). It never contains a credential
+// value — OpenCode reads the key from the named env var — so it is safe to
+// carry in argv like every other plan token.
+const PROVIDER_MARKER = "@@provider:";
 // argv-safe marker for "copy this secret from another env name"; kept
 // distinct from a bare `@` so real model ids that start with `@`
 // (e.g. Cloudflare's `@cf/...`) pass through as literal values.
@@ -131,6 +137,7 @@ model resolution for a run:
 examples:
   agent opencode zen
   agent opencode zen -- run "explain this repo"
+  agent opencode logfare -- run "say ok" # Logfare (explicit route; 5k req/day)
   agent claude deepseek -- -p "say ok"
   agent claude opencode-go -- -p "say ok"   # Go plan, default DeepSeek V4.1 Flash
   agent omp opencode-go -- -p "hello"       # Go plan, default MiMo V2.6 Flash
@@ -170,6 +177,19 @@ interface Provider {
   // fails, and OMP-local auth/model overrides are rejected. See
   // config/agents.toml [providers.opencode-go].
   require_infisical: boolean;
+  // OpenCode custom-provider registration (opencode adapter only): npm
+  // package for base_url plus a per-model capability/limit contract. Set only
+  // when the provider id is unknown to OpenCode's built-in catalog (see
+  // config/agents.toml [providers.logfare]); the credential reaches OpenCode
+  // as the env NAME, never as a value in config content or argv.
+  opencode_npm: string | null;
+  opencode_models: Record<string, OcModelSpec>;
+}
+
+/** OpenCode model entry built from config: tool support + enforced limits. */
+interface OcModelSpec {
+  tool_call: boolean;
+  limit: { context: number; output: number };
 }
 
 interface Harness {
@@ -268,6 +288,57 @@ function stringList(value: unknown, where: string, key: string): string[] {
   return [...list];
 }
 
+/**
+ * Parse a provider's optional `opencode_models` table: one strict entry per
+ * model (`tool_call` plus `limit.context`/`limit.output`). Unknown keys fail
+ * closed so a typo can never silently drop a model's tool/limit contract and
+ * no free-form passthrough (which could carry a credential) exists. Returns
+ * null when the table is absent.
+ */
+function parseOcModels(
+  table: Record<string, unknown>,
+  where: string
+): Record<string, OcModelSpec> | null {
+  const raw = table["opencode_models"];
+  if (raw === undefined || raw === null) return null;
+  if (!isPlainObject(raw)) {
+    throw new AgentError(`${where}: 'opencode_models' must be a table of model entries`);
+  }
+  const specs: Record<string, OcModelSpec> = {};
+  for (const [modelId, entryValue] of Object.entries(raw)) {
+    const entryWhere = `${where}.opencode_models.'${modelId}'`;
+    if (!isPlainObject(entryValue)) {
+      throw new AgentError(`${entryWhere}: table expected`);
+    }
+    const unknown = Object.keys(entryValue).filter((k) => k !== "tool_call" && k !== "limit");
+    if (unknown.length > 0) {
+      throw new AgentError(`${entryWhere}: unknown key '${unknown[0]}'`);
+    }
+    const toolCall = entryValue["tool_call"];
+    if (typeof toolCall !== "boolean") {
+      throw new AgentError(`${entryWhere}: 'tool_call' must be a boolean`);
+    }
+    const limit = entryValue["limit"];
+    if (!isPlainObject(limit)) {
+      throw new AgentError(`${entryWhere}: 'limit' table with context and output expected`);
+    }
+    const limitUnknown = Object.keys(limit).filter((k) => k !== "context" && k !== "output");
+    if (limitUnknown.length > 0) {
+      throw new AgentError(`${entryWhere}: unknown limit key '${limitUnknown[0]}'`);
+    }
+    const context = limit["context"];
+    const output = limit["output"];
+    if (typeof context !== "number" || !Number.isInteger(context) || context <= 0) {
+      throw new AgentError(`${entryWhere}: limit.context must be a positive integer`);
+    }
+    if (typeof output !== "number" || !Number.isInteger(output) || output <= 0) {
+      throw new AgentError(`${entryWhere}: limit.output must be a positive integer`);
+    }
+    specs[modelId] = { tool_call: toolCall, limit: { context, output } };
+  }
+  return specs;
+}
+
 function loadConfig(path?: string): Config {
   const configPathResolved = path || configPath();
   let text: string;
@@ -327,6 +398,40 @@ function loadConfig(path?: string): Config {
         `${where}: default_model '${default_model}' is not in models [${models.join(", ")}]`
       );
     }
+    const opencode_npm = optionalStr(table, "opencode_npm", where);
+    const opencode_models = parseOcModels(table, where);
+    if (opencode_models && !opencode_npm) {
+      throw new AgentError(
+        `${where}: opencode_models requires opencode_npm (a custom-provider registration)`
+      );
+    }
+    if (opencode_npm) {
+      // The block is assembled from these fields only, so a credential value
+      // can never travel in it; each one must therefore exist.
+      if (!optionalStr(table, "base_url", where)) {
+        throw new AgentError(`${where}: opencode_npm requires base_url`);
+      }
+      if (!env) {
+        throw new AgentError(`${where}: opencode_npm requires a credential (secret/env name)`);
+      }
+      if (models.length === 0) {
+        throw new AgentError(`${where}: opencode_npm requires a models list`);
+      }
+      const specs = opencode_models ?? {};
+      const missing = models.filter((id) => !(id in specs));
+      if (missing.length > 0) {
+        throw new AgentError(
+          `${where}: opencode_npm requires an opencode_models entry for every model; ` +
+            `missing: ${missing.join(", ")}`
+        );
+      }
+      const extra = Object.keys(specs).filter((id) => !models.includes(id));
+      if (extra.length > 0) {
+        throw new AgentError(
+          `${where}: opencode_models entry '${extra[0]}' is not in models [${models.join(", ")}]`
+        );
+      }
+    }
     providers[key] = {
       key,
       label: requireStr(table, "label", where),
@@ -339,6 +444,8 @@ function loadConfig(path?: string): Config {
       opencode_id: optionalStr(table, "opencode_id", where) || key,
       omp_id: optionalStr(table, "omp_id", where) || key,
       require_infisical,
+      opencode_npm,
+      opencode_models: opencode_models ?? {},
     };
   }
   if (Object.keys(providers).length === 0) {
@@ -446,13 +553,22 @@ function loadConfig(path?: string): Config {
     throw new AgentError("config declares no routes");
   }
 
-  // Every claude-anthropic route needs an Anthropic-compatible endpoint.
+  // Every claude-anthropic route needs an Anthropic-compatible endpoint;
+  // an OpenCode custom-provider registration only the opencode adapter can
+  // honor must not be declared silently inert on another adapter's route.
   for (const route of Object.values(routes)) {
     const harness = harnesses[route.harness];
     const provider = providers[route.provider];
     if (harness.adapter === "anthropic" && !provider.base_url) {
       throw new AgentError(
         `routes.${route.key}: adapter anthropic needs provider '${provider.key}' to declare base_url`
+      );
+    }
+    if (provider.opencode_npm && harness.adapter !== "opencode") {
+      throw new AgentError(
+        `routes.${route.key}: provider '${provider.key}' declares opencode_npm but harness ` +
+          `'${route.harness}' uses adapter '${harness.adapter}'; the custom-provider block ` +
+          "can only be registered on an 'opencode' route"
       );
     }
   }
@@ -1173,6 +1289,37 @@ function planOpencode(plan: Plan, harness: Harness, provider: Provider, model: s
   // because a caller's inline config may itself contain credentials.
   plan.assign.push([configEnv, MODEL_MARKER + `${provider.opencode_id}/${model}`]);
 
+  // Custom OpenCode provider registration (e.g. Logfare): OpenCode does not
+  // know this provider id natively, so the inline config must define it.
+  // The block is assembled only from validated config fields; the credential
+  // travels as the env NAME (`env: [...]`), which is how OpenCode resolves
+  // the key — no secret value enters config content or argv.
+  if (provider.opencode_npm) {
+    if (!provider.base_url || !provider.env) {
+      // defensive; loadConfig rejects these combinations
+      throw new AgentError(`provider '${provider.key}' lacks base_url/credential for opencode_npm`);
+    }
+    const models: Record<string, OcModelSpec> = {};
+    for (const id of provider.models) {
+      const spec = provider.opencode_models[id];
+      if (!spec) {
+        throw new AgentError(`provider '${provider.key}' has no opencode_models entry for '${id}'`);
+      }
+      models[id] = spec;
+    }
+    const block: Record<string, unknown> = {
+      npm: provider.opencode_npm,
+      name: provider.label,
+      env: [provider.env],
+      options: { baseURL: provider.base_url },
+      models,
+    };
+    plan.assign.push([
+      configEnv,
+      PROVIDER_MARKER + JSON.stringify({ [provider.opencode_id]: block }),
+    ]);
+  }
+
   // A running background `opencode` service loads config and credentials
   // from ITS OWN environment, so without a private server both the model
   // above and the provider credential would be ignored (verified: the
@@ -1814,6 +1961,26 @@ async function startViaWithSecrets(plan: Plan, baseline: string[]): Promise<numb
   return runInherited([wrapper, ...payload], childEnv);
 }
 
+/**
+ * Parse an existing inline-config env value into an object. A caller's
+ * unusable value warns and yields an empty object (never a crash): the
+ * launcher's own keys are then written into a fresh object.
+ */
+function readInlineConfig(env: Record<string, string>, name: string): Record<string, unknown> {
+  const raw = env[name];
+  if (!raw) return {};
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    console.error(`agent: warning: existing ${name} is not valid JSON; replacing it`);
+    return {};
+  }
+  if (isPlainObject(parsed)) return parsed;
+  console.error(`agent: warning: existing ${name} is not an object; replacing it`);
+  return {};
+}
+
 async function finalize(plan: Plan): Promise<number> {
   const baseline = new Set(plan.baseline ?? Object.keys(process.env));
   const keep = plan.keep;
@@ -1858,23 +2025,37 @@ async function finalize(plan: Plan): Promise<number> {
   for (const [name, value] of plan.assign) {
     if (value.startsWith(MODEL_MARKER)) {
       const modelId = value.slice(MODEL_MARKER.length);
-      const raw = env[name];
-      let content: Record<string, unknown> = {};
-      if (raw) {
-        let parsed: unknown;
-        try {
-          parsed = JSON.parse(raw);
-        } catch {
-          console.error(`agent: warning: existing ${name} is not valid JSON; replacing it`);
-          parsed = undefined;
-        }
-        if (isPlainObject(parsed)) {
-          content = parsed;
-        } else if (parsed !== undefined) {
-          console.error(`agent: warning: existing ${name} is not an object; replacing it`);
-        }
-      }
+      const content = readInlineConfig(env, name);
       content["model"] = modelId;
+      env[name] = JSON.stringify(content);
+    } else if (value.startsWith(PROVIDER_MARKER)) {
+      // OpenCode custom-provider block: merge under `provider.<id>` into the
+      // same inline config the model marker just touched (assign order is
+      // preserved, so the model key is already present).
+      const payload = value.slice(PROVIDER_MARKER.length);
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(payload);
+      } catch {
+        throw new AgentError(
+          `internal: invalid provider payload for ${name}`,
+          EXIT_RUNTIME
+        );
+      }
+      if (!isPlainObject(parsed)) {
+        throw new AgentError(
+          `internal: provider payload for ${name} must be an object`,
+          EXIT_RUNTIME
+        );
+      }
+      const content = readInlineConfig(env, name);
+      const existing = content["provider"];
+      if (existing !== undefined && !isPlainObject(existing)) {
+        console.error(`agent: warning: existing ${name} provider is not an object; replacing it`);
+      }
+      const providers: Record<string, unknown> = isPlainObject(existing) ? existing : {};
+      Object.assign(providers, parsed);
+      content["provider"] = providers;
       env[name] = JSON.stringify(content);
     } else if (value.startsWith(CRED_MARKER)) {
       const source = value.slice(CRED_MARKER.length);
@@ -2128,7 +2309,14 @@ function cmdModels(config: Config, providerKey: string): number {
   }
   console.log(`provider: ${provider.key} (${provider.label})`);
   if (provider.base_url) {
-    console.log(`anthropic endpoint: ${provider.base_url}`);
+    console.log(
+      provider.opencode_npm
+        ? `opencode endpoint: ${provider.base_url} (OpenAI-compatible custom provider)`
+        : `anthropic endpoint: ${provider.base_url}`
+    );
+  }
+  if (provider.opencode_npm) {
+    console.log(`opencode custom provider: ${provider.opencode_npm} (id ${provider.opencode_id})`);
   }
   if (provider.secret) {
     const note = provider.require_infisical

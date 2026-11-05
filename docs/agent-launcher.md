@@ -14,6 +14,7 @@ agent claude opencode-go -- -p 'say ok'   # Go plan, DeepSeek V4.1 Flash (fixed 
 agent claude minimax -- -p 'say ok'       # default MiniMax-M3.1-Flash; --model overrides
 agent opencode zen                        # OpenCode on the free zen models
 agent opencode zen -- run "explain this repo"
+agent opencode logfare -- run "say ok"    # Logfare (explicit; 5k req/day)
 agent omp opencode-go -- -p 'hello'       # Go plan, MiMo V2.6 Flash (fixed default)
 agent omp openrouter-free -- -p 'hello'   # OMP Worker on the fixed OpenRouter free model
 agent omp deepseek -- -p 'hello'
@@ -195,6 +196,14 @@ models = ["deepseek-flash", "deepseek-v4-pro"]
 #                              # strip ambient values before the wrapper
 # opencode_id = "opencode"     # OpenCode provider id when it differs from the key
 # omp_id = "deepseek"          # OMP --provider value (defaults to the key)
+# opencode_npm = "@ai-sdk/openai-compatible"
+#                              # register base_url as a custom OpenCode
+#                              # provider (opencode adapter routes only;
+#                              # needs base_url, a credential name, a models
+#                              # list, and one opencode_models entry per model)
+# [providers.<key>.opencode_models."<model-id>"]   # only with opencode_npm:
+# tool_call = true             #   tools support (chat_capabilities.tools)
+# limit = { context = 1048576, output = 384000 }   #   enforced limits
 
 [harnesses.claude]
 label = "Claude Code"
@@ -231,7 +240,13 @@ that reference unknown harnesses/providers, missing defaults without
 `require_model`, defaults that are not in the model list,
 `require_model`-with-default contradictions, `anthropic` routes whose
 provider has no `base_url`, `require_infisical = true` without a `secret`
-name, and route keys whose `harness-provider` shortcut names would collide.
+name, route keys whose `harness-provider` shortcut names would collide,
+and — for the OpenCode custom-provider registration — `opencode_npm`
+without `base_url`/credential/models list, `opencode_models` entries that
+are missing for a declared model, unknown to the model list, or malformed
+(`tool_call` boolean, `limit.context`/`limit.output` positive integers;
+unknown keys are rejected), and an `opencode_npm` provider used on a route
+whose adapter is not `opencode` (the block would sit silently inert).
 
 ## Adapters (native CLI contracts)
 
@@ -247,6 +262,15 @@ name, and route keys whose `harness-provider` shortcut names would collide.
   (merged last over global/project config, so both `opencode` TUI and
   `opencode run` pick it up). The global `opencode --model` flag does not
   exist in v2 — it silently prints help — so it is never used.
+  When a provider declares `opencode_npm`, the same inline config also
+  carries a `provider.<opencode_id>` block (npm package, `options.baseURL`
+  = the provider's `base_url`, `env: ["<credential env name>"]` and the
+  `opencode_models` entries). OpenCode resolves the API key from that env
+  var, so the credential arrives by name through the normal keep-set — no
+  secret value ever enters `OPENCODE_CONFIG_CONTENT` or argv. Verified with
+  a real OpenCode 2.2.5 run against a local OpenAI-compatible endpoint
+  (2026-11-05): `Bearer` auth from the env var, model pinning, and a
+  shell-tool round trip all observed on the wire.
 - **omp (Oh My Pi)**: explicit provider/model selection with
   `omp --provider <omp_id> --model <id>`, a fixed Worker tool surface, and
   the destructive guard loaded as a trusted extension. The full contract is
@@ -641,21 +665,128 @@ was salvaged into `docs/research/openrouter-free-quality-2026-10-24.md` as
 evidence for why automatic selection was stopped; that file is documentation,
 not an active code path.
 
+## Logfare: explicit route only (no automatic routing, no fallback)
+
+`opencode.logfare` points OpenCode at Logfare's OpenAI-compatible API
+(`https://logfare.ai/v1`) as a custom provider (`opencode_npm =
+"@ai-sdk/openai-compatible"`). It is the first route here whose endpoint
+is OpenAI-compatible rather than Anthropic-compatible, so it exists on the
+`opencode` adapter only: there is no `claude.logfare` route (the Anthropic
+adapter cannot consume it) and no `omp.logfare` route (OMP would need a
+non-declarative local `models.yml` endpoint override, which this design
+does not allow).
+
+| route | harness | default model | endpoint | credential |
+| --- | --- | --- | --- | --- |
+| `opencode.logfare` | OpenCode | `deepseek-v4.1-flash-1017` | `https://logfare.ai/v1` (OpenAI-compatible; custom provider block) | Infisical `LOGFARE_API_KEY` (normal route: ambient value is accepted, otherwise the with-secrets stage) |
+
+- **Models — exactly two, allowlisted**: `deepseek-v4.1-flash-1017`
+  (default) and `glm-5.3`; any other id exits 2 before a process starts.
+- **Catalog contract** (from the public `GET https://logfare.ai/v1/models`,
+  no key needed, checked 2026-11-05): both ids serve `chat/completions`
+  and report `chat_capabilities.tools = true`; the enforced
+  `context_length` is 1048576 (deepseek) and 262144 (glm-5.3 — Logfare
+  rejects larger input with 413 regardless of the 1M figure in its own
+  `upstream_metadata`); no output cap is enforced (`max_output_tokens`
+  null; oversized `max_tokens` are lowered by Logfare). These values are
+  the route's `opencode_models` entries (`tool_call`, `limit.context`,
+  `limit.output` — output from the published upstream cap in the models.dev
+  opencode catalog), so OpenCode's context budgeting, `max_completion_tokens`
+  and tool surface match what the endpoint actually serves.
+- **Premium models — training opt-in required**: both ids are
+  `requires_training_optin`. Without accepting at
+  `https://logfare.ai/consent` every request returns 403
+  `training_optin_required`; the account's Discord must also stay in the
+  Logfare server (403 otherwise).
+- **Account limits** (docs, 2026-11-05): regular account 40 req/min,
+  1,000 req/hour, **5,000 req/day, 6 concurrent**; a new account gets
+  10/min, 200/hour, 500/day, 2 concurrent for its first 24 hours. 429s
+  carry `Retry-After`. The launcher does not observe these budgets. This
+  repository has no automatic routing or fallback anywhere, and Logfare
+  must not become a target of one while these budgets apply: a
+  rate-limited request fails on this route and is never retried onto
+  another model or provider.
+- **Explicit selection only**: `agent opencode logfare …`, the
+  `opencode-logfare` shortcut, or `--model glm-5.3` on that route. No
+  default route, no pi/claude route, and no other route changed.
+
+### Provisioning `LOGFARE_API_KEY` (done 2026-11-05)
+
+Before the key existed, the route failed closed — verified with the real
+wrapper: `agent: missing credential: set LOGFARE_API_KEY or provide
+Infisical secret LOGFARE_API_KEY in environment `dev`
+(script/with-secrets)`, exit 1, no harness started. The key has since been
+added to Infisical `dev`. The same procedure applies to rotation or
+another machine:
+
+1. Register at `https://logfare.ai/register`; keep the account's Discord
+   in the Logfare server (403 otherwise).
+2. Accept the model-training opt-in at `https://logfare.ai/consent`
+   (both route models are premium; without it Logfare answers 403
+   `training_optin_required` — observed on 2026-11-05 before opt-in).
+3. Copy the API key from the dashboard.
+4. Store it through the existing convention (repo tracks names only; the
+   value lives only in the self-hosted Infisical `dev` environment). Put
+   the value in a mode-600 file so it never appears in argv or shell
+   history, then:
+
+   ```bash
+   cd ~/.dotfiles && source config/infisical.sh
+   infisical secrets set "LOGFARE_API_KEY=@$HOME/.cache/logfare-key" \
+     --domain="$INFISICAL_API_URL" \
+     --projectId="$INFISICAL_PROJECT_ID" --env="$INFISICAL_ENVIRONMENT"
+   rm -f "$HOME/.cache/logfare-key"
+   ```
+
+   The launcher never creates or rotates API keys;
+   `./script/secrets-doctor` validates the instance/project binding.
+5. Verify cheaply: `agent opencode logfare -- run "say ok"`.
+
+### Verification status (2026-11-05)
+
+- **Mock suite**: `bun test script/agent.test.ts` covers the route —
+  default and `--model glm-5.3` selection, an unknown id exits 2 before
+  any credential is fetched, the custom-provider block (npm package,
+  base URL, credential-by-name, both model contracts), secret isolation in
+  both directions, merge with a caller's existing inline config, the
+  absence of a `claude.logfare` route, and the `opencode_npm`
+  config-validation failures (missing base_url/credential/model entry,
+  malformed spec, wrong adapter).
+- **Real harness E2E against a local OpenAI-compatible endpoint (mock)**:
+  real OpenCode 2.2.5 through the launcher *and* through the
+  `opencode-logfare` shortcut: `Bearer` auth resolved from
+  `LOGFARE_API_KEY` (never present in config content), both model ids on
+  the wire, and a shell-tool call executed with its output returned to the
+  model — the exact plumbing `https://logfare.ai/v1/chat/completions`
+  will use.
+- **Live Logfare: VERIFIED 2026-11-05** (after the account accepted
+  `/consent`; the pre-consent attempt was rejected with HTTP 403
+  `training_optin_required`): through the launcher and real OpenCode —
+  default `deepseek-v4.1-flash-1017` answered
+  (`Reply with exactly: LOGFARE_LIVE_OK` → `LOGFARE_LIVE_OK`), a shell-tool
+  call executed with its output returned to the model
+  (`$ echo LOGFARE_TOOL_OK` → `LOGFARE_TOOL_OK`), and `--model glm-5.3`
+  answered (`LOGFARE_GLM_OK`). All via the Infisical key (ambient key
+  unset), exit 0 each. Also verified live: `GET /v1/models` → 200 without a
+  key, `POST /v1/chat/completions` → 401 without one (auth enforced).
+
 ## Route matrix and verification status
 
-| harness \ provider | zen | opencode-go | openrouter | openrouter-free | deepseek | minimax |
-| --- | --- | --- | --- | --- | --- | --- |
-| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) |
-| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this launcher does not add the route) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) |
-| omp | — (`omp.zen` is not configured; OMP knows `opencode-zen` natively, but the Worker slot does not use it) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; `require_infisical` + credential-source guard; **real response + tool call verified 2026-11-04**) | yes, default `z-ai/glm-5.3-flash` (**no live E2E recorded in this migration**) | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`omp_id = "openrouter"`; live E2E 2026-11-04) | yes, default `deepseek-flash`; `--model deepseek-v4-pro` is also accepted by the configured provider list. Live call reached the provider but the account returned **HTTP 402 Insufficient Balance** on 2026-11-04, so response/tool success is **unverified**; no fallback | yes, default `MiniMax-M3.1-Flash`; other configured ids including `MiniMax-M3` are selectable. Live call reached the provider but the M Plan account returned **HTTP 429 Token Plan limit** on 2026-11-04, so response/tool success is **unverified**; no fallback |
-| dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — |
+| harness \ provider | zen | opencode-go | openrouter | openrouter-free | deepseek | minimax | logfare |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| claude | — (no Anthropic-compatible endpoint verified; zen free tier is client-bound) | yes, default `deepseek-v4.1-flash` (Go endpoint; Infisical `OPENCODE_API_KEY` with `require_infisical`; needs Privacy Regions = Global; **real response + tool call verified 2026-11-01**) | yes, default `z-ai/glm-5.3-flash` | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (pricing 0/0, tools, live E2E 2026-11-01; any other id exits 2; never a paid fallback) | yes, default `deepseek-flash` (route list: `deepseek-flash` only, because the endpoint silently remaps unknown names) | yes, default `MiniMax-M3.1-Flash` (official model ID; live M Plan verification pending; reasoning always on; effort defaults to `max`) | — (no route: the Anthropic adapter cannot use the OpenAI-compatible endpoint) |
+| opencode | yes, default `mimo-v2.6-flash-free` (free models; `opencode_id = "opencode"`) | — (not configured; OpenCode's native id exists but this launcher does not add the route) | yes | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`opencode_id = "openrouter"`; live E2E 2026-11-01) | yes | yes, route default `MiniMax-M3` (route model list `["MiniMax-M3"]` only; OpenCode v2 previously silently fell back to Zen for the Preview ID; formal ID not yet verified — keep M3 as the known route default; `--model MiniMax-M3.1-Flash` exits 2 here) | yes, default `deepseek-v4.1-flash-1017` (two-model allowlist with `glm-5.3`; OpenAI-compatible `https://logfare.ai/v1` via the `opencode_npm` custom provider; Infisical `LOGFARE_API_KEY` + `/consent` required; **real response + shell-tool call + both models verified 2026-11-05**) |
+| omp | — (`omp.zen` is not configured; OMP knows `opencode-zen` natively, but the Worker slot does not use it) | yes, default `mimo-v2.6-flash` (native `opencode-go`; Infisical `OPENCODE_API_KEY`; `require_infisical` + credential-source guard; **real response + tool call verified 2026-11-04**) | yes, default `z-ai/glm-5.3-flash` (**no live E2E recorded in this migration**) | ONE fixed model `nvidia/nemotron-3-ultra-550b-a55b:free` (`omp_id = "openrouter"`; live E2E 2026-11-04) | yes, default `deepseek-flash`; `--model deepseek-v4-pro` is also accepted by the configured provider list. Live call reached the provider but the account returned **HTTP 402 Insufficient Balance** on 2026-11-04, so response/tool success is **unverified**; no fallback | yes, default `MiniMax-M3.1-Flash`; other configured ids including `MiniMax-M3` are selectable. Live call reached the provider but the M Plan account returned **HTTP 429 Token Plan limit** on 2026-11-04, so response/tool success is **unverified**; no fallback | — (would need a non-declarative local `models.yml` endpoint override) |
+| dsh | — | — | — | — | passthrough (native dsh auth; install + `--version` verified, live session pending DeepSeek balance) | — | — |
 
 Not covered on purpose: `omp.zen` (the Worker slot uses OMP's native
 `opencode-go`, `openrouter`, `deepseek` and `minimax` providers only),
 `opencode.opencode-go` (possible follow-up), paid zen models (add them to the
-TOML deliberately), any automatic fallback between models or providers, and
-any second model on an `openrouter-free` route (the free allowlist is a
-single id — an unlisted id fails closed).
+TOML deliberately), any automatic fallback between models or providers, any
+second model on an `openrouter-free` route (the free allowlist is a
+single id — an unlisted id fails closed), and `claude.logfare`/`omp.logfare`
+(the OpenAI-compatible endpoint is only wired to the opencode adapter; see
+the Logfare section).
 
 **The static allowlist is not a price or availability guarantee.** It only
 prevents the launcher from selecting a different id. If OpenRouter later
@@ -679,11 +810,16 @@ launcher never creates or rotates API keys.
 Verification is reported in two tiers, matching issue #45's acceptance
 criteria:
 
-- **Mock/syntax**: `bun test script/agent.test.ts` (54 cases:
+- **Mock/syntax**: `bun test script/agent.test.ts` (55 cases:
   help/list/models, unknown harness/provider/model, `--model` precedence,
   MiniMax default vs. `require_model` fail-closed, the single-model
   openrouter-free allowlist (paid and non-default free ids exit 2, same
-  credential as the paid provider), OpenCode Go defaults/endpoint/auth-token
+  credential as the paid provider), the Logfare route (default/`glm-5.3`
+  selection, two-model allowlist fail-closed before credential fetch,
+  custom-provider block contents with the credential by env name only,
+  secret isolation both ways, inline-config merge, no claude route,
+  `opencode_npm` config-validation failures), OpenCode Go
+  defaults/endpoint/auth-token
   mapping, `require_infisical` behavior (ambient key stripped before the
   wrapper, missing Infisical value fails even with an ambient key, zen keeps
   its fast path), OMP route argv/tool surface (`--tools read,bash,edit,write`,
@@ -898,6 +1034,10 @@ was: `OPENROUTER_API_KEY`, `DEEPSEEK_API_KEY`, `OPENCODE_API_KEY`,
 
 - The `openrouter-free` provider reuses `OPENROUTER_API_KEY` — no free-tier
   credential exists or is needed.
+- `LOGFARE_API_KEY` was added to the Infisical `dev` environment on
+  2026-11-05; live response + shell-tool call + both route models were
+  verified through it the same day (after the account's `/consent`
+  opt-in — the pre-consent attempt was rejected with 403).
 - There is **no separate Go key**. Both Go routes use the existing
   `OPENCODE_API_KEY`; the Go endpoint and the workspace subscription select
   the allowance. The launcher still forces the value to come from Infisical
@@ -926,7 +1066,10 @@ broker, models
 overrides, stored credentials, corrupt store), the implicit-switch guard on
 every omp route (free route included), pre-spawn re-check, Herdr
 extension allowlist, destructive-guard rules, and the `agent pi` migration
-hint. It also asserts that no `pi.*` route and no `omp.zen` route exists.
+hint. It also asserts that no `pi.*` route and no `omp.zen` route exists,
+and covers the `opencode.logfare` route end to end at the plan/env level
+(custom-provider block, two-model allowlist, credential by env name only,
+secret isolation, config-validation failures).
 
 CI installs Bun (pinned `oven-sh/setup-bun`) and runs the config
 validation plus the mock suite on every pull request; a second

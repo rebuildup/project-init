@@ -208,6 +208,55 @@ env = "OPENCODE_API_KEY"
 require_infisical = true
 models = ["deepseek-v4.1-flash", "mimo-v2.6-flash"]
 
+# Logfare (https://logfare.ai/docs): OpenAI-compatible endpoint with one API
+# key. Explicit opt-in route only. The launcher has no automatic routing or
+# fallback at all, and this provider must never become one: the regular
+# account budget is 40 req/min, 1,000 req/hour, 5,000 req/day with 6
+# concurrent requests (new accounts: 10/min, 200/hour, 500/day, 2 concurrent
+# for their first 24h), so a rate-limited request fails on this route and is
+# never retried onto another model or provider.
+#
+# Catalog verified from the public https://logfare.ai/v1/models (no key
+# needed) on 2026-11-05:
+#   - both ids serve chat/completions (also messages/responses);
+#   - chat_capabilities.tools = true for both;
+#   - deepseek-v4.1-flash-1017: enforced context_length 1048576, no output
+#     cap, text+image input, reasoning on by default;
+#   - glm-5.3: Logfare enforces context_length 262144 (its upstream_metadata
+#     1M claim is NOT what Logfare serves; larger input is rejected 413),
+#     text-only input, reasoning always on;
+#   - both are premium (requires_training_optin): without the training
+#     opt-in at https://logfare.ai/consent every request returns 403
+#     training_optin_required. Account must also keep its Discord account in
+#     the Logfare server (403 otherwise).
+#
+# `opencode_npm` registers base_url as a custom OpenCode provider. The
+# credential reaches it as the env NAME only (OpenCode reads the key from
+# that env var); no secret value ever enters config content or argv.
+[providers.logfare]
+label = "Logfare"
+base_url = "https://logfare.ai/v1"
+secret = "LOGFARE_API_KEY"
+env = "LOGFARE_API_KEY"
+default_model = "deepseek-v4.1-flash-1017"
+models = ["deepseek-v4.1-flash-1017", "glm-5.3"]
+opencode_npm = "@ai-sdk/openai-compatible"
+
+# Per-model contract for the opencode adapter; every model above needs an
+# entry here (validated by `agent check`).
+#   tool_call        <- chat_capabilities.tools (both true, 2026-11-05)
+#   limit.context    <- Logfare's enforced context_length
+#   limit.output     <- published upstream output cap (models.dev opencode
+#                       catalog for the same models; Logfare enforces no
+#                       output cap and lowers oversized max_tokens)
+[providers.logfare.opencode_models."deepseek-v4.1-flash-1017"]
+tool_call = true
+limit = { context = 1048576, output = 384000 }
+
+[providers.logfare.opencode_models."glm-5.3"]
+tool_call = true
+limit = { context = 262144, output = 131072 }
+
 # ---------------------------------------------------------------------------
 # Harnesses: native command + adapter that knows how to select a provider.
 # ---------------------------------------------------------------------------
@@ -292,6 +341,9 @@ note = "Single fixed free model (pricing 0/0, live E2E on 2026-11-01); model ids
 default_model = "MiniMax-M3"
 models = ["MiniMax-M3"]
 note = "Keep MiniMax-M3 as the known working route default; the formal MiniMax-M3.1-Flash id needs a live OpenCode catalog/selection smoke test before it can be enabled. Unlisted ids are rejected with exit 2."
+
+[routes."opencode.logfare"]
+note = "Explicit Logfare route (OpenAI-compatible https://logfare.ai/v1, custom provider registered via opencode_npm). Never a fallback target and never selected implicitly: 5,000 req/day, 6 concurrent per account. Needs Infisical LOGFARE_API_KEY plus the /consent training opt-in (both models are premium). Real response + shell-tool call + both models verified 2026-11-05."
 
 [routes."omp.openrouter"]
 
