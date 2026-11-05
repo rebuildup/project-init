@@ -43,6 +43,7 @@ drop_env = [
   "DEEPSEEK_API_KEY",
   "MIMO_API_KEY",
   "MINIMAX_API_KEY",
+  "MISTRAL_API_KEY",
   "MINIMAX_M_PLAN_KEY",
   "MINIMAX_TOKEN_PLAN_KEY",
   "OPENCODE_API_KEY",
@@ -242,6 +243,26 @@ default_model = "deepseek-v4.1-flash-1017"
 models = ["deepseek-v4.1-flash-1017", "glm-5.3"]
 opencode_npm = "@ai-sdk/openai-compatible"
 
+# Mistral Education / Pro plan; Code > Vibe CLI PLAN key stored in Infisical
+# as MISTRAL_API_KEY. Never use a pay-as-you-go API key here by accident.
+# Included usage and API/Vibe limits are account-scoped. Turn pay-as-you-go
+# OFF in Admin > Subscription for a hard account-side stop.
+# Volume-first model: GLM 5.3 Flash (Mistral $0.15 input/$0.50 output per MTok).
+# Never silently switch to a different model/provider on 401/402/429.
+[providers.mistral]
+label = "Mistral (Education)"
+base_url = "https://api.mistral.ai/v1"
+secret = "MISTRAL_API_KEY"
+env = "MISTRAL_API_KEY"
+require_infisical = true
+default_model = "zai-glm-5-3-flash"
+models = [
+  "zai-glm-5-3-flash",
+  "deepseek-v4-1-flash-1017",
+  "zai-glm-5-3",
+  "mistral-medium-3-5",
+]
+
 # Per-model contract for the opencode adapter; every model above needs an
 # entry here (validated by `agent check`).
 #   tool_call        <- chat_capabilities.tools (both true, 2026-11-05)
@@ -279,6 +300,12 @@ adapter = "omp"
 [harnesses.dsh]
 label = "DeepSeek Harness (dsh)"
 command = "dsh"
+adapter = "passthrough"
+
+# Browser-authenticated native Vibe, no Infisical injection.
+[harnesses.vibe]
+label = "Mistral Vibe CLI"
+command = "vibe"
 adapter = "passthrough"
 
 # Claude adapter environment names (Claude Code's own protocol contract).
@@ -345,6 +372,9 @@ note = "Keep MiniMax-M3 as the known working route default; the formal MiniMax-M
 [routes."opencode.logfare"]
 note = "Explicit Logfare route (OpenAI-compatible https://logfare.ai/v1, custom provider registered via opencode_npm). Never a fallback target and never selected implicitly: 5,000 req/day, 6 concurrent per account. Needs Infisical LOGFARE_API_KEY plus the /consent training opt-in (both models are premium). Real response + shell-tool call + both models verified 2026-11-05."
 
+[routes."opencode.mistral"]
+note = "Infisical Vibe plan key, volume-first GLM 5.3 Flash, no automatic paid or model fallback. Verify real model availability before use."
+
 [routes."omp.openrouter"]
 
 [routes."omp.openrouter-free"]
@@ -353,6 +383,9 @@ note = "Single fixed free model (pricing 0/0; Pi E2E 2026-11-01, OMP E2E 2026-11
 [routes."omp.opencode-go"]
 default_model = "mimo-v2.6-flash"
 note = "Go endpoint via OMP's native opencode-go provider. Real response + tool call verified 2026-11-04; no zen/pay-as-you-go/model fallback."
+
+[routes."omp.mistral"]
+note = "Infisical Vibe plan key, OMP worker safeguards and pinned GLM 5.3 Flash default; stored credentials/overrides rejected."
 
 [routes."omp.deepseek"]
 note = "OMP resolves the native DeepSeek provider; both provider ids (deepseek-flash, deepseek-v4-pro) remain selectable. Live call reached the provider but the account returned HTTP 402 Insufficient Balance on 2026-11-04, so response/tool success is unverified; no fallback."

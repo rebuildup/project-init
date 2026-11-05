@@ -15,9 +15,12 @@ agent claude minimax -- -p 'say ok'       # default MiniMax-M3.1-Flash; --model 
 agent opencode zen                        # OpenCode on the free zen models
 agent opencode zen -- run "explain this repo"
 agent opencode logfare -- run "say ok"    # Logfare (explicit; 5k req/day)
+agent opencode mistral -- run "say ok"    # Mistral Education, GLM 5.3 Flash
 agent omp opencode-go -- -p 'hello'       # Go plan, MiMo V2.6 Flash (fixed default)
 agent omp openrouter-free -- -p 'hello'   # OMP Worker on the fixed OpenRouter free model
 agent omp deepseek -- -p 'hello'
+agent omp mistral -- -p 'hello'          # Mistral Education, GLM 5.3 Flash
+agent vibe -- --version                 # Mistral Vibe CLI, native login
 agent dsh deepseek -- web                 # dsh keeps its own native auth
 agent claude -p 'say ok'                  # native mode: no provider at all —
                                            # subscription login, zero injection
@@ -61,6 +64,34 @@ runtime OpenRouter free-model selection (issue #76 reverted that direction),
 an `omp.zen` route (the Worker slot does not use OMP's `opencode-zen`
 provider), dual Pi/OMP route maintenance, and any new harness/daemon/proxy/
 router.
+
+## Mistral Education (high-volume, no overage)
+
+The Mistral Education plan's included monthly allowance is shared by Vibe
+Code, Studio and API. More routes do not create more quota. For throughput,
+use the low-priced `zai-glm-5-3-flash` default; explicitly select
+`deepseek-v4-1-flash-1017`, `zai-glm-5-3`, or `mistral-medium-3-5` for
+other workloads. No implicit fallback is permitted.
+
+1. Confirm Education and turn off pay-as-you-go in
+   https://admin.mistral.ai/ > Subscription. The launcher cannot control this.
+2. Create a **plan key** in Mistral Studio > Code > Vibe CLI (not a separately
+   billed API key). Put its value in the existing Infisical `dev` secret
+   named `MISTRAL_API_KEY`. Never commit the secret.
+3. Sync dotfiles, then use `agent check`, `agent models mistral`,
+   `agent shortcuts create`, `agent opencode mistral -- run "hello"` or
+   `agent omp mistral -- -p "hello"`.
+4. Verify actual model availability with the plan key against
+   `GET https://api.mistral.ai/v1/models` and test one real tool call on
+   each harness before enabling Herdr workers. Account-level RPS, TPM and
+   monthly quotas still apply. Reject 401/402/429; do not reroute to a
+   different key, paid endpoint, provider or model.
+5. For the native Mistral agent, install the official Vibe CLI and run
+   `agent vibe -- --setup` to use browser login. The native route does not
+   fetch Infisical credentials, and `/whoami` identifies the active plan.
+
+See https://docs.mistral.ai/admin/billing-usage/subscriptions and
+https://docs.mistral.ai/vibe/code/cli/install-setup for details.
 
 ## Usage
 

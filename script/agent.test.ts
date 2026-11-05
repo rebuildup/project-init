@@ -56,7 +56,7 @@ const REAL_SHORTCUTS = Object.keys(
   })
   .sort();
 
-const HARNESSES = ["claude", "opencode", "omp", "dsh"];
+const HARNESSES = ["claude", "opencode", "omp", "dsh", "vibe"];
 
 const FAKE_HARNESS = `#!/usr/bin/env bash
 set -euo pipefail
@@ -85,6 +85,7 @@ export DEEPSEEK_API_KEY=secret-deepseek
 export OPENROUTER_API_KEY=secret-openrouter
 export OPENCODE_API_KEY=secret-opencode
 export LOGFARE_API_KEY=secret-logfare
+export MISTRAL_API_KEY=secret-mistral-plan
 export MINIMAX_M_PLAN_KEY=secret-minimax-plan
 export MINIMAX_TOKEN_PLAN_KEY=secret-minimax-legacy
 export MIMO_API_KEY=secret-mimo
@@ -446,6 +447,8 @@ test(
       "claude.opencode-go",
       "opencode.zen",
       "opencode.logfare",
+      "opencode.mistral",
+      "omp.mistral",
       "omp.deepseek",
       "omp.opencode-go",
       "omp.openrouter",
@@ -2748,4 +2751,66 @@ default_model = "m1"
     check(missing.stderr.toString().includes("harness not found"), missing.stderr.toString());
   }),
 );
+
+test("test_mistral_education_routes", withFixture((fixture) => {
+  const oc = fixture.run(["opencode", "mistral"], {
+    config: REAL_CONFIG,
+    env: { MISTRAL_API_KEY: "stale-payg-key" },
+  });
+  check(oc.exitCode === 0, oc.stderr.toString());
+  let [argv, env] = fixture.child();
+  expect(argv).toEqual(["--standalone"]);
+  check(existsSync(fixture.marker), "must use Infisical plan key");
+  check(env["MISTRAL_API_KEY"] === "secret-mistral-plan", JSON.stringify(env));
+  check(!("OPENROUTER_API_KEY" in env), "other provider secret leaked");
+  check(!("INFISICAL_TOKEN" in env), "Infisical secret leaked");
+  check(JSON.parse(env["OPENCODE_CONFIG_CONTENT"]).model === "mistral/zai-glm-5-3-flash",
+    "incorrect default model");
+
+  const selection = fixture.run(["opencode", "mistral", "--model", "deepseek-v4-1-flash-1017"], {
+    config: REAL_CONFIG,
+  });
+  check(selection.exitCode === 0, selection.stderr.toString());
+  [,env] = fixture.child();
+  check(JSON.parse(env["OPENCODE_CONFIG_CONTENT"]).model === "mistral/deepseek-v4-1-flash-1017",
+    "explicit selection ignored");
+
+  const omp = fixture.run(["omp", "mistral"], { config: REAL_CONFIG });
+  check(omp.exitCode === 0, omp.stderr.toString());
+  [argv,env] = fixture.child();
+  expect(argv.slice(0,10)).toEqual([
+    "--provider","mistral","--model","zai-glm-5-3-flash",
+    "--smol","mistral/zai-glm-5-3-flash",
+    "--slow","mistral/zai-glm-5-3-flash",
+    "--plan","mistral/zai-glm-5-3-flash",
+  ]);
+  check(env["MISTRAL_API_KEY"] === "secret-mistral-plan", "wrong OMP key");
+
+  const bad = fixture.run(["omp", "mistral", "--model", "unknown-id"], { config: REAL_CONFIG });
+  check(bad.exitCode === 2, bad.stderr.toString());
+  check(!existsSync(fixture.out), "unknown model must fail closed");
+
+  fixture.writeWrapper(FAKE_WITH_SECRETS.replace(
+    "export MISTRAL_API_KEY=secret-mistral-plan" + String.fromCharCode(10), ""
+  ));
+  const missing = fixture.run(["opencode", "mistral"], {
+    config: REAL_CONFIG,
+    env: { MISTRAL_API_KEY: "stale-payg-key" },
+  });
+  check(missing.exitCode === 1, missing.stderr.toString());
+  check(missing.stderr.toString().includes("MISTRAL_API_KEY"), missing.stderr.toString());
+  check(!existsSync(fixture.out), "must reject missing Infisical plan key");
+}));
+
+test("test_vibe_native_auth", withFixture((fixture) => {
+  const result = fixture.run(["vibe", "--", "--version"], {
+    config: REAL_CONFIG,
+    env: { MISTRAL_API_KEY: "native-vibe-key" },
+  });
+  check(result.exitCode === 0, result.stderr.toString());
+  const [argv, env] = fixture.child();
+  expect(argv).toEqual(["--version"]);
+  check(env["MISTRAL_API_KEY"] === "native-vibe-key", "native environment modified");
+  check(!existsSync(fixture.marker), "native Vibe must not fetch Infisical credentials");
+}));
 });
