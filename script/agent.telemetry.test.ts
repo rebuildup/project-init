@@ -11,7 +11,7 @@
  */
 
 import { describe, test, expect, afterAll } from "bun:test";
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, existsSync, utimesSync, rmSync, readdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, existsSync, utimesSync, rmSync, readdirSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -57,6 +57,17 @@ function newLedgerDir(name: string): string {
   const dir = join(TMP_ROOT, name);
   mkdirSync(dir, { recursive: true });
   return dir;
+}
+
+/** Block until `cond` is true (real condition, bounded wait) — used to
+ * await observable signals from spawned processes instead of guessed
+ * fixed delays. */
+function waitUntil(cond: () => boolean, timeoutMs = 5000): void {
+  const deadline = Date.now() + timeoutMs;
+  while (!cond()) {
+    if (Date.now() > deadline) throw new Error("waitUntil: condition not met in time");
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 5);
+  }
 }
 
 /** Valid baseline record; tests override individual fields. */
@@ -176,6 +187,32 @@ describe("write-path validation", () => {
     expect(existsSync(join(dir, LEDGER_FILE))).toBeFalse();
   });
 
+  test("rejects credential-shaped ids that pass the charset (A)", () => {
+    const dir = newLedgerDir("id-entropy");
+    // 40-char uniform filler (base64-ish run).
+    expect(() => recordUsage(dir, rec({ task: "a".repeat(40) }))).toThrow(ContractError);
+    // 32-hex run (hash/nonce shape).
+    expect(() => recordUsage(dir, rec({ task: "deadbeef".repeat(4) }))).toThrow(ContractError);
+    // JWT three-segment shape.
+    expect(() =>
+      recordUsage(dir, rec({ task: "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.abc123def456" })),
+    ).toThrow(ContractError);
+    // Credential-shaped model id and nonce inside the attempt key.
+    expect(() =>
+      recordUsage(dir, rec({ attempt: `claude.mimo#${"m".repeat(97)}#test-box#n1` })),
+    ).toThrow(ContractError);
+    expect(() =>
+      recordUsage(dir, rec({ attempt: "claude.mimo#mimo-v2#test-box#eyJhbGciOiJIUzI1NiJ9.eyJhIjoxfQ.cDEyMzQ1Njc4OTA" })),
+    ).toThrow(ContractError);
+    expect(existsSync(join(dir, LEDGER_FILE))).toBeFalse();
+    // Boundary values stay legal: 39-char run, 64-char dotted task,
+    // 96-char dotted model (dots break base64 runs).
+    recordUsage(dir, rec({ task: "x".repeat(39) }));
+    recordUsage(dir, rec({ attempt: ATTEMPT_KEY.replace("nonce-1", "len-ok"), task: "seg.".repeat(15) + "ok" }));
+    recordUsage(dir, rec({ attempt: `claude.mimo#${"m.".repeat(46)}mmm#test-box#len-ok-2` }));
+    expect(readLedger(dir).records).toHaveLength(3);
+  });
+
   test("rejects records that redaction would rewrite (secret-shaped values), never persists", () => {
     const dir = newLedgerDir("redaction-refusal");
     // Secret-shaped task id (sk-… value shape).
@@ -291,7 +328,6 @@ describe("concurrent writers (real processes)", () => {
 
   test("a former owner never unlinks a lock it no longer owns", () => {
     const dir = newLedgerDir("lock-ownership");
-    let innerResult: string | null = null;
     // Outer holder's release must not remove the successor's lock: the
     // successor steals the (stale) outer lock while fn is running, then
     // the outer finally runs — the lock now carries the successor's token.
@@ -306,11 +342,63 @@ describe("concurrent writers (real processes)", () => {
     withLedgerLock(dir, () => {
       writeFileSync(join(dir, LEDGER_LOCK_DIR, "owner"), "successor-token\n");
     }, { staleMs: LEDGER_LOCK_STALE_MS * 10 });
-    innerResult = existsSync(join(dir, LEDGER_LOCK_DIR)) ? "survived" : "removed";
-    expect(innerResult).toBe("survived");
+    expect(existsSync(join(dir, LEDGER_LOCK_DIR))).toBe(true);
     // Cleanup for the assertion above: the successor token is foreign to
     // everyone now, so drop the directory manually for the next test.
     rmSync(join(dir, LEDGER_LOCK_DIR), { recursive: true });
+  });
+
+  test("a live heartbeat keeps the lock unstealable (B: mtime re-verified before rename)", async () => {
+    const dir = newLedgerDir("heartbeat-steal");
+    const lockPath = join(dir, LEDGER_LOCK_DIR);
+    mkdirSync(lockPath);
+    writeFileSync(join(lockPath, "owner"), "live-owner\n");
+    // A separate real process keeps refreshing the lock mtime, simulating
+    // a live holder; the steal path must re-verify mtime and never rename.
+    const refresherSrc = `
+      const { utimesSync } = await import("node:fs");
+      const p = process.argv[2];
+      const end = Date.now() + 1500;
+      (function loop() {
+        utimesSync(p, new Date(), new Date());
+        if (Date.now() < end) setTimeout(loop, 5);
+      })();
+    `;
+    const refresherPath = join(TMP_ROOT, "refresher.ts");
+    writeFileSync(refresherPath, refresherSrc);
+    const refresher = Bun.spawn(["bun", refresherPath, lockPath], { stdout: "ignore", stderr: "pipe" });
+    // Deterministic readiness: wait for the real signal that the
+    // refresher has touched the lock mtime (no guessed delay).
+    const before = statSync(lockPath).mtimeMs;
+    waitUntil(() => statSync(lockPath).mtimeMs > before);
+    expect(() =>
+      withLedgerLock(dir, () => {}, { timeoutMs: 300, staleMs: 100 }),
+    ).toThrow(ContractError);
+    await refresher.exited;
+    // Holder gone: backdate explicitly (deterministic) and the steal works.
+    const old = new Date(Date.now() - LEDGER_LOCK_STALE_MS * 10);
+    utimesSync(lockPath, old, old);
+    recordUsage(dir, rec());
+    expect(readLedger(dir).records).toHaveLength(1);
+  }, 30_000);
+
+  test("a sync op exceeding the stale window fails closed (C)", () => {
+    const dir = newLedgerDir("fail-closed");
+    let ran = false;
+    // Real duration is the behavior under test (staleness is wall-clock
+    // based in the module); fake timers cannot exercise that path.
+    expect(() =>
+      withLedgerLock(dir, () => {
+        ran = true;
+        Bun.sleepSync(150);
+        return "ignored";
+      }, { staleMs: 50 }),
+    ).toThrow(ContractError);
+    expect(ran).toBeTrue();
+    // The lock is still released despite the fail-closed throw.
+    expect(existsSync(join(dir, LEDGER_LOCK_DIR))).toBeFalse();
+    // A fast op under the same window succeeds normally.
+    expect(withLedgerLock(dir, () => 42, { staleMs: 1000 })).toBe(42);
   });
 });
 
@@ -466,7 +554,8 @@ describe("summarizeLedger", () => {
         wall_time_ms: 500,
       }),
       // Success WITHOUT passing verification: counted, but never as a
-      // verified success; no usage, no cost → unknown counts, not zeros.
+      // verified success; no usage, no cost, no wall time → unknown
+      // counts, not zeros.
       rec({
         attempt: ATTEMPT_KEY.replace("nonce-1", "s4"),
         task: null,
@@ -491,6 +580,7 @@ describe("summarizeLedger", () => {
     expect(s.tokens).toEqual({ prompt: 1500, output: 650, cache_read: 950, cache_write: 0, effective: 1200 });
     expect(s.usage_unknown_records).toBe(1);
     expect(s.cost_unknown_records).toBe(1);
+    expect(s.wall_time_unknown_records).toBe(1);
     // Cache ratio is reported for transparency only.
     expect(s.cache_ratio).toBeCloseTo(950 / 2150);
     expect(s.wall_time_ms).toBe(5500);
@@ -507,6 +597,7 @@ describe("summarizeLedger", () => {
         effective_tokens: 700 + 400,
         usage_unknown_records: 0,
         cost_unknown_records: 0,
+        wall_time_unknown_records: 0,
         cost: { USD: { billed: 0.02, estimated: 0.01 } },
       },
       {
@@ -517,25 +608,28 @@ describe("summarizeLedger", () => {
         effective_tokens: 100,
         usage_unknown_records: 0,
         cost_unknown_records: 0,
+        wall_time_unknown_records: 0,
         cost: { EUR: { billed: 0, estimated: 0.03 } },
       },
     ]);
   });
 
-  test("records without usage/cost are counted as unknown, never summed as 0", () => {
+  test("records without usage/cost/wall time are counted as unknown, never summed as 0", () => {
     const dir = newLedgerDir("unknown-counts");
-    recordUsage(dir, rec({ attempt: ATTEMPT_KEY.replace("nonce-1", "u1"), task: "t-a", usage: null, cost: null }));
+    recordUsage(dir, rec({ attempt: ATTEMPT_KEY.replace("nonce-1", "u1"), task: "t-a", usage: null, cost: null, wall_time_ms: null }));
     recordUsage(dir, rec({ attempt: ATTEMPT_KEY.replace("nonce-1", "u2"), task: "t-a", usage: { prompt: 10, output: 5, cache_read: 0, cache_write: 0 }, cost: { amount: 1, currency: "USD", basis: "billed" } }));
     const read = readLedger(dir);
     const s = summarizeLedger(read.records);
     expect(s.usage_unknown_records).toBe(1);
     expect(s.cost_unknown_records).toBe(1);
+    expect(s.wall_time_unknown_records).toBe(1);
     // The known record's numbers are not diluted by zeros from the unknown one.
     expect(s.tokens.effective).toBe(15);
     expect(s.cost.USD).toEqual({ billed: 1, estimated: 0 });
     const taskA = s.per_task.find((t) => t.task === "t-a")!;
     expect(taskA.usage_unknown_records).toBe(1);
     expect(taskA.cost_unknown_records).toBe(1);
+    expect(taskA.wall_time_unknown_records).toBe(1);
     expect(taskA.effective_tokens).toBe(15);
     expect(taskA.cost.USD).toEqual({ billed: 1, estimated: 0 });
   });

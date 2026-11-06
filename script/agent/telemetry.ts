@@ -46,13 +46,14 @@
  *     is set, oldest-first until the file fits; corrupt lines dropped
  *     by the rewrite are reported (`corrupt_dropped`).
  *   - Summaries never fold missing data into zero: records without
- *     usage/cost are counted (`usage_unknown_records` /
- *     `cost_unknown_records`), never summed as 0.
+ *     usage/cost/wall time are counted (`usage_unknown_records` /
+ *     `cost_unknown_records` / `wall_time_unknown_records`), never
+ *     summed as 0.
  *
  * Network-free by contract: local files only, no dependencies.
  */
 
-import { mkdirSync, openSync, closeSync, writeSync, readSync, fstatSync, writeFileSync, readFileSync, renameSync, rmSync, statSync, existsSync } from "node:fs";
+import { mkdirSync, openSync, closeSync, writeSync, readSync, fstatSync, writeFileSync, readFileSync, renameSync, rmSync, statSync, existsSync, utimesSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { join } from "node:path";
 import {
@@ -179,6 +180,9 @@ export interface LedgerSummary {
   /** cache_read / (prompt + output). Transparency only — never an
    * efficiency proxy; use `tokens.effective` and cost instead. */
   cache_ratio: number | null;
+  /** Records with `wall_time_ms: null` (excluded from `wall_time_ms`,
+   * never folded into it as 0). */
+  wall_time_unknown_records: number;
   wall_time_ms: number;
   cost: CostTotals;
   /** Per-task rollup (records with a task id only), sorted by task id. */
@@ -190,6 +194,7 @@ export interface LedgerSummary {
     effective_tokens: number;
     usage_unknown_records: number;
     cost_unknown_records: number;
+    wall_time_unknown_records: number;
     cost: CostTotals;
   }>;
 }
@@ -246,6 +251,28 @@ const CURRENCY = /^[A-Z]{3}$/;
  * beyond `. _ : -`, so a prompt cannot hide in an id. Model ids and
  * attempt nonces are already constrained by the contract's own parsers. */
 const ID_CHARSET = /^[A-Za-z0-9._:-]{1,128}$/;
+/** Hard length caps: a `task` id is short by construction; model ids get
+ * a wider but still bounded budget. */
+const TASK_MAX = 64;
+const MODEL_MAX = 96;
+/** JWT three-segment base64url shape (header starts `eyJ`). */
+const JWT_LIKE = /^eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/;
+/** A 32+ hex run is hash/credential-shaped, never a task id. */
+const HEX_RUN = /[0-9a-f]{32,}/i;
+/** A 40+ base64/base64url-ish run is high-entropy credential-shaped
+ * (this also catches uniform filler like 40 × 'a'). */
+const B64_RUN = /[A-Za-z0-9+/=_-]{40,}/;
+
+/**
+ * Reject values that pass the charset but look like credentials: JWTs,
+ * long hex runs and long base64-ish runs. The charset alone cannot do
+ * this (40 × 'a', a sha256 hex nonce or a JWT are all "valid" slugs).
+ */
+function rejectCredentialShaped(value: string, where: string, field: string): void {
+  if (JWT_LIKE.test(value) || HEX_RUN.test(value) || B64_RUN.test(value)) {
+    throw new ContractError("schema", `${where}: '${field}' is credential-shaped (JWT/hex/base64 run); refusing to persist`);
+  }
+}
 
 function checkIso(value: string, where: string, field: string): number {
   if (!ISO_UTC.test(value)) {
@@ -277,9 +304,10 @@ function nonNegInt(value: unknown, where: string, field: string): number {
 }
 
 function checkId(value: string, where: string, field: string): string {
-  if (!ID_CHARSET.test(value)) {
-    throw new ContractError("schema", `${where}: '${field}' must match /^[A-Za-z0-9._:-]{1,128}$/`);
+  if (!ID_CHARSET.test(value) || value.length > TASK_MAX) {
+    throw new ContractError("schema", `${where}: '${field}' must match /^[A-Za-z0-9._:-]{1,64}$/`);
   }
+  rejectCredentialShaped(value, where, field);
   return value;
 }
 
@@ -335,6 +363,13 @@ export function parseUsageRecord(raw: unknown, where: string): UsageRecord {
 
   const attemptKey = requireStr(p, "attempt", where);
   parseAttemptKey(attemptKey); // identity rules: route/model/machine/nonce
+  const [, modelId, machineId, nonce] = attemptKey.split("#") as [string, string, string, string];
+  if (modelId.length > MODEL_MAX) {
+    throw new ContractError("schema", `${where}: model id must be at most ${MODEL_MAX} characters`);
+  }
+  rejectCredentialShaped(modelId, where, "attempt.model");
+  rejectCredentialShaped(machineId, where, "attempt.machine");
+  rejectCredentialShaped(nonce, where, "attempt.nonce");
 
   const outcome = requireStr(p, "outcome", where);
   if (!(outcome in OUTCOMES)) {
@@ -416,10 +451,17 @@ function lockIsOurs(lockPath: string, token: string): boolean {
 /**
  * Run `fn` while holding the ledger's lock directory. Writers serialize
  * on `mkdir` (atomic); the owner token proves ownership on release — a
- * former owner never unlinks a lock it does not own — and a lock left by
- * a forced kill is stolen rename-then-delete after `staleMs`, so a
- * concurrent acquirer can never observe a half-removed lock. Throws a
- * `state` ContractError on timeout.
+ * former owner never unlinks a lock it does not own. A lock left by a
+ * forced kill is stolen rename-then-delete after `staleMs`, but only
+ * after re-verifying the mtime immediately before the rename AND
+ * confirming the renamed directory is the stale lock that was inspected
+ * (owner token unchanged), so a lock refreshed or re-acquired mid-
+ * inspection is never renamed away. While held, a heartbeat refreshes
+ * the lock mtime so a live holder is never judged stale; a purely
+ * synchronous `fn` blocks timers, so a sync op that outlives the stale
+ * window fails closed (state ContractError) instead of returning a
+ * result that may have raced a steal. Throws a `state` ContractError on
+ * timeout.
  */
 export function withLedgerLock<T>(
   dir: string,
@@ -430,12 +472,13 @@ export function withLedgerLock<T>(
   const staleMs = opts.staleMs ?? LEDGER_LOCK_STALE_MS;
   mkdirSync(dir, { recursive: true });
   const lockPath = join(dir, LEDGER_LOCK_DIR);
+  const ownerPath = join(lockPath, LEDGER_LOCK_TOKEN);
   const token = randomUUID() + "\n";
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
       mkdirSync(lockPath);
-      writeFileSync(join(lockPath, LEDGER_LOCK_TOKEN), token);
+      writeFileSync(ownerPath, token);
       break;
     } catch (err) {
       if ((err as NodeJS.ErrnoException).code !== "EEXIST") {
@@ -445,13 +488,49 @@ export function withLedgerLock<T>(
       try {
         const age = Date.now() - statSync(lockPath).mtimeMs;
         if (age > staleMs) {
-          // Rename-then-delete: the steal is atomic for concurrent
-          // acquirers, and cleanup of the stale copy cannot race with a
-          // fresh owner's token write inside the live lock directory.
-          const stalePath = `${lockPath}.stale-${randomUUID()}`;
-          renameSync(lockPath, stalePath);
-          rmSync(stalePath, { recursive: true, force: true });
-          stolen = true;
+          let staleToken: string | null = null;
+          try {
+            staleToken = readFileSync(ownerPath, "utf8");
+          } catch {
+            staleToken = null; // unreadable/absent owner file
+          }
+          // Re-verify immediately before the rename: a holder that
+          // released and a successor that acquired in between leave a
+          // FRESH mtime, which must abort the steal.
+          if (Date.now() - statSync(lockPath).mtimeMs > staleMs) {
+            // Rename-then-delete: the steal is atomic for concurrent
+            // acquirers, and cleanup of the stale copy cannot race with
+            // a fresh owner's token write inside the live lock directory.
+            const stalePath = `${lockPath}.stale-${randomUUID()}`;
+            renameSync(lockPath, stalePath);
+            let renamedToken: string | null = null;
+            try {
+              renamedToken = readFileSync(join(stalePath, LEDGER_LOCK_TOKEN), "utf8");
+            } catch {
+              renamedToken = null;
+            }
+            if (renamedToken === staleToken) {
+              // The renamed directory is the stale lock we inspected.
+              rmSync(stalePath, { recursive: true, force: true });
+              stolen = true;
+            } else if (staleToken === null && renamedToken === null) {
+              // Ownerless stale directory (crashed before writing its
+              // token, and still no owner after the rename): remove.
+              rmSync(stalePath, { recursive: true, force: true });
+              stolen = true;
+            } else {
+              // The renamed directory is NOT the lock we inspected (the
+              // owner changed mid-inspection): give it back untouched.
+              // If the give-back fails because someone re-created the
+              // live lock path, leave the copy in place rather than
+              // delete a possibly-live lock.
+              try {
+                renameSync(stalePath, lockPath);
+              } catch {
+                /* lock path re-occupied; stale copy left for inspection */
+              }
+            }
+          }
         }
       } catch {
         // Vanished between mkdir and stat/rename: race with a releaser — retry.
@@ -462,9 +541,29 @@ export function withLedgerLock<T>(
       sleepSync(LOCK_POLL_MS);
     }
   }
+  const started = Date.now();
+  // Heartbeat: keep the mtime fresh while fn runs (effective whenever fn
+  // yields to the event loop; a blocking sync fn cannot fire timers, so
+  // the duration check below fails closed for that case).
+  const heartbeat = setInterval(() => {
+    try {
+      utimesSync(lockPath, new Date(), new Date());
+    } catch {
+      /* lock gone (stolen): nothing to refresh */
+    }
+  }, Math.max(1, Math.floor(staleMs / 3)));
+  heartbeat.unref?.();
   try {
-    return fn();
+    const result = fn();
+    if (Date.now() - started > staleMs) {
+      throw new ContractError(
+        "state",
+        `ledger op exceeded the ${staleMs}ms stale window; result may have raced a lock steal`,
+      );
+    }
+    return result;
   } finally {
+    clearInterval(heartbeat);
     // Verified release only: if the lock was stolen or already removed,
     // its content is not ours and we must not unlink the new owner's lock.
     if (lockIsOurs(lockPath, token)) {
@@ -672,6 +771,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
   let retryObservations = 0;
   let usageUnknown = 0;
   let costUnknown = 0;
+  let wallTimeUnknown = 0;
   let verifiedSuccesses = 0;
   let unverifiedSuccesses = 0;
   let wallTime = 0;
@@ -695,6 +795,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
     }
     if (!rec.cost) costUnknown++;
     if (rec.wall_time_ms !== null) wallTime += rec.wall_time_ms;
+    else wallTimeUnknown++;
     addCost(cost, rec);
     if (rec.task !== null) {
       const bucket = tasks.get(rec.task) ?? {
@@ -704,6 +805,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
         effective: 0,
         usageUnknown: 0,
         costUnknown: 0,
+        wallTimeUnknown: 0,
         cost: {} as CostTotals,
       };
       bucket.attempts++;
@@ -712,6 +814,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
       if (rec.usage) bucket.effective += effectiveTokens(rec.usage);
       else bucket.usageUnknown++;
       if (!rec.cost) bucket.costUnknown++;
+      if (rec.wall_time_ms === null) bucket.wallTimeUnknown++;
       addCost(bucket.cost, rec);
       tasks.set(rec.task, bucket);
     }
@@ -728,6 +831,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
       effective_tokens: bucket.effective,
       usage_unknown_records: bucket.usageUnknown,
       cost_unknown_records: bucket.costUnknown,
+      wall_time_unknown_records: bucket.wallTimeUnknown,
       cost: bucket.cost,
     }));
 
@@ -745,6 +849,7 @@ export function summarizeLedger(records: UsageRecord[]): LedgerSummary {
     tokens,
     usage_unknown_records: usageUnknown,
     cost_unknown_records: costUnknown,
+    wall_time_unknown_records: wallTimeUnknown,
     cache_ratio: promptPlusOutput === 0 ? null : tokens.cache_read / promptPlusOutput,
     wall_time_ms: wallTime,
     cost,
