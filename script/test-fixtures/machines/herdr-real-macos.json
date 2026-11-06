@@ -1,0 +1,66 @@
+{
+  "note": "REAL `herdr machine list/status --json` on macOS; target aliases replaced by target-N. status exits 1 when a machine is in error yet writes valid JSON.",
+  "herdrVersion": "herdr 0.9.5",
+  "listExit": 0,
+  "statusExit": 1,
+  "list": [
+    {
+      "id": "4729223c1554f417f43e826826adb9e3",
+      "label": "WSL · worker 1",
+      "target": "target-1",
+      "session": "session-1",
+      "enabled": false,
+      "selected": false
+    },
+    {
+      "id": "3202e4b584c237bb11db58dddc10d640",
+      "label": "UUU · Windows",
+      "target": "target-2",
+      "session": "default",
+      "enabled": false,
+      "selected": false
+    },
+    {
+      "id": "3f85952ba63e2beab71a5325cb3376d9",
+      "label": "Windows",
+      "target": "target-3",
+      "session": "default",
+      "enabled": true,
+      "selected": false
+    },
+    {
+      "id": "5ac021a51c055c8627fe0ef3f783daf2",
+      "label": "Ubuntu (WSL)",
+      "target": "target-4",
+      "session": "default",
+      "enabled": true,
+      "selected": false
+    }
+  ],
+  "status": [
+    {
+      "id": "4729223c1554f417f43e826826adb9e3",
+      "label": "WSL · worker 1",
+      "status": "disabled",
+      "error": null
+    },
+    {
+      "id": "3202e4b584c237bb11db58dddc10d640",
+      "label": "UUU · Windows",
+      "status": "disabled",
+      "error": null
+    },
+    {
+      "id": "3f85952ba63e2beab71a5325cb3376d9",
+      "label": "Windows",
+      "status": "error",
+      "error": "remote Herdr server is stopped or incompatible; run `herdr --remote target-3 --session default`"
+    },
+    {
+      "id": "5ac021a51c055c8627fe0ef3f783daf2",
+      "label": "Ubuntu (WSL)",
+      "status": "reachable",
+      "error": null
+    }
+  ]
+}
