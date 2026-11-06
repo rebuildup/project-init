@@ -414,7 +414,8 @@ note = "Passthrough: dsh keeps its own native DeepSeek provider and auth (unveri
 #   - provenance separates the three authority classes: `official`
 #     (provider-published catalog/docs), `measured` (our own live E2E /
 #     probe), `estimated` (config-side judgment). Prices and quotas must be
-#     official or measured, never estimated.
+#     official or measured, or explicitly config-declared (`estimated` with
+#     evidence source `config`) when only a repo comment is the source.
 #   - evidence.at is the observation date (day precision, UTC midnight);
 #     evidence.sha pins the commit that recorded the observation.
 #   - Quota scopes identify the SHARED allowance (quotaScopeKey in
@@ -614,24 +615,24 @@ currency = "USD"
 [catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.input_per_mtok]
 value = 0.15
 status = "configured"
-provenance = "official"
+provenance = "estimated"
 
 [catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.input_per_mtok.evidence]
 at = "2026-11-06T00:00:00Z"
-source = "provider-docs"
+source = "config"
 sha = "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd"
-note = "Mistral published per-MTok price for GLM 5.3 Flash (volume-first model on this plan)."
+note = "CONFIG-DECLARED, not verified against Mistral's published docs: per-MTok LIST price for GLM 5.3 Flash transcribed from the provider comment in this file (commit 9b9fff9). List price, not the Education/Pro plan's effective billing."
 
 [catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.output_per_mtok]
 value = 0.5
 status = "configured"
-provenance = "official"
+provenance = "estimated"
 
 [catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.output_per_mtok.evidence]
 at = "2026-11-06T00:00:00Z"
-source = "provider-docs"
+source = "config"
 sha = "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd"
-note = "Mistral published per-MTok price for GLM 5.3 Flash (volume-first model on this plan)."
+note = "CONFIG-DECLARED, not verified against Mistral's published docs: per-MTok LIST price for GLM 5.3 Flash transcribed from the provider comment in this file (commit 9b9fff9). List price, not the Education/Pro plan's effective billing."
 
 # --- Route-level facts (harness x provider) ---
 

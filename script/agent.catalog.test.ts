@@ -77,6 +77,15 @@ describe("loadCatalog: real config", () => {
     catalog = loadCatalog(REAL_CONFIG);
   });
 
+  test("real config catalog validates (malformed catalog fails here)", () => {
+    // Explicit re-validation as its own assertion: any invalid route/model
+    // reference, attestation-matrix violation or evidence-less price in
+    // config/agents.toml fails this test.
+    expect(() => loadCatalog(REAL_CONFIG)).not.toThrow();
+    const fresh = loadCatalog(REAL_CONFIG);
+    expect(Object.keys(fresh.providers).length).toBeGreaterThan(0);
+  });
+
   test("loads every catalogued provider and route", () => {
     expect(Object.keys(catalog.providers).sort()).toEqual([
       "deepseek",
@@ -234,7 +243,7 @@ provenance = "official"
 `))).toThrow(/price requires evidence/);
   });
 
-  test("estimated price", () => {
+  test("estimated price with a published source is rejected", () => {
     expect(() => loadCatalog(configWith(`
 [catalog.providers.testprov.models."test-model".pricing]
 currency = "USD"
@@ -245,7 +254,25 @@ provenance = "estimated"
 [catalog.providers.testprov.models."test-model".pricing.input_per_mtok.evidence]
 at = "2026-11-01T00:00:00Z"
 source = "provider-docs"
-`))).toThrow(/never 'estimated'/);
+`))).toThrow(/estimated/);
+  });
+
+  test("config-declared price (estimated + config source) is accepted and labeled", () => {
+    const loaded = loadCatalog(configWith(`
+[catalog.providers.testprov.models."test-model".pricing]
+currency = "USD"
+[catalog.providers.testprov.models."test-model".pricing.input_per_mtok]
+value = 1.5
+status = "configured"
+provenance = "estimated"
+[catalog.providers.testprov.models."test-model".pricing.input_per_mtok.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "config"
+note = "config-declared list price, not provider-published"
+`));
+    const pricing = loaded.providers["testprov"].models["test-model"].pricing!;
+    expect(pricing.input_per_mtok?.provenance).toBe("estimated");
+    expect(pricing.input_per_mtok?.evidence?.source).toBe("config");
   });
 
   test("price without currency", () => {

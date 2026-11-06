@@ -14,9 +14,10 @@
  *   - `measured`  — our own live execution evidence (E2E, probes).
  *   - `estimated` — config-side judgment; never presented as either.
  * A fact with no entry is UNKNOWN: this module never invents prices,
- * quotas or capabilities. An attested price without provider-published or
- * measured evidence is rejected at load time, as is any attestation that
- * violates the contract's status/provenance/evidence matrix.
+ * quotas or capabilities. An attested price without provider-published,
+ * measured or explicitly config-declared evidence is rejected at load
+ * time, as is any attestation that violates the contract's
+ * status/provenance/evidence matrix.
  *
  * Quota scopes: allowances are identified by `quotaScopeKey` (account /
  * api-key / plan / machine), never by machine, so the same account
@@ -210,9 +211,7 @@ function checkE2eValue(value: unknown, where: string): E2eObservation[] {
 }
 
 /**
- * Price rule (issue acceptance: a definitive price without evidence is
- * rejected). A price must cite provider-published or measured evidence;
- * an `estimated` price is an invention and always rejected.
+ * Price value check. Attestation-level rules are in `checkPriceAttestation`.
  */
 function checkPrice(value: unknown, where: string): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
@@ -222,16 +221,18 @@ function checkPrice(value: unknown, where: string): number {
 }
 
 function checkPriceAttestation(att: Attested<number>, where: string): void {
-  if (att.provenance === "estimated") {
-    throw new ContractError(
-      "evidence",
-      `${where}: a price is never 'estimated'; cite provider-published or measured evidence`,
-    );
-  }
   if (!att.evidence) {
     throw new ContractError(
       "evidence",
-      `${where}: a price requires evidence (provider-published or measured)`,
+      `${where}: a price requires evidence (provider-published, measured, or config-declared)`,
+    );
+  }
+  // An 'estimated' price is acceptable only as explicitly config-declared
+  // hearsay (evidence source 'config'); any other source misrepresents it.
+  if (att.provenance === "estimated" && att.evidence.source !== "config") {
+    throw new ContractError(
+      "evidence",
+      `${where}: an 'estimated' price may only cite source 'config' (config-declared, not provider-published)`,
     );
   }
 }
