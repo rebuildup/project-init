@@ -2,18 +2,15 @@
  * Execution preflight / admission for agent workers (Epic #86, T010).
  *
  * Pure functions only: every input is injected, nothing here launches a
- * process, touches the network, or reads the filesystem. Fail closed: a
- * request that is missing, malformed, ambiguous, or over any hard limit is
- * blocked with explicit reasons — never waved through on partial data.
+ * process, touches the network, or reads the filesystem.
  *
- * This module is ADVISORY to the caller's launch path: it returns a decision,
- * it never launches, writes, or enforces anything by itself. Unresolved or
- * out-of-policy requests are `blocked`, never degraded to a weaker admission.
- *
- * Malformed input (null request/task, non-finite numbers, unknown enum
- * values) throws `ContractError` from script/agent/contract.ts rather than
- * returning a decision: a caller that cannot shape the contract does not get
- * an admission verdict to misread.
+ * Design rule: the ENTIRE request and limits object are validated with a
+ * strict schema FIRST. Any malformed field — wrong type, missing, empty,
+ * whitespace-only, non-finite number, non-boolean boolean — throws
+ * `ContractError` and never produces a decision. Only after the shape is
+ * proven clean do semantic checks run; a semantic violation (over budget,
+ * forbidden delegation, untrusted repo, unendorsed main landing) returns a
+ * `blocked` decision, it never degrades to an admission.
  */
 
 import { ContractError, isPlainObject } from "./contract.ts";
@@ -98,17 +95,19 @@ export interface AdmissionRequest {
   networkCalls: number;
   /** Writes leaving the repo/sandbox (publish, provision, external APIs). */
   externalWrites: number;
-  /** Plan uses native sub-agent delegation. */
-  nativeDelegation: boolean;
+  /** Depth of the spawn chain requesting admission (0 = top-level). */
+  spawnDepth: number;
   /** Execution is sandboxed (worker isolation, not the repo itself). */
   sandboxed: boolean;
   /** Repo the work runs in is trusted (reviewed checkout, not foreign). */
   repoTrusted: boolean;
+  /** Plan uses native sub-agent delegation. */
+  nativeDelegation: boolean;
   /** Plan was granted explicit secret access by the caller. */
   secretsGranted: boolean;
   /** Where the result lands: a ticket branch or the release line. */
   landingClass: LandingClass;
-  /** Branch the result is proposed against (e.g. a release-* branch). */
+  /** Branch the result is proposed against. */
   targetBranch: string;
   /** Explicit user authorization, required for any main-bound landing. */
   authorizedByUser: boolean;
@@ -118,6 +117,7 @@ export interface AdmissionRequest {
   reviewer: string | null;
 }
 
+/** One named admission check and its outcome. */
 export interface CheckResult {
   name: string;
   passed: boolean;
@@ -128,7 +128,6 @@ export interface PreflightDecision {
   admitted: boolean;
   checks: CheckResult[];
   review: ReviewRequirement;
-  /** Fail-closed reasons, empty when admitted. */
   reasons: string[];
 }
 
@@ -144,69 +143,206 @@ const SOLO_CLASSES: readonly TaskClass[] = ["mechanical", "localized"];
 
 const DURABILITIES: readonly Durability[] = ["observational", "mutable", "durable"];
 
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
+/** Valid landing targets: `main`, a `release-x-y-z` line, or an issue branch. */
+const TARGET_BRANCH_RE =
+  /^(main|release-\d+-\d+-\d+|\d+)$/;
 
-function isNonNegativeInt(value: unknown): value is number {
-  return typeof value === "number" && Number.isInteger(value) && value >= 0;
+function requireNonNegativeFinite(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    throw new ContractError("schema", `preflight: '${field}' must be a finite non-negative number`);
+  }
+  return value;
 }
 
 /**
- * Validate one admission request against injected hard limits. Throws
- * `ContractError` on malformed input (null request/task, non-finite limit or
- * budget numbers, unknown task class); returns a decision with per-check
- * results otherwise. Semantic violations (over budget, forbidden delegation,
- * missing reviewer) block the request instead of throwing.
+ * Strict shape validation. Throws `ContractError` on the FIRST malformed
+ * field; never coerces, never accepts `undefined` for a required field, and
+ * rejects truthy impostors such as `'yes'` where a real boolean is required.
+ * Returns trimmed, typed views of the fields the semantic checks need.
  */
-export function preflight(
-  request: AdmissionRequest,
-  limits: HardLimits,
-  knownAuthorities: readonly string[],
-): PreflightDecision {
-  // Shape validation: malformed input is a caller bug, throw — never guess.
-  if (!isPlainObject(request) || !isPlainObject(request.task)) {
-    throw new ContractError("schema", "preflight: request and request.task must be objects");
+interface ValidatedRequest {
+  task: TaskDescriptor;
+  principal: string;
+  workers: number;
+  estimatedCostUsd: number;
+  estimatedDurationMs: number;
+  networkCalls: number;
+  externalWrites: number;
+  spawnDepth: number;
+  sandboxed: boolean;
+  repoTrusted: boolean;
+  nativeDelegation: boolean;
+  secretsGranted: boolean;
+  authorizedByUser: boolean;
+  landingClass: LandingClass;
+  targetBranch: string;
+  reviewer: string | null;
+  dependencyDagPresent: boolean;
+}
+
+function requireString(value: unknown, field: string): string {
+  if (typeof value !== "string" || value.trim() === "") {
+    throw new ContractError("schema", `preflight: '${field}' must be a non-empty string`);
   }
-  if (!TASK_CLASSES.includes(request.task.taskClass)) {
+  return value.trim();
+}
+
+function requireBoolean(value: unknown, field: string): boolean {
+  if (typeof value !== "boolean") {
+    throw new ContractError("schema", `preflight: '${field}' must be a boolean`);
+  }
+  return value;
+}
+
+function requireNonNegativeInt(value: unknown, field: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value) || value < 0) {
+    throw new ContractError("schema", `preflight: '${field}' must be a non-negative integer`);
+  }
+  return value;
+}
+
+function validateStructure(
+  request: unknown,
+  limits: unknown,
+  knownAuthorities: readonly string[],
+): ValidatedRequest {
+  if (!isPlainObject(request)) {
+    throw new ContractError("schema", "preflight: request must be an object");
+  }
+  if (!isPlainObject(limits)) {
+    throw new ContractError("schema", "preflight: limits must be an object");
+  }
+  if (!Array.isArray(knownAuthorities)) {
+    throw new ContractError("schema", "preflight: knownAuthorities must be an array");
+  }
+  if (knownAuthorities.length === 0) {
+    throw new ContractError("schema", "preflight: knownAuthorities must be a non-empty array");
+  }
+  for (const authority of knownAuthorities) {
+    if (typeof authority !== "string" || authority.trim() === "") {
+      throw new ContractError(
+        "schema",
+        "preflight: every knownAuthorities entry must be a non-empty string",
+      );
+    }
+  }
+
+  // Task descriptor: id non-empty, enums exact.
+  if (!isPlainObject(request.task)) {
+    throw new ContractError("schema", "preflight: request.task must be an object");
+  }
+  requireString(request.task.id, "task.id");
+  if (!TASK_CLASSES.includes(request.task.taskClass as TaskClass)) {
     throw new ContractError("schema", `preflight: unknown taskClass '${request.task.taskClass}'`);
   }
-  if (!DURABILITIES.includes(request.task.durability)) {
+  if (!DURABILITIES.includes(request.task.durability as Durability)) {
     throw new ContractError(
       "schema",
       `preflight: unknown durability '${request.task.durability}'`,
     );
   }
-  const NUMERIC_LIMIT_KEYS = [
+
+  // Numeric request fields: exact integers, non-negative; workers positive.
+  requireNonNegativeFinite(request.estimatedCostUsd, "request.estimatedCostUsd");
+  for (const key of [
+    "estimatedDurationMs",
+    "networkCalls",
+    "externalWrites",
+    "spawnDepth",
+  ] as const) {
+    requireNonNegativeInt(request[key], `request.${key}`);
+  }
+  if (typeof request.workers !== "number" || !Number.isInteger(request.workers) || request.workers < 1) {
+    throw new ContractError("schema", "preflight: 'request.workers' must be a positive integer");
+  }
+
+  // Boolean request fields: real booleans only, `'yes'`/`1`/`undefined` die here.
+  for (const key of [
+    "sandboxed",
+    "repoTrusted",
+    "nativeDelegation",
+    "secretsGranted",
+    "authorizedByUser",
+    "dependencyDagPresent",
+  ] as const) {
+    requireBoolean(request[key], `request.${key}`);
+  }
+
+  // Reviewer: null (no reviewer) or a non-empty trimmed string.
+  if (request.reviewer !== null) {
+    requireString(request.reviewer, "request.reviewer");
+  }
+
+  // Landing class: exact enum.
+  if (request.landingClass !== "ticket" && request.landingClass !== "release") {
+    throw new ContractError("schema", `preflight: unknown landingClass '${request.landingClass}'`);
+  }
+
+  // Target branch: `main`, a `release-x-y-z` line, or an issue-number branch.
+  const branch = request.targetBranch;
+  if (typeof branch !== "string" || !TARGET_BRANCH_RE.test(branch)) {
+    throw new ContractError(
+      "schema",
+      `preflight: targetBranch must be 'main', 'release-<n>-<n>-<n>', or an issue-number branch`,
+    );
+  }
+
+  // Numeric limit fields: non-negative integers.
+  requireNonNegativeFinite(limits.maxCostUsd, "limits.maxCostUsd");
+  for (const key of [
     "maxWorkers",
-    "maxCostUsd",
     "maxDurationMs",
     "maxNetworkCalls",
     "maxExternalWrites",
     "maxSpawnDepth",
-  ] as const;
-
-  for (const key of NUMERIC_LIMIT_KEYS) {
-    if (!isFiniteNumber(limits[key])) {
-      throw new ContractError("schema", `preflight: limit '${key}' must be a finite number`);
-    }
-  }
-  for (const key of ["allowNativeDelegation", "allowSecretAccess", "requireTrustedRepo"] as const) {
-    if (typeof limits[key] !== "boolean") {
-      throw new ContractError("schema", `preflight: limit '${key}' must be a boolean`);
-    }
-  }
-  for (const key of [
-    "workers",
-    "estimatedCostUsd",
-    "estimatedDurationMs",
-    "networkCalls",
-    "externalWrites",
   ] as const) {
-    if (!isFiniteNumber(request[key])) {
-      throw new ContractError("schema", `preflight: request.${key} must be a finite number`);
-    }
+    requireNonNegativeInt(limits[key], `limits.${key}`);
   }
+
+  // Boolean limit fields: real booleans.
+  for (const key of [
+    "allowNativeDelegation",
+    "allowSecretAccess",
+    "requireTrustedRepo",
+  ] as const) {
+    requireBoolean(limits[key], `limits.${key}`);
+  }
+
+  return {
+    task: request.task as unknown as TaskDescriptor,
+    principal: requireString(request.principal, "request.principal"),
+    workers: request.workers as number,
+    estimatedCostUsd: request.estimatedCostUsd as number,
+    estimatedDurationMs: request.estimatedDurationMs as number,
+    networkCalls: request.networkCalls as number,
+    externalWrites: request.externalWrites as number,
+    spawnDepth: request.spawnDepth as number,
+    sandboxed: request.sandboxed as boolean,
+    repoTrusted: request.repoTrusted as boolean,
+    nativeDelegation: request.nativeDelegation as boolean,
+    secretsGranted: request.secretsGranted as boolean,
+    authorizedByUser: request.authorizedByUser as boolean,
+    landingClass: request.landingClass as LandingClass,
+    targetBranch: request.targetBranch as string,
+    reviewer: request.reviewer === null ? null : requireString(request.reviewer, "request.reviewer"),
+    dependencyDagPresent: request.dependencyDagPresent as boolean,
+  };
+}
+
+/**
+ * Validate one admission request against injected hard limits. Throws
+ * `ContractError` on malformed input (null request, non-object limits, wrong
+ * field types, unknown enum values, empty strings); returns a decision with
+ * per-check results otherwise. A semantic violation (over budget, forbidden
+ * delegation, untrusted repo, unendorsed main landing) blocks the request.
+ */
+export function preflight(
+  request: unknown,
+  limits: unknown,
+  knownAuthorities: readonly string[],
+): PreflightDecision {
+  const v = validateStructure(request, limits, knownAuthorities);
+  const lim = limits as HardLimits;
 
   const checks: CheckResult[] = [];
   const reasons: string[] = [];
@@ -215,109 +351,132 @@ export function preflight(
     if (!passed) reasons.push(`${name}: ${detail}`);
   }
 
-  // Authority: an unknown principal is rejected before any budget is read.
-  const authorized = knownAuthorities.includes(request.principal);
+  // Authority first: an unknown principal is rejected before any budget is
+  // even looked at.
+  const authorized = knownAuthorities.some((a) => a.trim() === v.principal);
   check(
     "authority",
     authorized,
     authorized
-      ? `principal '${request.principal}' is on the allowlist`
-      : `principal '${request.principal}' is not on the allowlist`,
+      ? `principal '${v.principal}' is on the allowlist`
+      : `principal '${v.principal}' is not on the allowlist`,
   );
 
   // Solo classes never fan out; every class respects maxWorkers.
-  const solo = SOLO_CLASSES.includes(request.task.taskClass);
+  const solo = SOLO_CLASSES.includes(v.task.taskClass);
   check(
     "budget-workers",
-    request.workers >= 1 && request.workers <= limits.maxWorkers && (!solo || request.workers === 1),
+    v.workers >= 1 && v.workers <= lim.maxWorkers && (!solo || v.workers === 1),
     solo
-      ? `${request.task.taskClass} tasks run solo: workers must be 1, got ${request.workers}`
-      : `workers ${request.workers} must be an integer in [1, ${limits.maxWorkers}]`,
+      ? `${v.task.taskClass} tasks run solo: workers must be 1, got ${v.workers}`
+      : `workers ${v.workers} must be an integer in [1, ${lim.maxWorkers}]`,
   );
 
   check(
     "budget-cost",
-    request.estimatedCostUsd >= 0 && request.estimatedCostUsd <= limits.maxCostUsd,
-    `estimatedCostUsd ${request.estimatedCostUsd} must be within [0, ${limits.maxCostUsd}]`,
+    v.estimatedCostUsd >= 0 && v.estimatedCostUsd <= lim.maxCostUsd,
+    `estimatedCostUsd ${v.estimatedCostUsd} must be within [0, ${lim.maxCostUsd}]`,
   );
   check(
     "budget-duration",
-    request.estimatedDurationMs >= 0 && request.estimatedDurationMs <= limits.maxDurationMs,
-    `estimatedDurationMs ${request.estimatedDurationMs} must be within [0, ${limits.maxDurationMs}]`,
+    v.estimatedDurationMs >= 0 && v.estimatedDurationMs <= lim.maxDurationMs,
+    `estimatedDurationMs ${v.estimatedDurationMs} must be within [0, ${lim.maxDurationMs}]`,
   );
   check(
     "budget-network",
-    isNonNegativeInt(request.networkCalls) && request.networkCalls <= limits.maxNetworkCalls,
-    `networkCalls ${request.networkCalls} must be a non-negative integer within [0, ${limits.maxNetworkCalls}]`,
-  );
-  check(
-    "budget-spawn-depth",
-    isNonNegativeInt(request.spawnDepth) && request.spawnDepth <= limits.maxSpawnDepth,
-    `spawnDepth ${request.spawnDepth} must be a non-negative integer within [0, ${limits.maxSpawnDepth}]`,
+    v.networkCalls <= lim.maxNetworkCalls,
+    `networkCalls ${v.networkCalls} must be within [0, ${lim.maxNetworkCalls}]`,
   );
   check(
     "budget-external-writes",
-    isNonNegativeInt(request.externalWrites) &&
-      request.externalWrites <= limits.maxExternalWrites,
-    `externalWrites ${request.externalWrites} must be a non-negative integer within [0, ${limits.maxExternalWrites}]`,
+    v.externalWrites <= lim.maxExternalWrites,
+    `externalWrites ${v.externalWrites} must be within [0, ${lim.maxExternalWrites}]`,
+  );
+  check(
+    "budget-spawn-depth",
+    v.spawnDepth <= lim.maxSpawnDepth,
+    `spawnDepth ${v.spawnDepth} must be within [0, ${lim.maxSpawnDepth}]`,
   );
 
   // Delegation: native sub-agents are forbidden unless policy allows them.
   check(
     "delegation",
-    !request.nativeDelegation || limits.allowNativeDelegation,
-    request.nativeDelegation
+    !v.nativeDelegation || lim.allowNativeDelegation,
+    v.nativeDelegation
       ? "native delegation is forbidden by policy"
       : "no native delegation requested",
   );
 
-  // Sandbox: anything that leaves the repo (writes, network, tools) must run
-  // inside a sandbox when the repo is not explicitly trusted.
+  // Sandbox: anything that leaves the repo (writes, network) must run inside
+  // a sandbox when the repo is not explicitly trusted.
   check(
     "sandbox",
-    request.sandboxed || (request.repoTrusted && request.externalWrites === 0),
-    request.sandboxed
+    v.sandboxed || (v.repoTrusted && v.externalWrites === 0 && v.networkCalls === 0),
+    v.sandboxed
       ? "execution is sandboxed"
-      : "unsandboxed execution requires a trusted repo and no external writes",
+      : "unsandboxed execution requires a trusted repo and no external writes or network calls",
+  );
+
+  // Repo trust: when policy requires a trusted repo, an untrusted one is
+  // rejected even if the execution is sandboxed.
+  check(
+    "repo-trust",
+    !lim.requireTrustedRepo || v.repoTrusted,
+    v.repoTrusted
+      ? "repo is trusted"
+      : "policy requires a trusted repo; untrusted repo execution is rejected",
   );
 
   // Secrets: touching secrets requires both an explicit grant and an
   // allowlist that permits the principal at all.
   check(
     "secrets",
-    !request.secretsGranted || (authorized && limits.allowSecretAccess),
-    request.secretsGranted
+    !v.secretsGranted || (authorized && lim.allowSecretAccess),
+    v.secretsGranted
       ? "secret access requires an authorized principal and allowSecretAccess"
       : "no secret access requested",
   );
 
   // Cross-boundary preconditions: coordinated work needs a DAG node and an
   // independent reviewer; judgement-heavy work needs the reviewer too.
-  const review = reviewRequirement(request.task.taskClass);
+  const review = reviewRequirement(v.task.taskClass);
   if (review.dagCoordination) {
     check(
       "dag",
-      request.dependencyDagPresent,
+      v.dependencyDagPresent,
       "cross-boundary work must run as a node in an explicit dependency DAG",
     );
   }
   if (review.coldReview) {
+    const independent =
+      v.reviewer !== null && v.reviewer.toLowerCase() !== v.principal.toLowerCase();
     check(
       "reviewer",
-      typeof request.reviewer === "string" &&
-        request.reviewer.length > 0 &&
-        request.reviewer !== request.principal,
+      independent,
       "cold-review task classes require a named reviewer distinct from the author",
     );
   }
 
-  // Release-line integrity: only an explicitly user-authorized release
-  // landing may write to main; ticket-class work lands on ticket branches.
-  if (request.targetBranch === "main") {
+  // Release-line integrity: a main-bound landing must be release-class and
+  // explicitly user-authorized; release-class landings elsewhere need user
+  // authorization too; ticket-class landings on release/issue branches do not.
+  if (v.targetBranch === "main") {
     check(
       "landing",
-      request.landingClass === "release" && request.authorizedByUser,
+      v.landingClass === "release" && v.authorizedByUser,
       "a main-bound landing must be release-class and explicitly user-authorized",
+    );
+  } else if (/^\d+$/.test(v.targetBranch)) {
+    check(
+      "landing",
+      v.landingClass === "ticket",
+      "an issue-branch target must be a ticket-class landing",
+    );
+  } else if (v.landingClass === "release") {
+    check(
+      "landing",
+      v.authorizedByUser,
+      "a release-class landing requires explicit user authorization",
     );
   }
 
