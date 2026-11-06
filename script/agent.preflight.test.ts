@@ -138,7 +138,7 @@ describe("preflight", () => {
   });
 
   test("throws on missing spawnDepth", () => {
-    const req = baseRequest() as Record<string, unknown>;
+    const req = baseRequest() as unknown as Record<string, unknown>;
     delete req.spawnDepth;
     expect(() => preflight(req as unknown as AdmissionRequest, LIMITS, AUTHORITIES)).toThrow(
       ContractError,
@@ -240,7 +240,7 @@ describe("preflight", () => {
   });
 
   test("throws on undefined targetBranch", () => {
-    const req = baseRequest() as Record<string, unknown>;
+    const req = baseRequest() as unknown as Record<string, unknown>;
     delete req.targetBranch;
     expect(() => preflight(req as unknown as AdmissionRequest, LIMITS, AUTHORITIES)).toThrow(
       ContractError,
