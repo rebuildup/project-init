@@ -29,6 +29,7 @@ import {
   isPlainObject,
   isStale,
   parseAttested,
+  redact,
   redactJson,
   type Attested,
   type Evidence,
@@ -164,6 +165,13 @@ function parseDeltaSeconds(raw: string): number | null {
   return Number.isFinite(seconds) ? Math.round(seconds * 1000) : null;
 }
 
+/** Delta milliseconds (integer or decimal, `retry-after-ms` style) -> ms. */
+function parseDeltaMs(raw: string): number | null {
+  if (!/^\d+(\.\d+)?$/.test(raw)) return null;
+  const ms = Number(raw);
+  return Number.isFinite(ms) ? Math.round(ms) : null;
+}
+
 /** OpenAI-style duration ("1s", "6m0s", "12ms", "1h2m3s") -> milliseconds. */
 function parseDuration(raw: string): number | null {
   const match = /^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?(?:(\d+)ms)?$/.exec(raw);
@@ -174,23 +182,71 @@ function parseDuration(raw: string): number | null {
 }
 
 /**
- * A reset header value: numeric -> delta seconds relative to the observation;
- * otherwise HTTP-date (absolute) or duration string (relative). Returns the
- * ABSOLUTE epoch ms of the reset, or null when the value is unrecognized.
+ * Plausibility bounds for a reset value. ECMAScript dates are only valid
+ * within ±8.64e15 ms (beyond that `toISOString` throws RangeError — hostile
+ * values must drop, never throw). A numeric reset is read as an epoch
+ * instant only when it lands in a plausible window (2001..2100 in seconds,
+ * 2001..2100 in milliseconds); anything else is a delta. A delta or absolute
+ * reset further than a year out is not a believable rate-limit reset.
+ */
+const MAX_EPOCH_MS = 8.64e15;
+const MIN_EPOCH_S_MS = 1e12;
+const MAX_EPOCH_S_MS = 4102444800000; // 2100-01-01T00:00:00Z
+const MAX_EPOCH_S = 4102444800; // 2100-01-01T00:00:00Z in seconds
+export const MAX_RESET_HORIZON_MS = 366 * 24 * 60 * 60 * 1000;
+
+/**
+ * Convert a bounded epoch-ms reset to its ISO string; null outside the
+ * ECMAScript date range (never a RangeError, never a fabricated date).
+ */
+function toIsoUtc(ms: number | null): string | null {
+  if (ms === null || !Number.isFinite(ms) || Math.abs(ms) > MAX_EPOCH_MS) return null;
+  return new Date(ms).toISOString();
+}
+
+/**
+ * A reset header value -> ABSOLUTE epoch ms, or null when unrecognized or
+ * implausible. Numeric values are an epoch instant only when plausible
+ * (> 1e9 seconds / > 1e12 milliseconds, within bounds) — e.g. 1793000000 is
+ * October 2026, never year 2083 — otherwise delta seconds; deltas are capped
+ * at 366 days. ISO 8601 / RFC 3339 timestamps (Anthropic-style resets) and
+ * HTTP-dates are absolute. A reset at or before `observedMs` (past or zero —
+ * the window already rolled over) is not reportable: null. All failures
+ * return null; nothing throws, nothing is guessed.
  */
 function parseResetValue(raw: string, observedMs: number): number | null {
+  const bounded = (ms: number): number | null => {
+    if (!Number.isFinite(ms) || Math.abs(ms) > MAX_EPOCH_MS) return null;
+    if (ms <= observedMs) return null; // past or zero: window already reset
+    if (ms - observedMs > MAX_RESET_HORIZON_MS) return null; // implausible
+    return ms;
+  };
   if (/^\d+(\.\d+)?$/.test(raw)) {
+    const value = Number(raw);
+    if (!Number.isFinite(value)) return null;
+    if (value >= MIN_EPOCH_S_MS) {
+      // Epoch milliseconds (13-digit): plausible only within bounds.
+      return value <= MAX_EPOCH_S_MS ? bounded(value) : null;
+    }
+    if (value >= 1e9) {
+      // Epoch seconds: plausible only within bounds — never delta seconds.
+      return value <= MAX_EPOCH_S ? bounded(value * 1000) : null;
+    }
+    // Delta seconds, capped at one year.
     const delta = parseDeltaSeconds(raw);
-    return delta === null ? null : observedMs + delta;
+    return delta === null ? null : bounded(observedMs + delta);
+  }
+  if (ISO_UTC.test(raw)) {
+    const ms = Date.parse(raw);
+    return Number.isFinite(ms) ? bounded(ms) : null;
   }
   const duration = parseDuration(raw);
-  if (duration !== null) return observedMs + duration;
+  if (duration !== null) return bounded(observedMs + duration);
   // HTTP-date: all defined formats (RFC 1123/850, asctime) contain a
   // 3-letter weekday/month name; requiring one keeps Date.parse's lenience
   // from turning numeric garbage (e.g. "-5") into a year.
   if (!/[a-z]{3}/i.test(raw)) return null;
-  const ms = Date.parse(raw);
-  return Number.isFinite(ms) ? ms : null;
+  return bounded(Date.parse(raw));
 }
 
 /** One observed channel: a limit/remaining/reset triple sharing window+metric. */
@@ -212,7 +268,7 @@ interface Channel {
  *   - OpenAI-style:      `x-ratelimit-(limit|remaining|reset)-(requests|tokens)`
  *     with duration-string resets ("6m0s");
  *   - Anthropic-style:   `anthropic-ratelimit-(requests|tokens)-(limit|remaining|reset)`
- *     with delta-seconds resets;
+ *     with delta-seconds or RFC 3339 / ISO 8601 reset timestamps;
  *   - `retry-after` (delta seconds or HTTP-date) — reset signal only, metric
  *     stays unknown.
  *
@@ -300,11 +356,23 @@ export function parseRateLimitHeaders(
     }
   }
 
-  // retry-after: reset signal only; the counted allowance is not named.
-  const retryAfter = map.get("retry-after");
-  if (retryAfter !== undefined) {
-    const ms = parseResetValue(retryAfter, observedMs);
-    if (ms !== null) channel("rolling", null).resetMs = ms;
+  // retry-after / retry-after-ms: reset signal only; the counted allowance
+  // is not named (`retry-after` = delta seconds, `retry-after-ms` = delta ms;
+  // epoch instants, RFC 3339 timestamps and HTTP-dates are absolute).
+  for (const [name, unit] of [
+    ["retry-after", "s"],
+    ["retry-after-ms", "ms"],
+  ] as const) {
+    const raw = map.get(name);
+    if (raw === undefined) continue;
+    if (unit === "s") {
+      const ms = parseResetValue(raw, observedMs);
+      if (ms !== null) channel("rolling", null).resetMs = ms;
+      continue;
+    }
+    const delta = parseDeltaMs(raw);
+    if (delta === null || delta === 0 || delta > MAX_RESET_HORIZON_MS) continue;
+    channel("rolling", null).resetMs = observedMs + delta;
   }
 
   const evidence: Evidence = { at: observedAt, source: "probe", note };
@@ -312,6 +380,9 @@ export function parseRateLimitHeaders(
   for (const channel of channels.values()) {
     const remaining = channel.remaining ?? null;
     const limit = channel.limit ?? null;
+    // Inverted observation (remaining > limit): drop that channel, keep the
+    // others — a remaining count above its own limit is never shown.
+    if (limit !== null && remaining !== null && remaining > limit) continue;
     usage.push(
       assertQuotaUsage(
         {
@@ -320,7 +391,7 @@ export function parseRateLimitHeaders(
           limit,
           remaining,
           used: limit !== null && remaining !== null ? limit - remaining : null,
-          resetAt: channel.resetMs === undefined ? null : new Date(channel.resetMs).toISOString(),
+          resetAt: channel.resetMs === undefined ? null : toIsoUtc(channel.resetMs),
           provenance: "measured",
           evidence,
         },
@@ -351,9 +422,10 @@ export interface ResponseQuota {
 /**
  * Extract reset evidence from a 429/402 JSON body. Only EXACT known key
  * names at the top level or inside `error` are read: `reset_at` (ISO UTC
- * string) and `retry_after` (delta seconds). Message text is never scraped;
- * anything else is ignored. A 402 never yields a reset time (a depleted
- * balance has no provider-stated reset; inventing one is forbidden).
+ * string), `retry_after` (delta seconds) and `retry-after-ms` (delta
+ * milliseconds). Message text is never scraped; anything else is ignored.
+ * A 402 never yields a reset time (a depleted balance has no provider-stated
+ * reset; inventing one is forbidden). Unbounded/huge values drop to null.
  */
 function bodyResetAt(body: unknown, observedMs: number): number | null {
   if (!isPlainObject(body)) return null;
@@ -364,12 +436,19 @@ function bodyResetAt(body: unknown, observedMs: number): number | null {
     const resetAt = container["reset_at"];
     if (typeof resetAt === "string" && ISO_UTC.test(resetAt)) {
       const ms = Date.parse(resetAt);
-      if (found === null || ms < found) found = ms;
+      if (Number.isFinite(ms) && ms > observedMs && Math.abs(ms) <= MAX_EPOCH_MS) {
+        if (found === null || ms < found) found = ms;
+      }
     }
     const retryAfter = container["retry_after"];
     if (typeof retryAfter === "number" && Number.isFinite(retryAfter) && retryAfter >= 0) {
       const ms = observedMs + Math.round(retryAfter * 1000);
-      if (found === null || ms < found) found = ms;
+      if (ms > observedMs && ms <= MAX_EPOCH_MS && (found === null || ms < found)) found = ms;
+    }
+    const retryAfterMs = container["retry-after-ms"];
+    if (typeof retryAfterMs === "number" && Number.isFinite(retryAfterMs) && retryAfterMs >= 0) {
+      const ms = observedMs + Math.round(retryAfterMs);
+      if (ms > observedMs && ms <= MAX_EPOCH_MS && (found === null || ms < found)) found = ms;
     }
   }
   return found;
@@ -410,7 +489,7 @@ export function parseQuotaResponse(
             limit: null,
             remaining: null,
             used: null,
-            resetAt: new Date(resetMs).toISOString(),
+            resetAt: toIsoUtc(resetMs),
             provenance: "measured",
             evidence: { at: observedAt, source: "probe", note: "429 response body" },
           },
@@ -425,7 +504,7 @@ export function parseQuotaResponse(
     throttled,
     paymentRequired,
     usage,
-    resetAt: resetMs === null ? null : new Date(resetMs).toISOString(),
+    resetAt: toIsoUtc(resetMs),
   };
 }
 
@@ -466,9 +545,20 @@ export interface QuotaReportOptions {
   live?: readonly QuotaUsage[];
   /** Reference time (ms epoch); defaults to Date.now(). */
   now?: number;
-  /** Freshness window; defaults to contract DEFAULT_MAX_EVIDENCE_AGE_MS. */
+  /** Freshness window for CATALOG facts; defaults to contract
+   * DEFAULT_MAX_EVIDENCE_AGE_MS (7 days). Live observations always expire
+   * on the much shorter LIVE_MAX_AGE_MS — a caller may shorten that, never
+   * lengthen it. */
   maxAgeMs?: number;
 }
+
+/**
+ * Maximum evidence age for LIVE observations (headers/bodies): minutes, not
+ * days. A rate-limit window rolls over on its own, so a live remaining-count
+ * without a reset time goes stale almost immediately; only catalog facts use
+ * the 7-day contract window. Callers may shorten this, never lengthen it.
+ */
+export const LIVE_MAX_AGE_MS = 10 * 60 * 1000;
 
 const WINDOW_BY_FIELD: Record<string, QuotaWindow> = {
   per_minute: "minute",
@@ -546,8 +636,11 @@ export function quotaReport(catalog: Catalog, routeId: string, options: QuotaRep
     };
   }
 
-  // Live observations: measured evidence, fresh, reset not already passed.
+  // Live observations: measured evidence, fresh on the SHORT live window
+  // (minutes — a live count without a reset time must not survive 7 days),
+  // reset not already passed.
   const live: QuotaUsage[] = [];
+  const liveMaxAgeMs = Math.min(maxAgeMs, LIVE_MAX_AGE_MS);
   for (const entry of options.live ?? []) {
     let validated: QuotaUsage;
     try {
@@ -555,22 +648,21 @@ export function quotaReport(catalog: Catalog, routeId: string, options: QuotaRep
     } catch {
       continue; // fail-closed: malformed observation is never shown
     }
-    if (isStale(validated.evidence, now, maxAgeMs)) continue;
+    if (isStale(validated.evidence, now, liveMaxAgeMs)) continue;
     if (validated.resetAt !== null && Date.parse(validated.resetAt) <= now) continue;
     live.push(validated);
   }
 
   // Restriction: observed block; shown with its evidence date (a stale
   // warning is the safe direction and is labeled with its observed date).
+  // Without evidence there is no observation date — the block is dropped
+  // rather than fabricated as 1970-01-01.
   const restrictionAtt = route?.restriction ?? provider?.restriction ?? null;
   let restriction: QuotaReport["restriction"] = null;
-  if (restrictionAtt && restrictionAtt.status === "restricted" && restrictionAtt.note) {
+  if (restrictionAtt && restrictionAtt.status === "restricted" && restrictionAtt.note && restrictionAtt.evidence) {
     restriction = {
       note: restrictionAtt.note,
-      evidence: (restrictionAtt.evidence ?? {
-        at: "1970-01-01T00:00:00Z",
-        source: "config",
-      }) as Evidence,
+      evidence: restrictionAtt.evidence,
     };
   }
 
@@ -619,12 +711,18 @@ function formatUsage(entry: QuotaUsage): string {
 /**
  * Human display for a report. Every fact without valid evidence renders as
  * `unknown`; evidence-backed values carry their provenance and observation
- * date so measured and documented values are never conflated.
+ * date so measured and documented values are never conflated. Free-text
+ * fields (`terms`, restriction note) pass through the same contract
+ * redaction as the JSON path, so a secret-shaped string can never reach the
+ * display either.
  */
 export function formatQuotaReport(report: QuotaReport): string {
   const lines: string[] = [];
   const scope = report.scopeKey ?? "unknown";
   lines.push(`${report.routeId} — billing: ${report.billing} — allowance: ${scope}`);
+  if (report.terms !== null) {
+    lines.push(`  terms: ${String(redact(report.terms))}`);
+  }
   if (report.sharedWith.length > 0) {
     lines.push(`  shared allowance, also drawn by: ${report.sharedWith.join(", ")}`);
   }
@@ -651,7 +749,9 @@ export function formatQuotaReport(report: QuotaReport): string {
     .sort();
   lines.push(`  reset: ${resets.length === 0 ? "unknown" : resets[0]}`);
   if (report.restriction !== null) {
-    lines.push(`  restriction: ${report.restriction.note} [observed ${report.restriction.evidence.at}]`);
+    lines.push(
+      `  restriction: ${String(redact(report.restriction.note))} [observed ${report.restriction.evidence.at}]`,
+    );
   }
   return lines.join("\n");
 }

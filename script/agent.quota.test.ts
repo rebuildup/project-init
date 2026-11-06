@@ -95,12 +95,12 @@ describe("parseRateLimitHeaders", () => {
     });
   });
 
-  test("Anthropic-style delta-seconds reset", () => {
+  test("Anthropic-style: delta-seconds and RFC 3339 reset timestamps", () => {
     const usage = parseRateLimitHeaders(
       {
         "anthropic-ratelimit-requests-limit": "50",
         "anthropic-ratelimit-requests-remaining": "49",
-        "anthropic-ratelimit-requests-reset": "30",
+        "anthropic-ratelimit-requests-reset": "2026-11-06T12:00:30Z",
         "anthropic-ratelimit-tokens-limit": "40000",
         "anthropic-ratelimit-tokens-remaining": "39000",
       },
@@ -382,5 +382,181 @@ describe("display", () => {
     expect(parsed.documented).toHaveLength(report.documented.length);
     expect(parsed.sharedWith).toEqual(report.sharedWith);
     expect(quotaReportJson(report)).not.toMatch(/sk-|Bearer|token/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Review fixes: hostile inputs must degrade to unknown, never throw (review
+// of 534a9f8). Each test maps to one review point.
+// ---------------------------------------------------------------------------
+
+describe("review fixes: hostile inputs", () => {
+  test("(1) epoch-style numeric reset is read as a timestamp, never as seconds-offset", () => {
+    const epochSec = String(Math.floor(Date.parse("2026-11-13T13:00:00Z") / 1000));
+    const out = parseQuotaResponse(
+      { status: 200, headers: { "x-ratelimit-reset": epochSec } },
+      OBSERVED,
+    );
+    expect(out.resetAt).toBe("2026-11-13T13:00:00.000Z"); // not year 2083
+    const epochMs = String(Date.parse("2026-11-13T13:00:00Z"));
+    const msOut = parseQuotaResponse(
+      { status: 200, headers: { "x-ratelimit-reset": epochMs } },
+      OBSERVED,
+    );
+    expect(msOut.resetAt).toBe("2026-11-13T13:00:00.000Z");
+  });
+
+  test("(2) huge/hostile reset values degrade to unknown, never throw", () => {
+    expect(() =>
+      parseQuotaResponse(
+        { status: 200, headers: { "retry-after": "99999999999999999999" } },
+        OBSERVED,
+      ),
+    ).not.toThrow();
+    expect(
+      parseQuotaResponse({ status: 200, headers: { "retry-after": "99999999999999999999" } }, OBSERVED).resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse({ status: 200, headers: { "retry-after": "9999999999999" } }, OBSERVED).resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse({ status: 429, body: { error: { retry_after: 1e300 } } }, OBSERVED).resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse(
+        { status: 200, headers: { "retry-after": "Fri, 06 Nov 12000 13:30:00 GMT" } },
+        OBSERVED,
+      ).resetAt,
+    ).toBeNull();
+    expect(parseQuotaResponse({ status: 200, headers: { "retry-after": "99999999999999999999" } }, OBSERVED).resetAt).toBeNull();
+  });
+
+  test("(3) remaining > limit drops that channel only; other channels survive", () => {
+    const usage = parseRateLimitHeaders(
+      {
+        "x-ratelimit-limit-minute": "5",
+        "x-ratelimit-remaining-minute": "9",
+        "x-ratelimit-limit-hour": "100",
+        "x-ratelimit-remaining-hour": "40",
+      },
+      OBSERVED,
+    );
+    expect(usage).toHaveLength(1);
+    expect(usage[0]).toMatchObject({ window: "hour", limit: 100, remaining: 40, used: 60 });
+  });
+
+  test("(4) anthropic-ratelimit-*-reset accepts RFC 3339 timestamps", () => {
+    const usage = parseRateLimitHeaders(
+      { "anthropic-ratelimit-requests-reset": "2026-11-06T12:30:00Z" },
+      OBSERVED,
+    );
+    expect(usage[0]?.resetAt).toBe("2026-11-06T12:30:00.000Z");
+  });
+
+  test("(5) live counts expire in minutes; catalog facts keep the 7-day window", () => {
+    const catalog = loadCatalog("config/agents.toml");
+    const fiveMinOld: QuotaUsage = {
+      window: "minute",
+      metric: "requests",
+      limit: 10,
+      remaining: 5,
+      used: 5,
+      resetAt: null,
+      provenance: "measured",
+      evidence: { at: "2026-11-06T11:55:00Z", source: "probe" },
+    };
+    const elevenMinOld = {
+      ...fiveMinOld,
+      evidence: { at: "2026-11-06T11:49:00Z", source: "probe" },
+    };
+    const kept = quotaReport(catalog, "claude.openrouter-free", { now: NOW, live: [fiveMinOld, elevenMinOld] });
+    expect(kept.live).toHaveLength(1);
+    expect(kept.live[0]?.evidence.at).toBe("2026-11-06T11:55:00Z");
+    // Catalog-documented facts are still fresh 6 days after their evidence
+    // (7-day window), while a live count of the same age is long stale.
+    // (The evidence is already 5.5 days old at NOW.)
+    const sixDaysOld = NOW + 12 * 60 * 60 * 1000;
+    const catalogKept = quotaReport(catalog, "claude.openrouter-free", { now: sixDaysOld });
+    expect(catalogKept.documented.length).toBeGreaterThan(0);
+    const staleLive = {
+      ...fiveMinOld,
+      evidence: { at: "2026-11-06T11:30:00Z", source: "probe" },
+    };
+    expect(
+      quotaReport(catalog, "claude.openrouter-free", { now: sixDaysOld, live: [staleLive] }).live,
+    ).toEqual([]);
+  });
+
+  test("(6) past/zero resets are never reported; 402 stays reset-free", () => {
+    expect(
+      parseQuotaResponse({ status: 200, headers: { "retry-after": "0" } }, OBSERVED).resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse({ status: 200, headers: { "retry-after": "Fri, 06 Nov 2026 11:00:00 GMT" } }, OBSERVED)
+        .resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse(
+        { status: 429, body: { error: { reset_at: "2026-11-06T11:00:00Z" } } },
+        OBSERVED,
+      ).resetAt,
+    ).toBeNull();
+    expect(
+      parseQuotaResponse({ status: 402, body: { error: { reset_at: "2026-11-06T13:00:00Z" } } }, OBSERVED)
+        .resetAt,
+    ).toBeNull();
+  });
+
+  test("(7) retry-after-ms header and body field are honored", () => {
+    const header = parseQuotaResponse(
+      { status: 200, headers: { "retry-after-ms": "1500" } },
+      OBSERVED,
+    );
+    expect(header.resetAt).toBe("2026-11-06T12:00:01.500Z");
+    const body = parseQuotaResponse(
+      { status: 429, body: { error: { "retry-after-ms": 2000 } } },
+      OBSERVED,
+    );
+    expect(body.resetAt).toBe("2026-11-06T12:00:02.000Z");
+  });
+
+  test("(8) missing evidence never renders as 1970-01-01", () => {
+    const catalog = loadCatalog("config/agents.toml");
+    for (const route of Object.keys(catalog.routes)) {
+      expect(formatQuotaReport(quotaReport(catalog, route, { now: NOW }))).not.toContain("1970");
+    }
+  });
+
+  test("(9) display redacts secret-shaped terms/notes like the JSON path", () => {
+    const hostile: Catalog = {
+      path: "fixture",
+      providers: {
+        hostile: {
+          billing: "unknown",
+          terms: "send your sk-abcdef1234567890abcdef1234567890 to auth",
+          quota: null,
+          rate_limits: null,
+          restriction: {
+            value: null,
+            status: "restricted",
+            provenance: "measured",
+            note: "blocked (sk-abcdef1234567890abcdef1234567890 observed)",
+            evidence: { at: "2026-11-01T00:00:00Z", source: "probe" },
+          },
+          models: {},
+        },
+      },
+      routes: {},
+    };
+    const report = quotaReport(hostile, "cli.hostile", { now: NOW });
+    const displayed = formatQuotaReport(report);
+    expect(displayed).not.toContain("sk-abcdef1234567890");
+    expect(displayed).toContain("[redacted]");
+    // Display and JSON paths apply the SAME redaction to free text.
+    const parsed = JSON.parse(quotaReportJson(report));
+    expect(parsed.terms).toBe("[redacted]");
+    expect(parsed.restriction.note).toBe("[redacted]");
+    expect(displayed).toContain("terms: [redacted]");
+    expect(displayed).toContain("restriction: [redacted]");
   });
 });
