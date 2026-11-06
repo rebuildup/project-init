@@ -395,3 +395,350 @@ note = "Default is the officially released MiniMax-M3.1-Flash. OMP selects the e
 
 [routes."dsh.deepseek"]
 note = "Passthrough: dsh keeps its own native DeepSeek provider and auth (unverified here)."
+
+# ---------------------------------------------------------------------------
+# Catalog metadata (issue #89 / T003, Epic #86): capability, pricing and
+# terms metadata for providers, models and routes.
+#
+# ADDITIVE and advisory: the launcher (script/agent.ts) ignores this table;
+# launch behavior is defined exclusively by the tables above.
+# script/agent/catalog.ts validates every entry against
+# script/agent/contract.ts (Attested / Evidence / QuotaScope) and rejects
+# invalid route/model references, attestation-matrix violations and price
+# claims without provider-published or measured evidence.
+#
+# Rules:
+#   - Every fact is an Attested value: { value, status, provenance,
+#     evidence [, note] }. Absent = UNKNOWN: nothing is invented here; a
+#     fact without an entry simply does not exist yet.
+#   - provenance separates the three authority classes: `official`
+#     (provider-published catalog/docs), `measured` (our own live E2E /
+#     probe), `estimated` (config-side judgment). Prices and quotas must be
+#     official or measured, never estimated.
+#   - evidence.at is the observation date (day precision, UTC midnight);
+#     evidence.sha pins the commit that recorded the observation.
+#   - Quota scopes identify the SHARED allowance (quotaScopeKey in
+#     script/agent/contract.ts): routes drawing on the same account/plan
+#     allowance carry the SAME scope key, so concurrent machines and
+#     parallel routes never double-count one account's quota. Scope ids
+#     name accounts, plans or Infisical secret NAMES — never secret values.
+# ---------------------------------------------------------------------
+
+[catalog.providers.openrouter]
+billing = "metered"
+terms = "Pay-as-you-go API credits. The free-tier allowance (openrouter-free) is account-scoped and shared with this provider."
+
+[catalog.providers.openrouter.quota]
+scope = "account"
+id = "openrouter"
+
+[catalog.providers.openrouter-free]
+billing = "free"
+terms = "Account-scoped free tier. The paid openrouter route is the explicit path beyond these limits; it is never a fallback target here."
+
+[catalog.providers.openrouter-free.quota]
+scope = "account"
+id = "openrouter"
+
+[catalog.providers.openrouter-free.rate_limits]
+value = { per_minute = 20, per_day = 1000 }
+status = "configured"
+provenance = "official"
+
+[catalog.providers.openrouter-free.rate_limits.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "provider-docs"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Free-tier account limits: 20 req/min, 1000 req/day after >= $10 purchase history."
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".tool_call]
+value = true
+status = "verified-live"
+provenance = "measured"
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".tool_call.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "live-e2e"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Real response + Bash tool call on claude 2.1.314, Pi 1.4.0 and opencode 2.2.3 (per-route observations below)."
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".pricing]
+kind = "free"
+currency = "USD"
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".pricing.input_per_mtok]
+value = 0.0
+status = "configured"
+provenance = "official"
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".pricing.input_per_mtok.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "provider-catalog"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Public /api/v1/models: pricing.prompt = \"0\" (completion = \"0\", no expiry)."
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".pricing.output_per_mtok]
+value = 0.0
+status = "configured"
+provenance = "official"
+
+[catalog.providers.openrouter-free.models."nvidia/nemotron-3-ultra-550b-a55b:free".pricing.output_per_mtok.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "provider-catalog"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Public /api/v1/models: pricing.completion = \"0\"."
+
+[catalog.providers.deepseek]
+billing = "metered"
+terms = "Pay-as-you-go account balance. A depleted balance fails the route (HTTP 402 observed 2026-11-04) and is never retried elsewhere."
+
+[catalog.providers.deepseek.quota]
+scope = "account"
+id = "deepseek"
+
+[catalog.providers.minimax]
+billing = "subscription"
+terms = "MiniMax M Plan subscription; usage draws on the plan allowance. Token Plan limits return HTTP 429 (observed 2026-11-04) and are never retried elsewhere."
+
+[catalog.providers.minimax.quota]
+scope = "plan"
+id = "minimax-m-plan"
+
+[catalog.providers.zen]
+billing = "free"
+terms = "OpenCode Zen free tier; client-bound, so no route outside the opencode harness exists."
+
+[catalog.providers.zen.quota]
+scope = "account"
+id = "opencode-zen"
+
+[catalog.providers.zen.restriction]
+status = "restricted"
+provenance = "measured"
+note = "HTTP 403 from the pi client; zen free models answer only inside OpenCode clients."
+
+[catalog.providers.zen.restriction.evidence]
+at = "2026-10-16T00:00:00Z"
+source = "live-e2e"
+sha = "17cf3483069f76c16b108bd4c9a81bf992eda60a"
+
+[catalog.providers.opencode-go]
+billing = "subscription"
+terms = "OpenCode Go, $10/month. One account/workspace key (OPENCODE_API_KEY) serves Zen and Go; the endpoint selects which allowance a request consumes. Extra Usage (pay-as-you-go overflow) must stay OFF in the Console; the launcher cannot see or change that account setting."
+
+[catalog.providers.opencode-go.models."deepseek-v4.1-flash".tool_call]
+value = true
+status = "verified-live"
+provenance = "measured"
+
+[catalog.providers.opencode-go.models."deepseek-v4.1-flash".tool_call.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "live-e2e"
+sha = "57315124d62eaf090883666d2d17039cfce26849"
+note = "Real response + tool call via the claude route (observation recorded on that route below)."
+
+[catalog.providers.logfare]
+billing = "unknown"
+terms = "Premium community access: both models require the training opt-in (https://logfare.ai/consent) and Discord membership in the Logfare server; without them every request returns HTTP 403 (training_optin_required)."
+
+[catalog.providers.logfare.quota]
+scope = "account"
+id = "logfare"
+
+[catalog.providers.logfare.rate_limits]
+value = { per_minute = 40, per_hour = 1000, per_day = 5000 }
+status = "configured"
+provenance = "official"
+
+[catalog.providers.logfare.rate_limits.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-docs"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Regular-account budget with 6 concurrent requests. New accounts: 10/min, 200/hour, 500/day, 2 concurrent for the first 24h."
+
+[catalog.providers.logfare.models."deepseek-v4.1-flash-1017".tool_call]
+value = true
+status = "configured"
+provenance = "official"
+
+[catalog.providers.logfare.models."deepseek-v4.1-flash-1017".tool_call.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-catalog"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Public /v1/models: chat_capabilities.tools = true."
+
+[catalog.providers.logfare.models."deepseek-v4.1-flash-1017".context_window]
+value = 1048576
+status = "configured"
+provenance = "official"
+
+[catalog.providers.logfare.models."deepseek-v4.1-flash-1017".context_window.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-catalog"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Enforced context_length on the public /v1/models catalog; no output cap."
+
+[catalog.providers.logfare.models."glm-5.3".tool_call]
+value = true
+status = "configured"
+provenance = "official"
+
+[catalog.providers.logfare.models."glm-5.3".tool_call.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-catalog"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Public /v1/models: chat_capabilities.tools = true."
+
+[catalog.providers.logfare.models."glm-5.3".context_window]
+value = 262144
+status = "configured"
+provenance = "official"
+
+[catalog.providers.logfare.models."glm-5.3".context_window.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-catalog"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Logfare enforces 262144; its upstream_metadata 1M claim is NOT what Logfare serves (larger input rejected 413)."
+
+[catalog.providers.mistral]
+billing = "subscription"
+terms = "Mistral Education/Pro plan; Vibe CLI PLAN key (Infisical MISTRAL_API_KEY, never a pay-as-you-go key). Included usage and API/Vibe limits are account-scoped. Pay-as-you-go stays OFF in Admin > Subscription for a hard account-side stop."
+
+[catalog.providers.mistral.quota]
+scope = "account"
+id = "mistral-education"
+
+[catalog.providers.mistral.models."zai-glm-5-3-flash".pricing]
+currency = "USD"
+
+[catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.input_per_mtok]
+value = 0.15
+status = "configured"
+provenance = "official"
+
+[catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.input_per_mtok.evidence]
+at = "2026-11-06T00:00:00Z"
+source = "provider-docs"
+sha = "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd"
+note = "Mistral published per-MTok price for GLM 5.3 Flash (volume-first model on this plan)."
+
+[catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.output_per_mtok]
+value = 0.5
+status = "configured"
+provenance = "official"
+
+[catalog.providers.mistral.models."zai-glm-5-3-flash".pricing.output_per_mtok.evidence]
+at = "2026-11-06T00:00:00Z"
+source = "provider-docs"
+sha = "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd"
+note = "Mistral published per-MTok price for GLM 5.3 Flash (volume-first model on this plan)."
+
+# --- Route-level facts (harness x provider) ---
+
+[catalog.routes."claude.openrouter-free".e2e]
+value = [{ model = "nvidia/nemotron-3-ultra-550b-a55b:free", tool_call = true }]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."claude.openrouter-free".e2e.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "live-e2e"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Real response + Bash tool call, claude 2.1.314."
+
+[catalog.routes."opencode.openrouter-free".e2e]
+value = [{ model = "nvidia/nemotron-3-ultra-550b-a55b:free", tool_call = true }]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."opencode.openrouter-free".e2e.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "live-e2e"
+sha = "fe67db6e8d27fc2b1b0f604ec2299eafb6e3f4e2"
+note = "Real response + Bash tool call, opencode 2.2.3."
+
+[catalog.routes."omp.openrouter-free".e2e]
+value = [{ model = "nvidia/nemotron-3-ultra-550b-a55b:free", tool_call = true }]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."omp.openrouter-free".e2e.evidence]
+at = "2026-11-04T00:00:00Z"
+source = "live-e2e"
+sha = "bed3716a5008c424a3b2bf97204f1d8ebafe8a6b"
+note = "Real response + Bash tool call, OMP 18.16.0."
+
+[catalog.routes."claude.opencode-go".quota]
+scope = "plan"
+id = "opencode-go"
+
+[catalog.routes."claude.opencode-go".e2e]
+value = [{ model = "deepseek-v4.1-flash", tool_call = true }]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."claude.opencode-go".e2e.evidence]
+at = "2026-11-01T00:00:00Z"
+source = "live-e2e"
+sha = "57315124d62eaf090883666d2d17039cfce26849"
+note = "Real response + tool call, claude 2.1.314."
+
+[catalog.routes."omp.opencode-go".quota]
+scope = "plan"
+id = "opencode-go"
+
+[catalog.routes."omp.opencode-go".e2e]
+value = [{ model = "mimo-v2.6-flash", tool_call = true }]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."omp.opencode-go".e2e.evidence]
+at = "2026-11-04T00:00:00Z"
+source = "live-e2e"
+sha = "bed3716a5008c424a3b2bf97204f1d8ebafe8a6b"
+note = "Real response + tool call, OMP."
+
+[catalog.routes."opencode.logfare".concurrency]
+value = 6
+status = "configured"
+provenance = "official"
+
+[catalog.routes."opencode.logfare".concurrency.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "provider-docs"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Account-wide concurrent request limit; new accounts: 2 for the first 24h."
+
+[catalog.routes."opencode.logfare".e2e]
+value = [
+  { model = "deepseek-v4.1-flash-1017", tool_call = true },
+  { model = "glm-5.3", tool_call = true },
+]
+status = "verified-live"
+provenance = "measured"
+
+[catalog.routes."opencode.logfare".e2e.evidence]
+at = "2026-11-05T00:00:00Z"
+source = "live-e2e"
+sha = "6640c4457efba054e72614fceffc82a1954f8057"
+note = "Real response + shell-tool call, both models."
+
+[catalog.routes."omp.deepseek".restriction]
+status = "restricted"
+provenance = "measured"
+note = "HTTP 402 Insufficient Balance from the account; response/tool success unverified. No fallback."
+
+[catalog.routes."omp.deepseek".restriction.evidence]
+at = "2026-11-04T00:00:00Z"
+source = "live-e2e"
+sha = "bed3716a5008c424a3b2bf97204f1d8ebafe8a6b"
+
+[catalog.routes."omp.minimax".restriction]
+status = "restricted"
+provenance = "measured"
+note = "HTTP 429 Token Plan limit; response/tool success unverified. No fallback."
+
+[catalog.routes."omp.minimax".restriction.evidence]
+at = "2026-11-04T00:00:00Z"
+source = "live-e2e"
+sha = "bed3716a5008c424a3b2bf97204f1d8ebafe8a6b"
