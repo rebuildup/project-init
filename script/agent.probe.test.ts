@@ -404,6 +404,27 @@ describe("probeRoute: live mode (mocked provider)", () => {
     expect(mock.calls.length).toBe(0);
   });
 
+  test("an unparseable cooldown timestamp fails closed and is reported", async () => {
+    const stateDir = newStateDir();
+    mkdirSync(join(stateDir, "probe"), { recursive: true });
+    writeFileSync(
+      join(stateDir, "probe", "state.json"),
+      JSON.stringify({ contract_version: "1.0.0", probes: {}, cooldowns: { "account:testprov-account": "not-a-date" } }),
+    );
+    const mock = mockTransport([], "http");
+    const report = await probeRoute(
+      baseOptions(CONFIG_PATH, stateDir, { transport: mock.transport, mode: "live", now: NOW }),
+    );
+    const live = report.layers.filter((l) =>
+      ["provider-reachable", "real-response", "tool-call"].includes(l.layer),
+    );
+    for (const layer of live) {
+      expect(layer.status).toBe("skipped");
+      expect(layer.failure).toBe("rate-limit-cooldown");
+    }
+    expect(mock.calls.length).toBe(0);
+  });
+
   test("observed catalog restriction refuses the live probe without any request", async () => {
     const configPath = writeConfig(`
 [providers.testprov]
@@ -794,6 +815,77 @@ describe("probeRoute: corrupt state", () => {
     expect(contractError.code).toBe("state");
     expect(contractError.message).toContain("probe");
     expect(contractError.message).toContain("delete it to reset");
+  });
+});
+
+describe("probeRoute: option validation", () => {
+  test("non-finite now is a ContractError, never a raw RangeError", async () => {
+    let error: unknown = null;
+    try {
+      await probeRoute(baseOptions(CONFIG_PATH, newStateDir(), { transport: mockTransport([]).transport, now: NaN }));
+    } catch (exc) {
+      error = exc;
+    }
+    expect(error).toBeInstanceOf(ContractError);
+  });
+});
+
+describe("probeRoute: opencode_npm provider without base_url", () => {
+  const NO_URL_CONFIG = `
+[providers.nourl]
+secret = "NOURL_KEY"
+env = "NOURL_KEY"
+default_model = "m"
+models = ["m"]
+opencode_npm = "@ai-sdk/openai-compatible"
+
+[harnesses.claude]
+label = "Claude Code"
+command = "bun"
+adapter = "anthropic"
+
+[routes."claude.nourl"]
+`;
+
+  test("records findings instead of throwing", async () => {
+    const configPath = writeConfig(NO_URL_CONFIG);
+    const mock = mockTransport([], "http");
+    const report = await probeRoute(
+      baseOptions(configPath, newStateDir(), {
+        transport: mock.transport,
+        target: { route: "claude.nourl" },
+        env: { NOURL_KEY: "nourl-fake-value" },
+        mode: "live",
+        now: NOW,
+      }),
+    );
+    const realResponse = report.layers.find((l) => l.layer === "real-response")!;
+    expect(realResponse.status).toBe("not-applicable");
+    expect(mock.calls.length).toBe(0);
+  });
+});
+
+describe("probeRoute: transport-error observations persist like HTTP-status failures", () => {
+  test("dns/network/timeout findings are durable; mocks never are", async () => {
+    const stateDir = newStateDir();
+    const dns = mockTransport([{ error: "dns" }], "http");
+    await probeRoute(
+      baseOptions(CONFIG_PATH, stateDir, { transport: dns.transport, mode: "live", now: NOW }),
+    );
+    expect(existsSync(join(stateDir, "probe", "state.json"))).toBe(true);
+    const state = JSON.parse(readFileSync(join(stateDir, "probe", "state.json"), "utf8"));
+    const reachable = state.probes["claude.testprov::test-model"].layers.find(
+      (l: { layer: string }) => l.layer === "provider-reachable",
+    );
+    expect(reachable.failure).toBe("dns");
+
+    // A mock transport never persists, even for the same observation.
+    const mockState = newStateDir();
+    const mock = mockTransport([{ error: "dns" }], "mock");
+    await probeRoute(
+      baseOptions(CONFIG_PATH, mockState, { transport: mock.transport, mode: "live", now: NOW }),
+    );
+    expect(existsSync(join(mockState, "probe", "state.json"))).toBe(false);
   });
 });
 

@@ -39,6 +39,9 @@
  * `agentStateDir()/probe/state.json` (redacted, envelope-wrapped, TTL-
  * bounded; this subpath is owned by #90 per ADR-0015). The cache is never
  * a source of truth: stale entries are reported as `stale`, never usable.
+ * NOTE: there is no cross-process lock — two concurrent probe processes may
+ * race on the state file (last writer wins); each run's own report is
+ * unaffected.
  *
  * Network-free by default; the only network I/O is the opt-in live probe
  * through the transport. No process is launched and no existing launch
@@ -700,6 +703,9 @@ export interface ProbeOptions {
 export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
   const started = Date.now();
   const now = options.now ?? Date.now();
+  if (!Number.isFinite(now)) {
+    throw new ContractError("schema", "options.now must be a finite number");
+  }
   const mode = options.mode ?? "static";
   const ttlMs = options.ttlMs ?? PROBE_TTL_MS;
   const cooldownMs = options.cooldownMs ?? PROBE_COOLDOWN_MS;
@@ -846,6 +852,19 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
   const state = loadProbeState(stateDir);
   const cooldownKey = quotaScope ?? options.target.route;
   const cooldownUntil = Date.parse(state.cooldowns[cooldownKey] ?? "");
+  if (state.cooldowns[cooldownKey] !== undefined && !Number.isFinite(cooldownUntil)) {
+    // Fail closed: an unparseable cooldown is treated as active and reported.
+    for (const layer of liveLayers) {
+      add({
+        layer,
+        status: "skipped",
+        failure: "rate-limit-cooldown",
+        detail: `live probe refused: unparseable cooldown timestamp '${state.cooldowns[cooldownKey]}' is treated as active (delete the probe state file to reset)`,
+        evidence: { at, source: "probe", note: "no request sent" },
+      });
+    }
+    return finish(layers, options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+  }
   if (Number.isFinite(cooldownUntil) && cooldownUntil > now) {
     for (const layer of liveLayers) {
       add({
@@ -950,7 +969,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         detail: "upstream provider-reachable check failed",
         evidence: null,
       });
-      return finish(saveLive(layers, live, options.target.route, model, transport, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+      return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
     }
   }
 
@@ -972,7 +991,25 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
     return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
-  const request = buildRequest(wire, baseUrl!, model, credential);
+  if (!baseUrl) {
+    // No endpoint to POST: record the finding instead of crashing.
+    live.push({
+      layer: "real-response",
+      status: "not-applicable",
+      failure: "config",
+      detail: "provider declares no base_url; no completion request is possible",
+      evidence: { at, source: "config", note: "static config check" },
+    });
+    live.push({
+      layer: "tool-call",
+      status: "skipped",
+      detail: "real-response check not applicable",
+      evidence: null,
+    });
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+  }
+
+  const request = buildRequest(wire, baseUrl, model, credential);
   let res: ProbeTransportResponse;
   try {
     res = await transport.fetch(request.url, request.init);
@@ -1199,8 +1236,9 @@ function saveLive(
   if (transportKind !== "http") return merged;
   try {
     const state = loadProbeState(stateDir);
-    // Scrub credential values before anything is persisted.
-    const scrubbed = scrubSecrets(live, secrets) as ProbeLayerResult[];
+    // Scrub credential values before anything is persisted (free-text only;
+    // structural fields are never altered).
+    const scrubbed = scrubLayers(live, secrets);
     state.probes[cacheKey(route, model)] = {
       route,
       model,
@@ -1251,33 +1289,56 @@ function finish(
     cached: ordered.some((l) => l.cached === true),
   };
   // Mandatory last step before any output: credential values never appear in
-  // a report, even when a provider error message echoes them back.
-  return scrubSecrets(report, secrets) as ProbeReport;
+  // a report, even when a provider error message echoes them back. Only
+  // free-text fields are scrubbed; structural fields are never altered.
+  return {
+    ...report,
+    layers: scrubLayers(ordered, secrets),
+  };
+}
+
+/** Exact-match replace of every credential value occurrence in free text. */
+function scrubText(text: string, secrets: readonly string[]): string {
+  let out = text;
+  for (const secret of secrets) {
+    if (secret) out = out.split(secret).join(REDACTED);
+  }
+  return out;
 }
 
 /**
- * Exact-match scrub: replace every occurrence of a credential VALUE with
- * `[redacted]`, recursively through strings, arrays and plain objects.
- * Exact match only — no pattern guessing, no over-redaction.
+ * Field-scoped scrub of layer results: only free-text fields (`detail`,
+ * `evidence.note`) are scrubbed; structural fields are never altered.
  */
-function scrubSecrets(value: unknown, secrets: readonly string[]): unknown {
-  if (secrets.length === 0) return value;
-  if (typeof value === "string") {
-    let out = value;
-    for (const secret of secrets) {
-      if (secret) out = out.split(secret).join(REDACTED);
+function scrubLayers(layers: ProbeLayerResult[], secrets: readonly string[]): ProbeLayerResult[] {
+  if (secrets.length === 0) return layers;
+  return layers.map((layer) => ({
+    ...layer,
+    detail: layer.detail ? scrubText(layer.detail, secrets) : undefined,
+    evidence: layer.evidence
+      ? { ...layer.evidence, note: layer.evidence.note ? scrubText(layer.evidence.note, secrets) : undefined }
+      : null,
+  }));
+}
+function scrubLayers(layers: ProbeLayerResult[], secrets: readonly string[]): ProbeLayerResult[] {
+  if (secrets.length === 0) return layers;
+  return layers.map((layer) => {
+    const out: ProbeLayerResult = { ...layer };
+    if (out.detail) out.detail = scrubText(out.detail, secrets);
+    if (out.evidence?.note) {
+      out.evidence = { ...out.evidence, note: scrubText(out.evidence.note, secrets) };
     }
     return out;
+  });
+}
+
+/** Exact-match replace of every credential value occurrence in free text. */
+function scrubText(text: string, secrets: readonly string[]): string {
+  let out = text;
+  for (const secret of secrets) {
+    if (secret) out = out.split(secret).join(REDACTED);
   }
-  if (Array.isArray(value)) return value.map((item) => scrubSecrets(item, secrets));
-  if (isPlainObject(value)) {
-    const out: Record<string, unknown> = {};
-    for (const [key, item] of Object.entries(value)) {
-      out[key] = scrubSecrets(item, secrets);
-    }
-    return out;
-  }
-  return value;
+  return out;
 }
 
 // ---------------------------------------------------------------------------
