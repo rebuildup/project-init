@@ -159,6 +159,12 @@ explicit user/project decisionとして固定されたrelease scope/version/publ
 - self-hosted Infisical を secret-value control plane とする既存 decision は project-init 0.3.0 の secrets default と整合する。
 - symlink / bootstrap の idempotence と non-destructive behavior は project-local invariant として generic workflow より優先する。
 
+### project-init baseline reconciliation (T009, 2026-11-06)
+
+- reviewed baseline は `release-0-3-0` (`57fb4a2e5abe6f52e4fd9cb2cb88234496e47d4b`)。upstream current（v0.7.0 世代、project-init#132 の統合コメント参照）は **未 re-adopt**。`skills-lock.json` は floating source を追跡するため、lock 更新が reviewed baseline より新しい skill 内容を黙って取り込む可能性がある。
+- 既知の divergence: release-0-3-0 時代の delivery model は ticket PR の autonomous landing を許容していたが、本 profile は release-PR-only integration / merge-commit-only / 明示的 authorization boundary（上記 Delivery defaults および ADR-0012）を要求する。明示的な re-adoption decision があるまで local authority を優先し、policy を無断で上書きしない。
+- `script/agent/policy.ts` はこれらを offline の fact として報告する（baseline pin / floating lock / landing-policy consistency / skill hash drift）。本節は reconciliation の証跡であり、authorization ではない。
+
 ## Upstream source
 
 `rebuildup/project-init@release-0-3-0` (`57fb4a2e5abe6f52e4fd9cb2cb88234496e47d4b`) を基準にする。
