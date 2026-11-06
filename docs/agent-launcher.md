@@ -99,7 +99,7 @@ https://docs.mistral.ai/vibe/code/cli/install-setup for details.
 agent <harness> <provider> [--model <id>] [-- <harness args>...]
 agent <harness> [-- <harness args>...]     # native mode: provider omitted
 <harness>-<provider> [<harness args>...]      # shortcut form
-agent list | models <provider> | shortcuts [list|check|create|remove] | check | help
+agent list | models <provider> | shortcuts [list|check|create|remove] | check | guide [topic] | routes [--json] | help [--json]
 ```
 
 - **Native mode (provider omitted)**: `agent <harness>` runs the harness
@@ -131,6 +131,57 @@ agent list | models <provider> | shortcuts [list|check|create|remove] | check | 
   this).
 - `AGENT_MODEL` (the draft mise tasks' variable) is **not** read; a warning
   points at `--model`.
+
+## Progressive disclosure: `agent guide` and `agent routes` (issue #88)
+
+`agent help` stays the short entry point. Deeper facts are read on demand —
+no giant always-on prompt — and the machine-readable forms are rendered from
+the same data objects as the human text (`script/agent/help.ts`), so the JSON
+cannot drift from the human output.
+
+### `agent guide [topic] [--json]`
+
+Topics (unknown topic → exit 2 naming the valid ones):
+
+| Topic | Content |
+|---|---|
+| `routes` | route/shortcut/adapter model, OS support (macOS/WSL/Linux shim + symlinks, Windows `agent.ps1` + `.cmd`) |
+| `status` | which command shows which fact; attestation status/provenance/evidence; unknown stays unknown |
+| `limits` | quota scopes (`account:`/`plan:`/`api-key:`/`machine:`), documented rate limits, observed restrictions, 401/402/429 handling |
+| `distributed` | Supervisor/Worker roles, Herdr/Worktrunk boundaries, mutable ownership |
+| `recovery` | durable truth (Issues/PRs/Git), exit codes, no silent fallback |
+| `quality` | AGENTS.md invariants, `./script/test` / `check-secrets`, SHA-bound evidence, authority boundaries |
+| `misfire` | wrong harness started, launcher-vs-harness `--help`, fail-closed exit 2, retired `agent pi` |
+
+### `agent routes [--json]`
+
+`agent list` remains unchanged; `agent routes` adds the catalog facts from
+the `[catalog.*]` tables (issue #89) per route: effective quota scope
+(route-level override wins over the provider scope), billing/terms,
+rate limits, concurrency, observed restrictions and per-route e2e
+observations with their attestation metadata (status, provenance, evidence
+timestamp/source/SHA). Absent facts are printed as `unknown` — never
+inferred; a `restricted` attestation (e.g. an observed HTTP 402/403/429
+block) is a fact in its own right and is never reported as unknown.
+
+`--json` emits the same data as redacted canonical JSON
+(`script/agent/contract.ts` `redactJson`: secret-shaped keys and values are
+replaced by `[redacted]`; only credential env NAMES ever appear, never
+values). A malformed `[catalog.*]` table fails closed with exit 1.
+
+Fields owned by later issues are exposed only as explicit placeholders under
+`not_yet_available` (always null, never guessed):
+
+| Field | Issue | Task |
+|---|---|---|
+| `readiness` (configured/credential/reachable/tool-call probes) | #90 | T004 |
+| `usage` (remaining/used quota) | #91 | T005 |
+| `reset_at` (quota reset times) | #91 | T005 |
+| `recommendation` (route recommendation) | #94 | T008 |
+
+`agent help --json` quotes the exact usage text plus the subcommand list.
+A configured harness named `guide` or `routes` always wins over the
+subcommands, keeping its native launch path.
 
 ## Short commands (`<harness>-<provider>`)
 
