@@ -6,12 +6,17 @@
  * request that is missing, malformed, ambiguous, or over any hard limit is
  * blocked with explicit reasons — never waved through on partial data.
  *
- * Admission answers four questions before a worker may run:
- *   1. authority   — is the principal on the caller's allowlist?
- *   2. budget      — are workers/cost/time within the injected hard limits?
- *   3. delegation  — is native (sub-agent) delegation allowed at all?
- *   4. sandbox     — are writes/network confined to a sandboxed, trusted repo?
+ * This module is ADVISORY to the caller's launch path: it returns a decision,
+ * it never launches, writes, or enforces anything by itself. Unresolved or
+ * out-of-policy requests are `blocked`, never degraded to a weaker admission.
+ *
+ * Malformed input (null request/task, non-finite numbers, unknown enum
+ * values) throws `ContractError` from script/agent/contract.ts rather than
+ * returning a decision: a caller that cannot shape the contract does not get
+ * an admission verdict to misread.
  */
+
+import { ContractError, isPlainObject } from "./contract.ts";
 
 // ---------------------------------------------------------------------------
 // Task classification
@@ -26,6 +31,9 @@ export type TaskClass =
 
 /** Whether a task changes durable state or only observes it. */
 export type Durability = "observational" | "mutable" | "durable";
+
+/** Where a landed result integrates: a ticket branch or the release line. */
+export type LandingClass = "ticket" | "release";
 
 export interface TaskDescriptor {
   id: string;
@@ -60,7 +68,7 @@ export function reviewRequirement(taskClass: TaskClass): ReviewRequirement {
 }
 
 // ---------------------------------------------------------------------------
-// Admission request
+// Limits and admission request
 // ---------------------------------------------------------------------------
 
 /** Hard ceilings injected by the caller (policy holder), not discovered here. */
@@ -70,11 +78,9 @@ export interface HardLimits {
   maxDurationMs: number;
   maxNetworkCalls: number;
   maxExternalWrites: number;
-  /** Native (sub-agent) delegation permitted by policy. */
+  maxSpawnDepth: number;
   allowNativeDelegation: boolean;
-  /** Secrets may be touched at all (needsSecrets must still be granted). */
   allowSecretAccess: boolean;
-  /** Tool execution requires a trusted repo. */
   requireTrustedRepo: boolean;
 }
 
@@ -82,9 +88,7 @@ export interface AdmissionRequest {
   task: TaskDescriptor;
   /** Principal requesting admission; must be on the caller's allowlist. */
   principal: string;
-  /** Callers explicitly authorized to run work (allowlist; empty = nobody). */
-  knownAuthorities: readonly string[];
-  /** Parallel workers requested. */
+  /** Parallel workers requested (solo task classes are capped at 1). */
   workers: number;
   /** Estimated cost in USD; must be a finite number when known. */
   estimatedCostUsd: number;
@@ -102,6 +106,16 @@ export interface AdmissionRequest {
   repoTrusted: boolean;
   /** Plan was granted explicit secret access by the caller. */
   secretsGranted: boolean;
+  /** Where the result lands: a ticket branch or the release line. */
+  landingClass: LandingClass;
+  /** Branch the result is proposed against (e.g. a release-* branch). */
+  targetBranch: string;
+  /** Explicit user authorization, required for any main-bound landing. */
+  authorizedByUser: boolean;
+  /** A dependency DAG is present and this task is a coordinated node. */
+  dependencyDagPresent: boolean;
+  /** Named reviewer for cold-review task classes; distinct from principal. */
+  reviewer: string | null;
 }
 
 export interface CheckResult {
@@ -125,6 +139,9 @@ const TASK_CLASSES: readonly TaskClass[] = [
   "judgment-heavy",
 ];
 
+/** Task classes that never fan out: one worker, no exceptions. */
+const SOLO_CLASSES: readonly TaskClass[] = ["mechanical", "localized"];
+
 const DURABILITIES: readonly Durability[] = ["observational", "mutable", "durable"];
 
 function isFiniteNumber(value: unknown): value is number {
@@ -137,26 +154,68 @@ function isNonNegativeInt(value: unknown): value is number {
 
 /**
  * Validate one admission request against injected hard limits. Throws
- * `ContractError` on malformed input (wrong shape, unknown class), returns a
- * decision with per-check results otherwise. A request that omits or fudges
- * any field fails closed: unknown budget values, unknown principals,
- * untrusted repos and unsandboxed external writes are all rejections.
+ * `ContractError` on malformed input (null request/task, non-finite limit or
+ * budget numbers, unknown task class); returns a decision with per-check
+ * results otherwise. Semantic violations (over budget, forbidden delegation,
+ * missing reviewer) block the request instead of throwing.
  */
 export function preflight(
   request: AdmissionRequest,
   limits: HardLimits,
   knownAuthorities: readonly string[],
 ): PreflightDecision {
+  // Shape validation: malformed input is a caller bug, throw — never guess.
+  if (!isPlainObject(request) || !isPlainObject(request.task)) {
+    throw new ContractError("schema", "preflight: request and request.task must be objects");
+  }
+  if (!TASK_CLASSES.includes(request.task.taskClass)) {
+    throw new ContractError("schema", `preflight: unknown taskClass '${request.task.taskClass}'`);
+  }
+  if (!DURABILITIES.includes(request.task.durability)) {
+    throw new ContractError(
+      "schema",
+      `preflight: unknown durability '${request.task.durability}'`,
+    );
+  }
+  const NUMERIC_LIMIT_KEYS = [
+    "maxWorkers",
+    "maxCostUsd",
+    "maxDurationMs",
+    "maxNetworkCalls",
+    "maxExternalWrites",
+    "maxSpawnDepth",
+  ] as const;
+
+  for (const key of NUMERIC_LIMIT_KEYS) {
+    if (!isFiniteNumber(limits[key])) {
+      throw new ContractError("schema", `preflight: limit '${key}' must be a finite number`);
+    }
+  }
+  for (const key of ["allowNativeDelegation", "allowSecretAccess", "requireTrustedRepo"] as const) {
+    if (typeof limits[key] !== "boolean") {
+      throw new ContractError("schema", `preflight: limit '${key}' must be a boolean`);
+    }
+  }
+  for (const key of [
+    "workers",
+    "estimatedCostUsd",
+    "estimatedDurationMs",
+    "networkCalls",
+    "externalWrites",
+  ] as const) {
+    if (!isFiniteNumber(request[key])) {
+      throw new ContractError("schema", `preflight: request.${key} must be a finite number`);
+    }
+  }
+
   const checks: CheckResult[] = [];
   const reasons: string[] = [];
-
   function check(name: string, passed: boolean, detail: string): void {
     checks.push({ name, passed, detail });
     if (!passed) reasons.push(`${name}: ${detail}`);
   }
 
-  // Authority first: an unknown principal is rejected before any budget is
-  // even looked at.
+  // Authority: an unknown principal is rejected before any budget is read.
   const authorized = knownAuthorities.includes(request.principal);
   check(
     "authority",
@@ -166,44 +225,35 @@ export function preflight(
       : `principal '${request.principal}' is not on the allowlist`,
   );
 
-  // Task shape must be a real classification, not a typo'd string.
-  check(
-    "task-class",
-    TASK_CLASSES.includes(request.task.taskClass),
-    `taskClass '${request.task.taskClass}' must be one of ${TASK_CLASSES.join(", ")}`,
-  );
-  check(
-    "task-durability",
-    DURABILITIES.includes(request.task.durability),
-    `durability '${request.task.durability}' must be one of ${DURABILITIES.join(", ")}`,
-  );
-
-  // Budget: every quantity must be a finite, non-negative integer within its
-  // ceiling. Absent or NaN quantities fail closed (callers pass numbers, not
-  // undefined, so a missing estimate is the caller's explicit `NaN`/`-1`).
+  // Solo classes never fan out; every class respects maxWorkers.
+  const solo = SOLO_CLASSES.includes(request.task.taskClass);
   check(
     "budget-workers",
-    isNonNegativeInt(request.workers) && request.workers >= 1 && request.workers <= limits.maxWorkers,
-    `workers ${request.workers} must be an integer in [1, ${limits.maxWorkers}]`,
+    request.workers >= 1 && request.workers <= limits.maxWorkers && (!solo || request.workers === 1),
+    solo
+      ? `${request.task.taskClass} tasks run solo: workers must be 1, got ${request.workers}`
+      : `workers ${request.workers} must be an integer in [1, ${limits.maxWorkers}]`,
   );
+
   check(
     "budget-cost",
-    isFiniteNumber(request.estimatedCostUsd) &&
-      request.estimatedCostUsd >= 0 &&
-      request.estimatedCostUsd <= limits.maxCostUsd,
+    request.estimatedCostUsd >= 0 && request.estimatedCostUsd <= limits.maxCostUsd,
     `estimatedCostUsd ${request.estimatedCostUsd} must be within [0, ${limits.maxCostUsd}]`,
   );
   check(
     "budget-duration",
-    isFiniteNumber(request.estimatedDurationMs) &&
-      request.estimatedDurationMs >= 0 &&
-      request.estimatedDurationMs <= limits.maxDurationMs,
+    request.estimatedDurationMs >= 0 && request.estimatedDurationMs <= limits.maxDurationMs,
     `estimatedDurationMs ${request.estimatedDurationMs} must be within [0, ${limits.maxDurationMs}]`,
   );
   check(
     "budget-network",
     isNonNegativeInt(request.networkCalls) && request.networkCalls <= limits.maxNetworkCalls,
     `networkCalls ${request.networkCalls} must be a non-negative integer within [0, ${limits.maxNetworkCalls}]`,
+  );
+  check(
+    "budget-spawn-depth",
+    isNonNegativeInt(request.spawnDepth) && request.spawnDepth <= limits.maxSpawnDepth,
+    `spawnDepth ${request.spawnDepth} must be a non-negative integer within [0, ${limits.maxSpawnDepth}]`,
   );
   check(
     "budget-external-writes",
@@ -241,10 +291,40 @@ export function preflight(
       : "no secret access requested",
   );
 
+  // Cross-boundary preconditions: coordinated work needs a DAG node and an
+  // independent reviewer; judgement-heavy work needs the reviewer too.
+  const review = reviewRequirement(request.task.taskClass);
+  if (review.dagCoordination) {
+    check(
+      "dag",
+      request.dependencyDagPresent,
+      "cross-boundary work must run as a node in an explicit dependency DAG",
+    );
+  }
+  if (review.coldReview) {
+    check(
+      "reviewer",
+      typeof request.reviewer === "string" &&
+        request.reviewer.length > 0 &&
+        request.reviewer !== request.principal,
+      "cold-review task classes require a named reviewer distinct from the author",
+    );
+  }
+
+  // Release-line integrity: only an explicitly user-authorized release
+  // landing may write to main; ticket-class work lands on ticket branches.
+  if (request.targetBranch === "main") {
+    check(
+      "landing",
+      request.landingClass === "release" && request.authorizedByUser,
+      "a main-bound landing must be release-class and explicitly user-authorized",
+    );
+  }
+
   return {
     admitted: checks.every((c) => c.passed),
     checks,
-    review: reviewRequirement(request.task.taskClass),
+    review,
     reasons: reasons.slice(),
   };
 }
