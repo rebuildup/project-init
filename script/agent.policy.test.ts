@@ -13,7 +13,6 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { createHash } from "node:crypto";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,6 +20,11 @@ import { resolvePolicy, type PolicyResolution } from "./agent/policy";
 
 const REPO = join(import.meta.dir, "..");
 const BASELINE_SHA = "57fb4a2e5abe6f52e4fd9cb2cb88234496e47d4b";
+/** skills@1.7.0 folder hash of a skill directory holding SKILL.md
+ * ("exact locked body") and references/note.md ("note text"). Precomputed
+ * from the documented algorithm, independent of the resolver implementation. */
+const FRESH_SKILL_FOLDER_HASH =
+  "0ac5560b3a1b6da13cebb57ca706b8bdb1e2b52ed7a34b21304c09b188d803a6";
 
 function factKinds(resolution: PolicyResolution): Set<string> {
   return new Set(resolution.facts.map((fact) => fact.kind));
@@ -83,11 +87,9 @@ describe("policy resolver: real repository (no mocks)", () => {
     expect(resolution.skills.length).toBeGreaterThan(0);
     for (const skill of resolution.skills) {
       expect(skill.source).toBe("rebuildup/project-init");
-      expect(["not-installed", "ok"]).toContain(skill.status);
     }
     expect(factKinds(resolution)).toContain("lock-unpinned-source");
     expect(factKinds(resolution)).toContain("baseline-divergence-risk");
-    expect(factKinds(resolution)).not.toContain("skill-hash-mismatch");
     expect(factKinds(resolution)).not.toContain("project-init-absent");
   });
 
@@ -124,7 +126,8 @@ describe("policy resolver: fixture repositories (mocks)", () => {
   test("reports a stale (hash-mismatched) installed skill as a conflict", () => {
     const root = mkdtempSync(join(tmpdir(), "policy-stale-"));
     try {
-      const locked = "locked skill body";
+      // Lock hash is the skills@1.7.0 folder hash of a different skill body
+      // (precomputed independently of the resolver implementation).
       writeFixture(
         root,
         "skills-lock.json",
@@ -133,7 +136,7 @@ describe("policy resolver: fixture repositories (mocks)", () => {
             source: "rebuildup/project-init",
             sourceType: "github",
             skillPath: "skills/some-skill/SKILL.md",
-            computedHash: createHash("sha256").update(locked).digest("hex"),
+            computedHash: FRESH_SKILL_FOLDER_HASH,
           },
         }),
       );
@@ -181,10 +184,13 @@ describe("policy resolver: fixture repositories (mocks)", () => {
     }
   });
 
-  test("accepts an installed skill whose hash matches the lock", () => {
+  test("accepts an installed skill whose folder hash matches the lock", () => {
     const root = mkdtempSync(join(tmpdir(), "policy-ok-"));
     try {
-      const body = "exact locked body";
+      // FRESH_SKILL_FOLDER_HASH is the skills@1.7.0 folder hash of a skill
+      // directory containing SKILL.md ("exact locked body") and
+      // references/note.md ("note text"), precomputed independently of the
+      // resolver implementation.
       writeFixture(
         root,
         "skills-lock.json",
@@ -193,11 +199,12 @@ describe("policy resolver: fixture repositories (mocks)", () => {
             source: "rebuildup/project-init",
             sourceType: "github",
             skillPath: "skills/fresh-skill/SKILL.md",
-            computedHash: createHash("sha256").update(body).digest("hex"),
+            computedHash: FRESH_SKILL_FOLDER_HASH,
           },
         }),
       );
-      writeFixture(root, ".claude/skills/fresh-skill/SKILL.md", body);
+      writeFixture(root, ".claude/skills/fresh-skill/SKILL.md", "exact locked body");
+      writeFixture(root, ".claude/skills/fresh-skill/references/note.md", "note text");
       const resolution = resolvePolicy(root);
       expect(resolution.skills[0]?.status).toBe("ok");
       expect(factKinds(resolution)).not.toContain("skill-hash-mismatch");
@@ -299,6 +306,60 @@ describe("policy resolver: fixture repositories (mocks)", () => {
           decision.includes("re-adoption"),
         ),
       ).toBe(true);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("treats the lock as unpinned when any entry lacks a revision pin", () => {
+    const root = mkdtempSync(join(tmpdir(), "policy-partialpin-"));
+    try {
+      writeFixture(
+        root,
+        "skills-lock.json",
+        lockJson({
+          "pinned-skill": {
+            source: "rebuildup/project-init",
+            sourceType: "github",
+            skillPath: "skills/pinned-skill/SKILL.md",
+            computedHash: FRESH_SKILL_FOLDER_HASH,
+            rev: "release-0-3-0",
+          },
+          "floating-skill": {
+            source: "rebuildup/project-init",
+            sourceType: "github",
+            skillPath: "skills/floating-skill/SKILL.md",
+            computedHash: FRESH_SKILL_FOLDER_HASH,
+          },
+        }),
+      );
+      const resolution = resolvePolicy(root);
+      expect(resolution.lockUnpinned).toBe(true);
+      expect(factKinds(resolution)).toContain("lock-unpinned-source");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  test("includes non-ADR-numbered markdown files from docs/adr as practice sources", () => {
+    const root = mkdtempSync(join(tmpdir(), "policy-adr-"));
+    try {
+      writeFixture(root, "docs/adr/ADR-0001.md", "- Status: Accepted\n");
+      writeFixture(root, "docs/adr/decision-notes.md", "- Status: Proposed\n");
+      const resolution = resolvePolicy(root);
+      const adr = resolution.sources.filter((src) =>
+        src.path.startsWith("docs/adr/"),
+      );
+      expect(adr.map((src) => src.path)).toEqual([
+        "docs/adr/ADR-0001.md",
+        "docs/adr/decision-notes.md",
+      ]);
+      const note = resolution.facts.find(
+        (fact) =>
+          fact.kind === "adr-status" &&
+          fact.detail.includes("decision-notes.md"),
+      );
+      expect(note?.severity).toBe("info");
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

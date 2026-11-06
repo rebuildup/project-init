@@ -176,6 +176,43 @@ interface LockEntry {
   [key: string]: unknown;
 }
 
+/**
+ * Reproduces skills@1.7.0 `computeSkillFolderHash` (dist/cli.mjs): the lock's
+ * `computedHash` covers the whole skill DIRECTORY, not SKILL.md. Regular files
+ * only (.git/node_modules directories skipped, symlinks ignored), sorted by
+ * relative path with localeCompare, sha256 over relativePath+content pairs.
+ */
+function collectSkillFiles(
+  baseDir: string,
+  currentDir: string,
+  results: Array<{ relativePath: string; content: Buffer }>,
+): void {
+  for (const entry of readdirSync(currentDir, { withFileTypes: true })) {
+    const fullPath = join(currentDir, entry.name);
+    if (entry.isDirectory()) {
+      if (entry.name === ".git" || entry.name === "node_modules") continue;
+      collectSkillFiles(baseDir, fullPath, results);
+    } else if (entry.isFile()) {
+      results.push({
+        relativePath: relative(baseDir, fullPath).split("\\").join("/"),
+        content: readFileSync(fullPath),
+      });
+    }
+  }
+}
+
+function computeSkillFolderHash(skillDir: string): string {
+  const files: Array<{ relativePath: string; content: Buffer }> = [];
+  collectSkillFiles(skillDir, skillDir, files);
+  files.sort((a, b) => a.relativePath.localeCompare(b.relativePath));
+  const hash = createHash("sha256");
+  for (const file of files) {
+    hash.update(file.relativePath);
+    hash.update(file.content);
+  }
+  return hash.digest("hex");
+}
+
 function resolveSkills(
   repoRoot: string,
   lock: { skills: Record<string, LockEntry> } | null,
@@ -188,7 +225,7 @@ function resolveSkills(
       const lockHash =
         typeof entry.computedHash === "string" ? entry.computedHash : null;
       const installs: SkillInstall[] = SKILL_LAYOUTS.map((layout) => {
-        const path = join(repoRoot, ...layout.split("/"), name, "SKILL.md");
+        const path = join(repoRoot, ...layout.split("/"), name);
         if (!existsSync(path)) {
           return {
             layout,
@@ -197,7 +234,7 @@ function resolveSkills(
             hashMatchesLock: null,
           };
         }
-        const hash = sha256(readFileSync(path, "utf8"));
+        const hash = computeSkillFolderHash(path);
         return {
           layout,
           path: relative(repoRoot, path).split(sep).join("/"),
@@ -311,9 +348,7 @@ function adrSourcesAndFacts(repoRoot: string): {
   const facts: PolicyFact[] = [];
   const dir = join(repoRoot, ...ADR_DIR.split("/"));
   if (!existsSync(dir)) return { sources, facts };
-  const names = readdirSync(dir)
-    .filter((name) => /^ADR-\d+\.md$/.test(name))
-    .sort();
+  const names = readdirSync(dir).filter((name) => name.endsWith(".md")).sort();
   for (const name of names) {
     const rel = `${ADR_DIR}/${name}`;
     sources.push(source(repoRoot, "practice", rel));
@@ -353,7 +388,7 @@ export function resolvePolicy(repoRoot: string): PolicyResolution {
   const entries = lock ? Object.values(lock.skills) : [];
   const lockUnpinned =
     entries.length > 0 &&
-    entries.every(
+    entries.some(
       (entry) => !LOCK_PIN_KEYS.some((key) => typeof entry[key] === "string" && entry[key]),
     );
   const skills = resolveSkills(repoRoot, lock);
@@ -403,7 +438,7 @@ export function resolvePolicy(repoRoot: string): PolicyResolution {
       facts.push({
         kind: "skill-hash-mismatch",
         severity: "conflict",
-        detail: `installed skill ${skill.name} differs from the lock's computedHash (stale or hand-edited upstream skill)`,
+        detail: `installed skill ${skill.name} directory hash differs from the lock's computedHash (stale or modified install)`,
       });
     }
   }
@@ -458,7 +493,7 @@ export function resolvePolicy(repoRoot: string): PolicyResolution {
 
   const knownLimitations = [
     "network-free: upstream freshness of floating-source skills and GitHub Issue/PR state are not resolved; only committed local state is read",
-    "skill hash comparison validates installed files against the lock's recorded computedHash, not against upstream",
+    "skill hash comparison validates installed skill directories against the lock's computedHash using the skills@1.7.0 folder-hash algorithm (locale-sorted relative paths + contents); locale-dependent collation could theoretically differ across environments",
     "the landing-policy check is an internal consistency check of the operating model text, not a semantic policy evaluation",
     "this resolver reports facts only; it does not authorize, apply or overwrite policy",
   ];
