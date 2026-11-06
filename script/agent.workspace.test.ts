@@ -462,6 +462,54 @@ describe("MOCK: failed workspace setup cleans up partial state (injected runner)
     expect(readWorkspace(root, "w1")?.status).toBe("ready");
     rmSync(root, { recursive: true, force: true });
   });
+
+  test("env.arch is validated at creation: a created record must survive its own read-back", () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-workspace-arch-"));
+    const run: Runner = (cmd) => ({ exitCode: 0, stdout: "", stderr: "" });
+    for (const badArch of ["x86 64", "a".repeat(33), "", "x86/64"]) {
+      expect(() =>
+        createWorkspace({ id: "w1", ref: SHA1, rootDir: root, run, env: { os: "linux", wsl: false, arch: badArch }, now: NOW }),
+      ).toThrow(ContractError);
+      expect(existsSync(join(root, "w1.json"))).toBe(false);
+    }
+    const rec = createWorkspace({
+      id: "w1",
+      ref: SHA1,
+      rootDir: root,
+      run,
+      env: { os: "linux", wsl: false, arch: "arm64" },
+      now: NOW,
+    });
+    expect(readWorkspace(root, "w1")?.env.arch).toBe(rec.env.arch);
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("removeWorkspace refuses a record whose path is outside rootDir; nothing outside is touched", () => {
+    const root = mkdtempSync(join(tmpdir(), "agent-workspace-rm-"));
+    const outside = mkdtempSync(join(tmpdir(), "agent-workspace-outside-"));
+    const sentinel = join(outside, "sentinel.txt");
+    writeFileSync(sentinel, "keep");
+    const noop: Runner = (cmd) => ({ exitCode: 0, stdout: "", stderr: "" });
+    createWorkspace({ id: "w1", ref: SHA1, rootDir: root, run: noop, env: { os: "linux", wsl: false, arch: "x86_64" }, now: NOW });
+    // Tamper the record so the worktree path points outside rootDir.
+    const recPath = join(root, "w1.json");
+    const rec = parseJson(readFileSync(recPath, "utf8")) as Record<string, unknown>;
+    writeFileSync(
+      recPath,
+      JSON.stringify({ ...rec, path: outside, targetDir: join(outside, "target") }),
+    );
+    const calls: string[][] = [];
+    const run: Runner = (cmd) => {
+      calls.push(cmd);
+      return { exitCode: 0, stdout: "", stderr: "" };
+    };
+    expect(() => removeWorkspace(root, "w1", run)).toThrow(/outside rootDir/);
+    expect(calls).toEqual([]); // no git command ran at all
+    expect(existsSync(sentinel)).toBe(true);
+    expect(existsSync(recPath)).toBe(true); // record left for diagnosis
+    rmSync(root, { recursive: true, force: true });
+    rmSync(outside, { recursive: true, force: true });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -506,7 +554,7 @@ describe("REAL: resource lease store on the filesystem", () => {
 // REAL: two-process resource race (real concurrent processes, O_EXCL CAS)
 // ---------------------------------------------------------------------------
 
-describe("REAL: two-process port-lease race", () => {
+describe("REAL: two-process resource race", () => {
   test("exactly one of two concurrent processes acquires the same port", async () => {
     const { root } = store();
     const workerSource = `
@@ -536,6 +584,47 @@ try {
     const current = s.current("port", "tcp-7000");
     expect(current?.generation).toBe(1);
     expect(current?.owner).toMatch(/^worker-\d+$/);
+    rmSync(root, { recursive: true, force: true });
+  });
+});
+
+describe("REAL: four-process port-lease race (torn-read guard)", () => {
+  test("exactly one winner; every loser gets a clean 'held' refusal, never a parse error", async () => {
+    const { root } = store();
+    const workerSource = `
+import { ResourceLeaseStore } from ${JSON.stringify(join(import.meta.dir, "agent", "workspace.ts"))};
+const [root] = process.argv.slice(2);
+try {
+  new ResourceLeaseStore(root).acquire("port", "tcp-7001", "worker-" + process.pid, {
+    now: Date.now(),
+    leaseMs: 60000,
+  });
+  process.exit(0);
+} catch (error) {
+  console.error(String(error));
+  process.exit(1);
+}
+`;
+    const workerPath = join(root, "worker.ts");
+    writeFileSync(workerPath, workerSource, "utf8");
+    const results = await Promise.all(
+      [0, 1, 2, 3].map(() => {
+        const proc = Bun.spawn(["bun", workerPath, root], { stdout: "pipe", stderr: "pipe" });
+        return Promise.all([proc.exited, new Response(proc.stderr).text()]).then(([code, stderr]) => ({
+          code,
+          stderr,
+        }));
+      }),
+    );
+    expect(results.filter((r) => r.code === 0).length).toBe(1);
+    // Losers must be refused by the lease semantics itself — a torn read of
+    // a half-written lease file must be impossible.
+    for (const loser of results.filter((r) => r.code === 1)) {
+      expect(loser.stderr).toMatch(/is held by/);
+      expect(loser.stderr).not.toMatch(/Unexpected|JSON|parse/i);
+    }
+    const s = new ResourceLeaseStore(root);
+    expect(s.current("port", "tcp-7001")?.generation).toBe(1);
     rmSync(root, { recursive: true, force: true });
   });
 });

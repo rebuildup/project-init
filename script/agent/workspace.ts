@@ -38,15 +38,17 @@ import { createHash } from "node:crypto";
 import {
   closeSync,
   existsSync,
+  linkSync,
   mkdirSync,
   openSync,
   readdirSync,
   readFileSync,
+  realpathSync,
   renameSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { join } from "node:path";
+import { join, sep } from "node:path";
 import {
   CONTRACT_VERSION,
   ContractError,
@@ -143,6 +145,20 @@ export function parsePort(raw: unknown, where: string): number {
 /** Canonical resource id for a port lease. */
 export function portResourceId(port: number): string {
   return `tcp-${parsePort(port, "port")}`;
+}
+
+const ARCH_RE = /^[a-z0-9][a-z0-9_-]{0,31}$/i;
+
+/**
+ * Validate an architecture slug. Shared by the write path
+ * (`createWorkspace`) and the read path (`parseWorkspaceRecord`) so a
+ * created record always survives its own strict read-back.
+ */
+export function parseArch(raw: unknown, where: string): string {
+  if (typeof raw !== "string" || !ARCH_RE.test(raw)) {
+    throw new ContractError("schema", `${where}: invalid arch slug`);
+  }
+  return raw;
 }
 
 /** Filesystem-safe, collision-free directory name for a resource lease. */
@@ -402,22 +418,28 @@ export class ResourceLeaseStore {
     );
   }
 
-  /** O_EXCL create of one generation's lease file. false = already exists. */
+  /**
+   * Exclusive create of one generation's lease file, content-atomic: the
+   * full lease JSON is written to a temp sibling and then `linkSync`-ed
+   * onto the exclusive name. The hard link fails with EEXIST if the name
+   * exists, so the CAS semantics of O_EXCL are preserved AND a concurrent
+   * `current()` can never observe an empty or half-written lease file —
+   * the name only ever appears with complete content.
+   */
   private exclusiveCreate(kind: ResourceKind, id: string, generation: number, lease: ResourceLease): boolean {
     const dir = this.dir(kind, id);
     mkdirSync(dir, { recursive: true });
-    let fd: number;
+    const target = this.leasePath(kind, id, generation);
+    const tmp = `${target}.tmp-${process.pid}-${Math.random().toString(36).slice(2, 10)}`;
+    writeFileSync(tmp, redactJson({ contract_version: CONTRACT_VERSION, ...lease }), "utf8");
     try {
-      fd = openSync(this.leasePath(kind, id, generation), "wx");
+      linkSync(tmp, target);
     } catch (error) {
+      rmSync(tmp, { force: true });
       if ((error as NodeJS.ErrnoException).code === "EEXIST") return false;
       throw error;
     }
-    try {
-      writeFileSync(fd, redactJson({ contract_version: CONTRACT_VERSION, ...lease }), "utf8");
-    } finally {
-      closeSync(fd);
-    }
+    rmSync(tmp, { force: true }); // unlink the temp side of the hard link
     return true;
   }
 
@@ -630,10 +652,7 @@ export function parseWorkspaceRecord(raw: unknown, where: string): WorkspaceReco
   if (wsl && os !== "linux") {
     throw new ContractError("schema", `${where}.env: wsl=true requires os='linux'`);
   }
-  const arch = requireStr(envRaw, "arch", `${where}.env.arch`);
-  if (!/^[a-z0-9][a-z0-9_-]{0,31}$/i.test(arch)) {
-    throw new ContractError("schema", `${where}.env.arch: invalid arch slug`);
-  }
+  const arch = parseArch(envRaw["arch"], `${where}.env.arch`);
   const createdAt = requireIsoTime(payload["createdAt"], `${where}.createdAt`);
   return {
     id,
@@ -706,7 +725,7 @@ export function createWorkspace(opts: unknown): WorkspaceRecord {
   if (wsl && os !== "linux") {
     throw new ContractError("schema", "createWorkspace.env: wsl=true requires os='linux'");
   }
-  const arch = requireStr(envRaw, "arch", "createWorkspace.env.arch");
+  const arch = parseArch(envRaw["arch"], "createWorkspace.env.arch");
   const now = requireEpochMs(opts["now"], "createWorkspace.now");
   const env = { os: os as MachineOS, wsl, arch };
 
@@ -779,6 +798,17 @@ export function removeWorkspace(rootDir: string, id: string, run: Runner): void 
   const record = readWorkspace(rootDir, id);
   if (record === null) {
     throw new ContractError("state", `removeWorkspace: workspace '${id}' does not exist`);
+  }
+  // Membership guard: the recorded worktree path must resolve INSIDE
+  // rootDir. A tampered or foreign record must never cause a delete
+  // outside the workspace root — refuse before touching anything.
+  const rootReal = realpathSync(rootDir);
+  const pathReal = realpathSync(record.path);
+  if (pathReal !== rootReal && !pathReal.startsWith(rootReal + sep)) {
+    throw new ContractError(
+      "state",
+      `removeWorkspace: workspace '${id}' path '${record.path}' is outside rootDir '${rootDir}'; refusing`,
+    );
   }
   checkRunResult(run(["git", "worktree", "remove", record.path]), `git worktree remove '${id}'`);
   checkRunResult(run(["git", "worktree", "prune"]), "git worktree prune");
