@@ -74,6 +74,8 @@ describe("real fixture: herdr 0.9.5 on macOS (REAL CLI output)", () => {
 });
 
 describe("local probe (REAL, this host)", () => {
+  // Real probes (system_profiler alone takes ~4-5 s on macOS) exceed bun's
+  // 5 s default timeout under load: give them explicit headroom.
   it("is the only local entry and carries measured evidence", () => {
     const m = getLocalMachine(undefined, NOW);
     expect(m.isLocal).toBe(true);
@@ -81,7 +83,7 @@ describe("local probe (REAL, this host)", () => {
     expect(m.resources.value!.cpuCores).toBeGreaterThan(0);
     expect(m.resources.value!.ramBytes).toBeGreaterThan(0);
     expect(m.availability).toBe("online");
-  });
+  }, 30_000);
   it("host identity mismatch between declared and measured makes it unsuitable", () => {
     const m = getLocalMachine({ hostId: "definitely-not-this-host" }, NOW);
     if (m.hostId.value === null) return; // platform without a host id: nothing to compare
@@ -90,7 +92,7 @@ describe("local probe (REAL, this host)", () => {
     expect(e.suitable).toBe(false);
     expect(e.hardViolations.join()).toContain("mismatch");
     expect(groupHosts([m])[0].sharedHostUnknown).toBe(true);
-  });
+  }, 30_000);
 });
 
 describe("remote machines (MOCK runner)", () => {
@@ -129,7 +131,7 @@ describe("remote machines (MOCK runner)", () => {
     expect(r.errors[0]).toContain("herdr unavailable");
     expect(r.machines.length).toBe(1);
     expect(r.machines[0].isLocal).toBe(true);
-  });
+  }, 30_000);
 });
 
 describe("host groups and capacity", () => {
