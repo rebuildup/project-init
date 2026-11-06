@@ -1320,26 +1320,6 @@ function scrubLayers(layers: ProbeLayerResult[], secrets: readonly string[]): Pr
       : null,
   }));
 }
-function scrubLayers(layers: ProbeLayerResult[], secrets: readonly string[]): ProbeLayerResult[] {
-  if (secrets.length === 0) return layers;
-  return layers.map((layer) => {
-    const out: ProbeLayerResult = { ...layer };
-    if (out.detail) out.detail = scrubText(out.detail, secrets);
-    if (out.evidence?.note) {
-      out.evidence = { ...out.evidence, note: scrubText(out.evidence.note, secrets) };
-    }
-    return out;
-  });
-}
-
-/** Exact-match replace of every credential value occurrence in free text. */
-function scrubText(text: string, secrets: readonly string[]): string {
-  let out = text;
-  for (const secret of secrets) {
-    if (secret) out = out.split(secret).join(REDACTED);
-  }
-  return out;
-}
 
 // ---------------------------------------------------------------------------
 // Overall readiness + canonical output

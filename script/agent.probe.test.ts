@@ -10,9 +10,9 @@
  */
 
 import { describe, test, expect } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import {
   PROBE_COOLDOWN_MS,
   PROBE_TIMEOUT_MS,
@@ -886,6 +886,21 @@ describe("probeRoute: transport-error observations persist like HTTP-status fail
       baseOptions(CONFIG_PATH, mockState, { transport: mock.transport, mode: "live", now: NOW }),
     );
     expect(existsSync(join(mockState, "probe", "state.json"))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Structural guard
+// ---------------------------------------------------------------------------
+
+const REPO_ROOT = dirname(dirname(realpathSync(import.meta.path)));
+
+describe("probe.ts structural guard", () => {
+  test("no duplicate top-level function declarations", () => {
+    const source = readFileSync(join(REPO_ROOT, "script", "agent", "probe.ts"), "utf8");
+    const names = [...source.matchAll(/^function\s+([A-Za-z0-9_]+)/gm)].map((m) => m[1]!);
+    const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
+    expect(duplicates).toEqual([]);
   });
 });
 
