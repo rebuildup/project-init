@@ -1,0 +1,12 @@
+# Fixture: minimal route table for legacy shortcut resolution tests.
+# Mirrors the [routes] section shape of config/agents.toml; the free-route
+# name is the hyphen trap: `claude-openrouter-free` must resolve to
+# `claude.openrouter-free`, never to `claude.openrouter` plus a suffix.
+[routes."claude.openrouter"]
+note = "fixture"
+
+[routes."claude.openrouter-free"]
+note = "fixture"
+
+[routes."omp.opencode-go"]
+note = "fixture"
