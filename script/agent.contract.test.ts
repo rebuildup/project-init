@@ -14,8 +14,11 @@ import { dirname, join } from "node:path";
 import {
   ContractError,
   CONTRACT_VERSION,
+  DEFAULT_MAX_EVIDENCE_AGE_MS,
   agentStateDir,
   assertCompatibleVersion,
+  assertSameAttempt,
+  assertSameRoute,
   attest,
   expectFields,
   formatAttemptKey,
@@ -25,7 +28,10 @@ import {
   isStale,
   isUsable,
   legacyRouteShortcut,
+  looksLikeSecretValue,
   parseAttemptKey,
+  parseAttested,
+  parseEnvelope,
   parseJson,
   parseModelId,
   parseMachineId,
@@ -50,10 +56,18 @@ const REAL_ROUTES = Bun.TOML.parse(readFileSync(REAL_CONFIG, "utf8")) as { route
 
 const SHA = "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd";
 const T0 = "2026-11-01T00:00:00Z";
+const DAY = 24 * 60 * 60 * 1000;
+/** Reference time: exactly 7 days after T0. */
+const NOW = Date.parse(T0) + 7 * DAY;
 
 /** A known-good verified-live attestation used as the base for mutations. */
 function liveAttest(value: unknown = { tool_call: true }): Attested<unknown> {
-  return { value, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "live-e2e", sha: SHA, note: "real response + tool call" } };
+  return attest({
+    value,
+    status: "verified-live",
+    provenance: "measured",
+    evidence: { at: T0, source: "live-e2e", sha: SHA, note: "real response + tool call" },
+  });
 }
 
 function expectContractError(code: string, run: () => unknown): void {
@@ -99,9 +113,23 @@ describe("route identity", () => {
     expect(resolveLegacyRouteRef("claude", known)).toBeNull();
   });
 
+  test("ambiguous legacy names fail closed like the launcher's config load", () => {
+    // `a-b.c` and `a.b-c` both derive the shortcut `a-b-c`
+    const ambiguous = ["a-b.c", "a.b-c"];
+    expectContractError("identity", () => resolveLegacyRouteRef("a-b-c", ambiguous));
+    // non-colliding names in the same list still resolve
+    expect(resolveLegacyRouteRef("a-b-c", ["a.b-c"])).toBe("a.b-c");
+  });
+
   test("legacy shortcut matches the launcher's shortcut spelling", () => {
     expect(legacyRouteShortcut("omp.opencode-go")).toBe("omp-opencode-go");
     expectContractError("identity", () => legacyRouteShortcut("omp-opencode-go"));
+  });
+
+  test("assertSameRoute rejects cross-route records", () => {
+    assertSameRoute("omp.opencode-go", "omp.opencode-go");
+    expectContractError("identity", () => assertSameRoute("omp.opencode-go", "omp.openrouter"));
+    expectContractError("identity", () => assertSameRoute("not-a-route", "omp.openrouter"));
   });
 });
 
@@ -143,6 +171,14 @@ describe("attempt identity", () => {
     expect(formatAttemptKey({ ...base, attempt: "zzzz" })).not.toBe(key);
   });
 
+  test("parse enforces the same nonce rules as format", () => {
+    expectContractError("identity", () => parseAttemptKey("omp.openrouter#m#host#a b"));
+    expectContractError("identity", () => parseAttemptKey(`omp.openrouter#m#host#${"x".repeat(129)}`));
+    // 128 chars is the exact limit and still parses
+    const nonce = "x".repeat(128);
+    expect(parseAttemptKey(`omp.openrouter#m#host#${nonce}`).attempt).toBe(nonce);
+  });
+
   test("rejects swapped or rebuilt identities", () => {
     // route string in the machine slot: dot fails the machine pattern
     expectContractError("identity", () => parseAttemptKey(formatAttemptKey({ ...base, machine: "omp.opencode-go" })));
@@ -153,6 +189,22 @@ describe("attempt identity", () => {
     expectContractError("identity", () => parseAttemptKey("a#b#c#d#e"));
     // empty nonce
     expectContractError("identity", () => parseAttemptKey("omp.openrouter#m#host#"));
+  });
+
+  test("assertSameAttempt rejects records read under the wrong identity", () => {
+    const record = parseAttemptKey(formatAttemptKey(base));
+    assertSameAttempt(base, record);
+    // cross-route record: a quota entry for openrouter is not the Go route's
+    expectContractError("identity", () =>
+      assertSameAttempt(base, { ...record, route: "omp.openrouter" }),
+    );
+    // cross-attempt record: another attempt's ledger row is not this one's
+    expectContractError("identity", () =>
+      assertSameAttempt(base, { ...record, attempt: "different" }),
+    );
+    expectContractError("identity", () =>
+      assertSameAttempt(base, { ...record, machine: "wsl-desktop" }),
+    );
   });
 });
 
@@ -172,29 +224,47 @@ describe("version compatibility", () => {
   });
 });
 
-describe("attestation matrix", () => {
+describe("attestation matrix (write path)", () => {
   test("accepts a valid verified-live attestation", () => {
-    const att = { value: { tool_call: true }, status: "verified-live" as const, provenance: "measured" as const, evidence: { at: T0, source: "live-e2e" as const, sha: SHA } };
-    expect(attest(att)).toEqual(att);
+    const att = liveAttest();
+    expect(att.status).toBe("verified-live");
+    expect(att.provenance).toBe("measured");
   });
 
-  test("verified-live requires measured live evidence", () => {
+  test("verified-live requires measured live evidence and a value", () => {
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: null }));
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "official", evidence: { at: T0, source: "provider-docs" } }));
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "provider-docs" } }));
+    expectContractError("evidence", () => attest({ value: null, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "live-e2e" } }));
   });
 
-  test("restricted requires evidence and a note", () => {
+  test("restricted requires observed live evidence and a note", () => {
+    // published docs do not observe a restriction
+    expectContractError("evidence", () =>
+      attest({ value: null, status: "restricted", provenance: "official", evidence: { at: T0, source: "provider-docs" }, note: "docs say retired" }),
+    );
     expectContractError("evidence", () => attest({ value: null, status: "restricted", provenance: "measured" }));
     expectContractError("evidence", () => attest({ value: null, status: "restricted", provenance: "measured", evidence: { at: T0, source: "live-e2e" } }));
-    const ok = attest({ value: null, status: "restricted", provenance: "measured", evidence: { at: T0, source: "live-e2e" }, note: "HTTP 402 Insufficient Balance" });
+    const ok = attest({
+      value: null,
+      status: "restricted",
+      provenance: "measured",
+      evidence: { at: T0, source: "live-e2e" },
+      note: "HTTP 402 Insufficient Balance",
+    });
     expect(ok.status).toBe("restricted");
+    expect(ok.note).toBe("HTTP 402 Insufficient Balance");
   });
 
   test("unknown carries no value and no evidence", () => {
     expectContractError("evidence", () => attest({ value: 5, status: "unknown", provenance: "estimated" }));
     expectContractError("evidence", () => attest({ value: null, status: "unknown", provenance: "estimated", evidence: { at: T0, source: "config" } }));
-    expect(attest({ value: null, status: "unknown", provenance: "estimated" })).toEqual({ value: null, status: "unknown", provenance: "estimated", evidence: null });
+    expect(attest({ value: null, status: "unknown", provenance: "estimated" })).toEqual({
+      value: null,
+      status: "unknown",
+      provenance: "estimated",
+      evidence: null,
+    });
   });
 
   test("provenance and evidence source must agree", () => {
@@ -211,40 +281,109 @@ describe("attestation matrix", () => {
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: "2026-11-01 00:00:00", source: "live-e2e" } }));
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: "not-a-date", source: "live-e2e" } }));
     expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "live-e2e", sha: "DEADBEEF" } }));
+    expectContractError("evidence", () => attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "telepathy" as never } }));
     expect(attest({ value: 1, status: "verified-live", provenance: "measured", evidence: { at: "2026-11-01T12:34:56.789Z", source: "probe" } }).status).toBe("verified-live");
   });
 });
 
-describe("usability and staleness", () => {
-  const now = Date.parse("2026-11-08T00:00:00Z");
-  const day = 24 * 60 * 60 * 1000;
+describe("attestation matrix (read path: forged data)", () => {
+  test("parseAttested re-validates the full matrix on an honest object", () => {
+    const parsed = parseAttested(JSON.parse(toJson(liveAttest())), "roundtrip");
+    expect(parsed.status).toBe("verified-live");
+    expect(parsed.provenance).toBe("measured");
+    expect(parsed.value).toEqual({ tool_call: true });
+  });
 
+  test("forged verified-live with wrong provenance is unusable", () => {
+    const forged = { value: { tool_call: true }, status: "verified-live", provenance: "estimated", evidence: { at: T0, source: "live-e2e" } };
+    expect(isUsable(forged as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+    expectContractError("evidence", () => requireUsable(forged as unknown as Attested<unknown>, { now: NOW }));
+  });
+
+  test("forged verified-live without a value is unusable", () => {
+    const forged = { value: null, status: "verified-live", provenance: "measured", evidence: { at: T0, source: "live-e2e" } };
+    expect(isUsable(forged as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+    expectContractError("evidence", () => requireUsable(forged as unknown as Attested<unknown>, { now: NOW }));
+  });
+
+  test("forged restricted without a note is unusable on read", () => {
+    const forged = { value: null, status: "restricted", provenance: "measured", evidence: { at: T0, source: "live-e2e" } };
+    expectContractError("evidence", () => parseAttested(forged, "forged"));
+  });
+
+  test("forged object with unknown fields is rejected", () => {
+    const forged = { ...JSON.parse(toJson(liveAttest())), backdoor: "extra" };
+    expectContractError("schema", () => parseAttested(forged, "forged"));
+    expect(isUsable(forged as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+  });
+
+  test("garbage input fails closed", () => {
+    expect(isUsable("verified-live" as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+    expect(isUsable(null as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+    expect(isUsable({ status: "verified-live" } as unknown as Attested<unknown>, { now: NOW })).toBe(false);
+    expectContractError("schema", () => requireUsable("nope" as unknown as Attested<unknown>));
+  });
+
+  test("future-dated evidence is invalid, never fresh", () => {
+    const future = attest({
+      value: 1,
+      status: "verified-live",
+      provenance: "measured",
+      evidence: { at: "2027-01-01T00:00:00Z", source: "live-e2e" },
+    });
+    expect(isStale(future.evidence as { at: string; source: "live-e2e" }, NOW, DAY)).toBe(true);
+    expect(isUsable(future, { now: NOW })).toBe(false);
+    expectContractError("evidence", () => requireUsable(future, { now: NOW }));
+    // within the skew allowance it is still accepted as fresh
+    const skewed = attest({
+      value: 1,
+      status: "verified-live",
+      provenance: "measured",
+      evidence: { at: "2026-11-08T00:00:30Z", source: "live-e2e" },
+    });
+    expect(isUsable(skewed, { now: NOW })).toBe(true);
+  });
+});
+
+describe("usability and staleness (fail-closed freshness)", () => {
   test("only fresh verified-live is usable", () => {
-    expect(isUsable(liveAttest(), { now, maxAgeMs: 7 * day })).toBe(true);
+    expect(isUsable(liveAttest(), { now: NOW, maxAgeMs: 7 * DAY })).toBe(true);
     // stale evidence is never promoted to available
-    expect(isUsable(liveAttest(), { now, maxAgeMs: 6 * day })).toBe(false);
-    // without a freshness bound, any age is accepted
-    expect(isUsable(liveAttest(), {})).toBe(true);
+    expect(isUsable(liveAttest(), { now: NOW + 1, maxAgeMs: 7 * DAY })).toBe(false);
+  });
+
+  test("freshness is bounded by default: no unbounded mode", () => {
+    // default window is DEFAULT_MAX_EVIDENCE_AGE_MS (7 days)
+    expect(DEFAULT_MAX_EVIDENCE_AGE_MS).toBe(7 * 24 * 60 * 60 * 1000);
+    expect(isUsable(liveAttest(), { now: NOW })).toBe(true);
+    expect(isUsable(liveAttest(), { now: NOW + 1 })).toBe(false);
+    // an explicitly tighter bound is honored
+    expect(isUsable(liveAttest(), { now: NOW, maxAgeMs: DAY })).toBe(false);
+    // invalid bounds fail closed
+    expect(isUsable(liveAttest(), { now: NOW, maxAgeMs: 0 })).toBe(false);
+    expect(isUsable(liveAttest(), { now: NOW, maxAgeMs: -1 })).toBe(false);
+    expect(isUsable(liveAttest(), { now: Number.NaN, maxAgeMs: DAY })).toBe(false);
+    expectContractError("schema", () => requireUsable(liveAttest(), { now: NOW, maxAgeMs: 0 }));
   });
 
   test("configured/restricted/unknown are never usable", () => {
-    expect(isUsable({ value: 1, status: "configured", provenance: "official", evidence: { at: T0, source: "provider-catalog" } }, { now })).toBe(false);
-    expect(isUsable({ value: null, status: "restricted", provenance: "measured", evidence: { at: T0, source: "live-e2e" } }, { now })).toBe(false);
-    expect(isUsable({ value: null, status: "unknown", provenance: "estimated", evidence: null }, { now })).toBe(false);
+    expect(isUsable({ value: 1, status: "configured", provenance: "official", evidence: { at: T0, source: "provider-catalog" } } as Attested<unknown>, { now: NOW })).toBe(false);
+    expect(isUsable({ value: null, status: "restricted", provenance: "measured", evidence: { at: T0, source: "live-e2e" }, note: "402" } as Attested<unknown>, { now: NOW })).toBe(false);
+    expect(isUsable({ value: null, status: "unknown", provenance: "estimated", evidence: null } as Attested<unknown>, { now: NOW })).toBe(false);
   });
 
   test("requireUsable throws with the blocking reason", () => {
-    expect(requireUsable(liveAttest(), { now, maxAgeMs: 7 * day })).toEqual({ tool_call: true });
-    expectContractError("evidence", () => requireUsable(liveAttest(), { now, maxAgeMs: day }));
-    expectContractError("evidence", () => requireUsable({ value: null, status: "unknown", provenance: "estimated", evidence: null }));
+    expect(requireUsable(liveAttest(), { now: NOW, maxAgeMs: 7 * DAY })).toEqual({ tool_call: true });
+    expectContractError("evidence", () => requireUsable(liveAttest(), { now: NOW + 1, maxAgeMs: 7 * DAY }));
+    expectContractError("evidence", () => requireUsable({ value: null, status: "unknown", provenance: "estimated", evidence: null } as Attested<unknown>));
   });
 
   test("isStale compares evidence age", () => {
     // exactly maxAgeMs old is still fresh; one more second is stale
-    expect(isStale({ at: T0, source: "live-e2e" }, now, 7 * day)).toBe(false);
-    expect(isStale({ at: T0, source: "live-e2e" }, now + 1, 7 * day)).toBe(true);
-    expect(isStale({ at: T0, source: "live-e2e" }, Date.parse(T0) + 1000, 7 * day)).toBe(false);
-    expectContractError("evidence", () => isStale({ at: "bogus", source: "live-e2e" }, now, day));
+    expect(isStale({ at: T0, source: "live-e2e" }, NOW, 7 * DAY)).toBe(false);
+    expect(isStale({ at: T0, source: "live-e2e" }, NOW + 1, 7 * DAY)).toBe(true);
+    expect(isStale({ at: T0, source: "live-e2e" }, Date.parse(T0) + 1000, 7 * DAY)).toBe(false);
+    expectContractError("evidence", () => isStale({ at: "bogus", source: "live-e2e" }, NOW, DAY));
   });
 });
 
@@ -263,9 +402,14 @@ describe("quota scope", () => {
 });
 
 describe("secret redaction", () => {
-  test("redacts secret-bearing keys, keeps usage counters", () => {
+  test("redacts snake_case and camelCase secret keys, keeps usage counters", () => {
     const input = {
       api_key: "sk-live-123",
+      apiKey: "sk-live-456",
+      clientSecret: "s3cret",
+      bearerToken: "tok",
+      idToken: "tok",
+      githubToken: "ghp_0123456789abcdefghijklmnopqrstuv",
       secret: "hunter2",
       auth_token: "tok",
       INFISICAL_ACCESS_TOKEN: "tok",
@@ -276,6 +420,11 @@ describe("secret redaction", () => {
     };
     const out = redact(input) as Record<string, unknown>;
     expect(out.api_key).toBe("[redacted]");
+    expect(out.apiKey).toBe("[redacted]");
+    expect(out.clientSecret).toBe("[redacted]");
+    expect(out.bearerToken).toBe("[redacted]");
+    expect(out.idToken).toBe("[redacted]");
+    expect(out.githubToken).toBe("[redacted]");
     expect(out.secret).toBe("[redacted]");
     expect(out.auth_token).toBe("[redacted]");
     expect(out.INFISICAL_ACCESS_TOKEN).toBe("[redacted]");
@@ -287,14 +436,54 @@ describe("secret redaction", () => {
     expect(input.api_key).toBe("sk-live-123");
   });
 
+  test("scans string values for credential shapes regardless of key name", () => {
+    const out = redact({
+      session_note: "got ghp_0123456789abcdefghij from gh auth",
+      message: "Bearer bm9uY2VzZWNyZXQ= rejected",
+      author: "samuido",
+      tokens_used: 4242,
+    }) as Record<string, unknown>;
+    expect(out.session_note).toBe("[redacted]");
+    expect(out.message).toBe("[redacted]");
+    expect(out.author).toBe("samuido");
+    expect(out.tokens_used).toBe(4242);
+    expect(looksLikeSecretValue("sk-abcdef123456")).toBe(true);
+    expect(looksLikeSecretValue("AKIAIOSFODNN7EXAMPLE")).toBe(true);
+    expect(looksLikeSecretValue("plain model id z-ai/glm-5.3-flash")).toBe(false);
+  });
+
   test("key classification is name-based", () => {
     expect(isSecretKeyName("api_key")).toBe(true);
     expect(isSecretKeyName("apiKey")).toBe(true);
     expect(isSecretKeyName("OPENROUTER_API_KEY")).toBe(true);
+    expect(isSecretKeyName("clientSecret")).toBe(true);
+    expect(isSecretKeyName("githubToken")).toBe(true);
     expect(isSecretKeyName("secret")).toBe(true);
     expect(isSecretKeyName("tokens_used")).toBe(false);
     expect(isSecretKeyName("author")).toBe(false);
     expect(isSecretKeyName("route")).toBe(false);
+    expect(isSecretKeyName("tokensUsed")).toBe(false);
+  });
+
+  test("shared non-cyclic references are copied, cycles throw", () => {
+    const shared = { note: "ok" };
+    const out = redact({ x: shared, y: shared }) as Record<string, unknown>;
+    expect(out.x).toEqual({ note: "ok" });
+    expect(out.y).toEqual({ note: "ok" });
+    const cyclic: Record<string, unknown> = { a: 1 };
+    cyclic.self = cyclic;
+    expectContractError("schema", () => redact(cyclic));
+  });
+
+  test("Dates pass through and prototype pollution is impossible", () => {
+    const date = new Date(0);
+    const out = redact({ at: date }) as Record<string, unknown>;
+    expect(out.at).toBe(date);
+    const polluted = JSON.parse('{"__proto__":{"x":1},"a":2}') as Record<string, unknown>;
+    const cleaned = redact(polluted) as Record<string, unknown>;
+    expect(Object.getPrototypeOf(cleaned)).toBe(Object.prototype);
+    expect(({} as Record<string, unknown>).x).toBeUndefined();
+    expect(cleaned.a).toBe(2);
   });
 
   test("redactJson is canonical: redacted, sorted, stable", () => {
@@ -316,6 +505,29 @@ describe("canonical JSON", () => {
   });
 });
 
+describe("envelope validation", () => {
+  test("fixture envelope parses with version and payload", () => {
+    const env = parseEnvelope(ENTRY, ["route", "capability"], "fixture");
+    expect(env.version).toBe("1.0.0");
+    expect(env.payload.route).toBe("claude.opencode-go");
+    expect(env.payload.capability).toEqual(ENTRY.capability);
+  });
+
+  test("unknown top-level fields are rejected", () => {
+    expectContractError("schema", () => parseEnvelope({ ...ENTRY, extra: 1 }, ["route", "capability"], "fixture"));
+    // the unknown-field fixture's typo sits inside the capability payload:
+    // the envelope read passes, the attested read rejects it
+    const env = parseEnvelope(ENTRY_UNKNOWN, ["route", "capability"], "fixture");
+    expectContractError("schema", () => parseAttested(env.payload.capability, "fixture.capability"));
+  });
+
+  test("incompatible versions are rejected", () => {
+    expectContractError("version", () =>
+      parseEnvelope({ contract_version: "999.0.0", route: "a.b" }, ["route"], "fixture"),
+    );
+  });
+});
+
 describe("unknown field rejection", () => {
   test("fixture with a typo'd field is rejected", () => {
     expectFields(ENTRY.capability as Record<string, unknown>, ["value", "status", "provenance", "evidence"], "fixture.capability");
@@ -323,23 +535,30 @@ describe("unknown field rejection", () => {
   });
 });
 
-describe("fixture roundtrip", () => {
-  test("catalog entry survives JSON roundtrip with identity intact", () => {
-    const capability = ENTRY.capability as Record<string, unknown>;
-    expectFields(capability, ["value", "status", "provenance", "evidence"], "fixture.capability");
-    const reparsed = parseJson(toJson(capability)) as Record<string, unknown>;
-    expectFields(reparsed, ["value", "status", "provenance", "evidence"], "reparsed.capability");
-    expect(reparsed).toEqual(capability);
-    // the attested fact stays usable through the roundtrip
-    const att = attest({
-      value: reparsed.value,
-      status: reparsed.status as "verified-live",
-      provenance: reparsed.provenance as "measured",
-      evidence: reparsed.evidence as { at: string; source: "live-e2e" },
-    });
-    expect(isUsable(att, { now: Date.parse("2026-11-08T00:00:00Z"), maxAgeMs: 7 * 24 * 60 * 60 * 1000 })).toBe(true);
-    // the envelope version is compatible
-    assertCompatibleVersion(ENTRY.contract_version as string);
+describe("fixture roundtrip through the read path", () => {
+  test("catalog entry survives JSON roundtrip with identity and usability intact", () => {
+    // read path: envelope -> attested, not a comparison with the write-side object
+    const env = parseEnvelope(ENTRY, ["route", "capability"], "fixture");
+    const att = parseAttested(env.payload.capability, "fixture.capability");
+    expect(env.payload.route).toBe("claude.opencode-go");
+    expect(isUsable(att, { now: NOW, maxAgeMs: 7 * DAY })).toBe(true);
+
+    // serialize the parsed value and re-read it through the same path
+    const serialized = toJson({ contract_version: env.version, route: env.payload.route, capability: att });
+    const env2 = parseEnvelope(parseJson(serialized), ["route", "capability"], "reparsed");
+    const att2 = parseAttested(env2.payload.capability, "reparsed.capability");
+    expect(att2).toEqual(att);
+    expect(isUsable(att2, { now: NOW, maxAgeMs: 7 * DAY })).toBe(true);
+    expect(env2.version).toBe("1.0.0");
+  });
+
+  test("a mutated serialized entry loses usability on read", () => {
+    const env = parseEnvelope(ENTRY, ["route", "capability"], "fixture");
+    const att = parseAttested(env.payload.capability, "fixture.capability");
+    const tampered = { ...att, provenance: "estimated" };
+    // fail-closed on read: the forged object is unusable, never promoted
+    expect(isUsable(tampered as unknown as Attested<unknown>, { now: NOW, maxAgeMs: 7 * DAY })).toBe(false);
+    expectContractError("evidence", () => parseAttested(tampered, "tampered"));
   });
 });
 
@@ -358,6 +577,13 @@ describe("real config consistency", () => {
     // the hyphen trap from the fixture also holds against the real config
     expect(routeIds).toContain("claude.openrouter-free");
     expect(resolveLegacyRouteRef("claude-openrouter-free", routeIds)).toBe("claude.openrouter-free");
+    // the real config has no ambiguous shortcut names
+    const owner: Record<string, string> = {};
+    for (const routeId of routeIds) {
+      const name = legacyRouteShortcut(routeId);
+      expect(owner[name]).toBeUndefined();
+      owner[name] = routeId;
+    }
   });
 });
 
