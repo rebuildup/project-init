@@ -224,6 +224,38 @@ describe("parseQuotaResponse", () => {
     expect(verdict.usage).toEqual([]);
   });
 
+  test("review r4 MAJOR: 402 suppresses every reset-bearing output (headers included)", () => {
+    // 402 + retry-after:3600 — no reset instant may survive a payment block.
+    const retryAfter = parseQuotaResponse(
+      { status: 402, headers: { "retry-after": "3600" } },
+      OBSERVED,
+    );
+    expect(retryAfter.resetAt).toBeNull();
+    expect(retryAfter.usage).toEqual([]);
+    // 402 + x-ratelimit-reset: non-reset facts (limit/remaining) survive; the
+    // reset instant is stripped.
+    const headers = parseQuotaResponse(
+      {
+        status: 402,
+        headers: {
+          "x-ratelimit-limit-minute": "20",
+          "x-ratelimit-remaining-minute": "13",
+          "x-ratelimit-reset": "2026-11-06T13:00:00Z",
+        },
+      },
+      OBSERVED,
+    );
+    expect(headers.resetAt).toBeNull();
+    expect(headers.usage).toHaveLength(1);
+    expect(headers.usage[0]).toMatchObject({
+      window: "minute",
+      limit: 20,
+      remaining: 13,
+      used: 7,
+      resetAt: null,
+    });
+  });
+
   test("200 with headers parses usage; not throttled", () => {
     const verdict = parseQuotaResponse(
       { status: 200, headers: { "x-ratelimit-remaining-minute": "19", "x-ratelimit-limit-minute": "20" } },
@@ -260,7 +292,7 @@ describe("quotaReport: real catalog", () => {
   });
 
   test("stale documented evidence is dropped fail-closed (滞留cache)", () => {
-    // 7-day contract window: catalog evidence at 2026-11-05 is fresh at NOW,
+    // 7-day contract window: catalog evidence at 2026-11-01 is fresh at NOW,
     // expired two weeks later.
     const fresh = quotaReport(catalog, "claude.openrouter-free", { now: NOW });
     expect(fresh.documented.length).toBeGreaterThan(0);
@@ -286,11 +318,92 @@ describe("quotaReport: real catalog", () => {
     });
   });
 
-  test("observed restriction is surfaced with its evidence date (zen)", () => {
-    const report = quotaReport(catalog, "opencode.zen", { now: NOW });
-    expect(report.restriction).not.toBeNull();
-    expect(report.restriction?.evidence.at).toBe("2026-10-16T00:00:00Z");
-    expect(formatQuotaReport(report)).toContain("restriction: HTTP 403");
+  test("observed restriction: fresh evidence surfaces with its date; stale drops fail-closed", () => {
+    // zen's committed evidence (2026-10-16) is 21 days old at the reference
+    // clock — expired under the module-header staleness claim, so the block
+    // is dropped (fail-closed) rather than shown undated.
+    const stale = quotaReport(catalog, "opencode.zen", { now: NOW });
+    expect(stale.restriction).toBeNull();
+    expect(formatQuotaReport(stale)).not.toContain("HTTP 403");
+    // A restriction with FRESH evidence is surfaced with its observed date.
+    const freshRestriction: Catalog = {
+      path: "fixture",
+      providers: {
+        zen: {
+          billing: "free",
+          terms: null,
+          quota: null,
+          rate_limits: null,
+          restriction: {
+            value: null,
+            status: "restricted",
+            provenance: "measured",
+            note: "HTTP 403 from the pi client",
+            evidence: { at: "2026-11-05T00:00:00Z", source: "live-e2e" },
+          },
+          models: {},
+        },
+      },
+      routes: {},
+    };
+    const fresh = quotaReport(freshRestriction, "opencode.zen", { now: NOW });
+    expect(fresh.restriction).toMatchObject({
+      note: "HTTP 403 from the pi client",
+      evidence: { at: "2026-11-05T00:00:00Z" },
+    });
+    expect(formatQuotaReport(fresh)).toContain("restriction: HTTP 403");
+  });
+
+  test("review r4 MINOR: restriction evidence is validated and expires fail-closed", () => {
+    // Stale restriction evidence (> 7 days) is dropped like every other
+    // evidence — the module-header claim "all evidence expires" holds here.
+    const staleRestriction: Catalog = {
+      path: "fixture",
+      providers: {
+        zen: {
+          billing: "free",
+          terms: null,
+          quota: null,
+          rate_limits: null,
+          restriction: {
+            value: null,
+            status: "restricted",
+            provenance: "measured",
+            note: "HTTP 403 from the pi client",
+            evidence: { at: "2026-10-16T00:00:00Z", source: "live-e2e" },
+          },
+          models: {},
+        },
+      },
+      routes: {},
+    };
+    const stale = quotaReport(staleRestriction, "opencode.zen", { now: NOW });
+    expect(stale.restriction).toBeNull();
+    expect(formatQuotaReport(stale)).not.toContain("HTTP 403");
+    // Malformed restriction (no evidence): dropped, never rendered as 1970.
+    const malformed: Catalog = {
+      path: "fixture",
+      providers: {
+        zen: {
+          billing: "free",
+          terms: null,
+          quota: null,
+          rate_limits: null,
+          restriction: {
+            value: null,
+            status: "restricted",
+            provenance: "measured",
+            note: "no evidence table",
+            evidence: null as unknown as Evidence,
+          },
+          models: {},
+        },
+      },
+      routes: {},
+    };
+    const missing = quotaReport(malformed, "opencode.zen", { now: NOW });
+    expect(missing.restriction).toBeNull();
+    expect(formatQuotaReport(missing)).not.toContain("1970");
   });
 
   test("live observations: fresh + future reset shown, expired reset dropped (date boundary)", () => {

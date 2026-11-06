@@ -477,6 +477,21 @@ export function parseQuotaResponse(
   const usage = input.headers ? parseRateLimitHeaders(input.headers, observedAt) : [];
   const throttled = input.status === 429;
   const paymentRequired = input.status === 402;
+  if (paymentRequired) {
+    // A 402 carries NO reset time — the module invariant. Suppress EVERY
+    // reset-bearing output (headers included): keep only the non-reset facts
+    // (limit/remaining/used); a reset-only entry is dropped outright.
+    const nonReset = usage.filter(
+      (entry) => entry.limit !== null || entry.remaining !== null || entry.used !== null,
+    ).map((entry) => ({ ...entry, resetAt: null }));
+    return {
+      status: input.status,
+      throttled,
+      paymentRequired,
+      usage: nonReset,
+      resetAt: null,
+    };
+  }
   if (throttled) {
     const observedMs = Date.parse(observedAt);
     const resetMs = bodyResetAt(input.body, observedMs);
@@ -534,7 +549,8 @@ export interface QuotaReport {
   concurrency: { value: number; evidence: Evidence } | null;
   /** Fresh, unexpired live observations (headers/bodies). */
   live: QuotaUsage[];
-  /** OBSERVED block on this route/provider, shown with its evidence date. */
+  /** OBSERVED block on this route/provider, shown with its evidence date
+   * while that evidence is fresh; stale/malformed blocks drop fail-closed. */
   restriction: { note: string; evidence: Evidence } | null;
   /** Other routes drawing on the SAME allowance (account/plan/key sharing). */
   sharedWith: string[];
@@ -653,17 +669,24 @@ export function quotaReport(catalog: Catalog, routeId: string, options: QuotaRep
     live.push(validated);
   }
 
-  // Restriction: observed block; shown with its evidence date (a stale
-  // warning is the safe direction and is labeled with its observed date).
-  // Without evidence there is no observation date — the block is dropped
-  // rather than fabricated as 1970-01-01.
+  // Restriction: observed block; shown with its evidence date. The evidence
+  // expires like every other evidence (module-header claim: fail-closed) —
+  // a stale or malformed block is dropped, never rendered as 1970. A
+  // restriction attestation legitimately carries value null (the fact IS the
+  // block), so validation is parseAttested + staleness, NOT freshAttestation
+  // (which requires a non-null value for quota figures).
   const restrictionAtt = route?.restriction ?? provider?.restriction ?? null;
   let restriction: QuotaReport["restriction"] = null;
-  if (restrictionAtt && restrictionAtt.status === "restricted" && restrictionAtt.note && restrictionAtt.evidence) {
-    restriction = {
-      note: restrictionAtt.note,
-      evidence: restrictionAtt.evidence,
-    };
+  if (restrictionAtt && restrictionAtt.status === "restricted" && restrictionAtt.note) {
+    let evidence: Evidence | null = null;
+    try {
+      evidence = parseAttested(restrictionAtt as Attested<null>, "quotaReport.restriction").evidence;
+    } catch {
+      evidence = null; // fail-closed: malformed block is never shown
+    }
+    if (evidence && !isStale(evidence, now, maxAgeMs)) {
+      restriction = { note: restrictionAtt.note, evidence };
+    }
   }
 
   const sharedWith =
