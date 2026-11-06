@@ -129,8 +129,11 @@ export interface RouteData {
   default_model: string | null;
   models: string[];
   note: string;
-  /** null = harness-native login (no Infisical secret on the provider). */
-  credential: { env: string; infisical_required: boolean } | null;
+  /** null = harness-native login (no Infisical secret on the provider).
+   * Keyed `cred`, never `credential`: the redactor treats every
+   * `credential*` compound key as secret-shaped and would redact the whole
+   * object. Only the env var NAME travels, never a value. */
+  cred: { env: string; infisical_required: boolean } | null;
   catalog: {
     quota_scope: string | null;
     billing: string | null;
@@ -189,7 +192,7 @@ export function buildRoutesData(config: RoutesInput, catalog: Catalog): RoutesDa
       default_model: route.default_model || provider.default_model,
       models: route.models ?? provider.models,
       note: route.note,
-      credential: provider.env
+      cred: provider.env
         ? { env: provider.env, infisical_required: provider.require_infisical }
         : null,
       catalog: {
@@ -279,9 +282,9 @@ export function renderRoutesText(data: RoutesData): string {
     );
     lines.push(`  models: ${route.models.length > 0 ? route.models.join(", ") : UNKNOWN}`);
     lines.push(
-      route.credential
-        ? `  credential: env ${route.credential.env}` +
-          (route.credential.infisical_required ? " (Infisical-required)" : " (Infisical)")
+      route.cred
+        ? `  credential: env ${route.cred.env}` +
+          (route.cred.infisical_required ? " (Infisical-required)" : " (Infisical)")
         : "  credential: harness-native login"
     );
     if (route.note) {

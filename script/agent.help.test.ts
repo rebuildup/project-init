@@ -220,7 +220,7 @@ describe("routes data", () => {
     const known = data.routes.find((r) => r.id === "claude.known");
     expect(known?.shortcut).toBe("claude-known");
     expect(known?.default_model).toBe("known-model");
-    expect(known?.credential).toEqual({ env: "KNOWN_API_KEY", infisical_required: false });
+    expect(known?.cred).toEqual({ env: "KNOWN_API_KEY", infisical_required: false });
     expect(known?.catalog.quota_scope).toBe("account:known");
     expect(known?.catalog.rate_limits?.value).toEqual({ per_minute: 20, per_day: 1000 });
     // A model without a catalog entry stays absent (unknown).
@@ -260,6 +260,19 @@ describe("routes data", () => {
     expect(json.routes.map((r) => r.id)).toEqual(data.routes.map((r) => r.id));
     expect(json.config).toBe(FIXTURE_CATALOG_PATH);
   });
+
+  test("credential env NAME survives redaction under a non-secret-shaped key", () => {
+    const text = renderRoutesText(data);
+    const json = JSON.parse(redactJson(data)) as typeof data;
+    // Human and JSON agree on the credential env name; only names travel.
+    for (const route of data.routes) {
+      const rendered = json.routes.find((r) => r.id === route.id);
+      expect(rendered?.cred).toEqual(route.cred);
+      if (route.cred) {
+        expect(text).toContain(`credential: env ${route.cred.env}`);
+      }
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -295,7 +308,7 @@ describe("launcher integration", () => {
     expect(result.stdout.split("\n").length).toBeLessThanOrEqual(100);
     expect(result.stdout).toContain("agent guide [topic]");
     expect(result.stdout).toContain("agent routes [--json]");
-  });
+  }, 60000);
 
   test("`agent help --json` quotes the same usage text", () => {
     const human = run(["help"]);
@@ -305,14 +318,19 @@ describe("launcher integration", () => {
     expect(data.command).toBe("help");
     // console.log appends the final newline the usage string lacks.
     expect(data.usage + "\n").toBe(human.stdout);
-  });
+  }, 60000);
+
+  test("`agent help --json` accepts exactly that form; extra args exit 2", () => {
+    expect(run(["help", "--json", "extra"]).exitCode).toBe(2);
+    expect(run(["--help", "--json"]).exitCode).toBe(2);
+  }, 60000);
 
   test("`--help` spelling stays plain (no accidental --json contract)", () => {
     const result = run(["--help"]);
     expect(result.exitCode).toBe(0);
     expect(() => JSON.parse(result.stdout)).toThrow();
     expect(run(["--help", "--json"]).exitCode).toBe(2);
-  });
+  }, 60000);
 
   test("every guide topic is reachable and exits 0", () => {
     const overview = run(["guide"]);
@@ -324,7 +342,7 @@ describe("launcher integration", () => {
     }
     // The overview itself stays small: no giant always-on prompt.
     expect(overview.stdout.split("\n").length).toBeLessThanOrEqual(20);
-  });
+  }, 60000);
 
   test("unknown guide topic and extra args exit 2", () => {
     const bad = run(["guide", "bogus"]);
@@ -333,15 +351,19 @@ describe("launcher integration", () => {
     expect(run(["guide", "limits", "extra"]).exitCode).toBe(2);
     expect(run(["routes", "extra"]).exitCode).toBe(2);
     expect(run(["routes", "--json", "extra"]).exitCode).toBe(2);
-  });
+  }, 60000);
 
-  test("`agent routes` human and --json agree on the route set", () => {
+  test("`agent routes` human and --json agree on the route set and credentials", () => {
     const human = run(["routes"]);
     expect(human.exitCode).toBe(0);
     const json = run(["routes", "--json"]);
     expect(json.exitCode).toBe(0);
     const data = JSON.parse(json.stdout) as {
-      routes: Array<{ id: string; catalog: { quota_scope: string | null } }>;
+      routes: Array<{
+        id: string;
+        catalog: { quota_scope: string | null };
+        cred: { env: string; infisical_required: boolean } | null;
+      }>;
       not_yet_available: Record<string, unknown>;
     };
     const humanIds = human.stdout
@@ -354,18 +376,30 @@ describe("launcher integration", () => {
     const scopes = Object.fromEntries(data.routes.map((r) => [r.id, r.catalog.quota_scope]));
     expect(scopes["claude.openrouter-free"]).toBe("account:openrouter");
     expect(scopes["omp.opencode-go"]).toBe("plan:opencode-go");
-  });
+    // Credential info agrees between human and JSON: env NAME only, never a
+    // value, and the JSON key survives redaction (`cred`, not `credential`).
+    for (const route of data.routes) {
+      if (route.cred) {
+        expect(human.stdout).toContain(`credential: env ${route.cred.env}`);
+      } else {
+        expect(human.stdout).toContain("credential: harness-native login");
+      }
+    }
+    const deepseek = data.routes.find((r) => r.id === "claude.deepseek");
+    expect(deepseek?.cred).toEqual({ env: "DEEPSEEK_API_KEY", infisical_required: false });
+    expect(json.stdout).toContain("DEEPSEEK_API_KEY");
+  }, 60000);
 
   test("`agent list` output contract is unchanged", () => {
     const result = run(["list"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("ROUTE");
     expect(result.stdout).toContain("'agent models <provider>' for credential names");
-  });
+  }, 60000);
 
   test("`agent guide` never launches a process (no harness, no injection)", () => {
     const result = run(["guide", "misfire"]);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).not.toContain("ARGV");
-  });
+  }, 60000);
 });

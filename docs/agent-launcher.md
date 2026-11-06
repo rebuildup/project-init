@@ -166,8 +166,13 @@ block) is a fact in its own right and is never reported as unknown.
 
 `--json` emits the same data as redacted canonical JSON
 (`script/agent/contract.ts` `redactJson`: secret-shaped keys and values are
-replaced by `[redacted]`; only credential env NAMES ever appear, never
-values). A malformed `[catalog.*]` table fails closed with exit 1.
+replaced by `[redacted]`; only the credential env var NAME travels, under
+the non-secret-shaped key `cred: {env, infisical_required}` — a
+`credential*` key would itself be redacted as secret-shaped). A malformed
+`[catalog.*]` table fails closed with exit 1.
+
+`agent help --json` accepts exactly that form: any extra argument after
+`--json` exits 2 (`--help`/`-h` never take `--json`).
 
 Fields owned by later issues are exposed only as explicit placeholders under
 `not_yet_available` (always null, never guessed):
