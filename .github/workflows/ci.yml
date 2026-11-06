@@ -40,6 +40,8 @@ jobs:
           bun script/agent.ts shortcuts > /dev/null
       - name: Test agent launcher (mock harnesses)
         run: bun test script/agent.test.ts script/claude-settings.test.ts script/devices.test.ts
+      - name: Test agent router modules
+        run: bun test $(ls script/agent.*.test.ts script/agent/*.test.ts 2>/dev/null | grep -v windows)
       - name: Guard secret material
         run: ./script/check-secrets
 
