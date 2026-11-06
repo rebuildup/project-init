@@ -1,1342 +1,222 @@
-#!/usr/bin/env bun
 /**
- * Independent acceptance tests for machines.ts (Epic #86, T011 / issue #97).
+ * T011 / #97 machines module tests.
  *
- * Tests MUST be separated into:
- *   - Mock-based tests (no real Herdr/SSH calls)
- *   - Real machine tests (only run when explicitly requested)
- *
- * Acceptance criteria from issue #97:
- *   - Windows+WSL shared capacity detection
- *   - Offline machine handling
- *   - Host identity mismatch detection
- *   - Resource unknown handling
- *   - GUI singleton detection
- *   - Remote unreachable: no retry to other hosts
- *
- * Run: bun test script/agent/machines.test.ts
+ * REAL: the "real fixture" block replays output captured from the real herdr
+ *       0.9.5 CLI on macOS (script/test-fixtures/machines/*), and
+ *       "local probe (real)" probes the host running the tests.
+ * MOCK: everything else uses an injected Runner / declared config. No real
+ *       WSL or Windows host was exercised.
  */
-
-import { describe, it, expect, beforeEach, afterEach } from "bun:test";
+import { describe, expect, it } from "bun:test";
+import { join } from "node:path";
+import { readFileSync } from "node:fs";
 import {
-  Machine,
-  MachineOS,
-  MachineResources,
-  MachineCapabilities,
-  PlacementConstraints,
-  PlacementSuitability,
-  HerdrMachineProfile,
-  HerdrMachineStatus,
-  PhysicalHostGroup,
-  InventoryError,
+  conservativeCapacity,
+  detectWsl,
+  evaluate,
+  getInventory,
   getLocalMachine,
-  getMachinesFromHerdr,
-  probeResources,
-  probeCapabilities,
-  detectPhysicalHostGroup,
-  isWsl,
-  evaluateSuitability,
-  findSuitableMachines,
-  attestMachine,
-  attestMachines,
-  formatBytes,
-  getCombinedResources,
-  detectSharedHosts,
-  herdrProfileToMachine,
-  getHerdrProfiles,
-  getHerdrStatuses,
-  getAllMachines,
-  BYTES_PER_GB,
-  BYTES_PER_MB,
+  groupHosts,
+  hashId,
+  selectMachine,
+  type Declared,
+  type Machine,
+  type Runner,
 } from "./machines";
-import { Attested, VerificationStatus, Provenance, Evidence } from "./contract";
+import { toJson } from "./contract";
 
-// ---------------------------------------------------------------------------
-// Test Utilities
-// ---------------------------------------------------------------------------
+const fx = (name: string) => JSON.parse(readFileSync(join(import.meta.dir, "../test-fixtures/machines", name), "utf8"));
+const NOW = () => "2026-01-01T00:00:00Z";
+const GB = 1024 ** 3;
 
-/** Mock Herdr machine profile for Windows */
-const mockWindowsProfile: HerdrMachineProfile = {
-  id: "windows-machine-id",
-  label: "Windows Workstation",
-  target: "device-windows",
-  session: "default",
-  enabled: true,
-  selected: false,
-};
-
-/** Mock Herdr machine profile for WSL */
-const mockWslProfile: HerdrMachineProfile = {
-  id: "wsl-machine-id",
-  label: "Ubuntu (WSL)",
-  target: "device-wsl",
-  session: "default",
-  enabled: true,
-  selected: false,
-};
-
-/** Mock Herdr machine profile for macOS */
-const mockMacosProfile: HerdrMachineProfile = {
-  id: "macos-machine-id",
-  label: "MacBook Pro",
-  target: "device-macos",
-  session: "default",
-  enabled: true,
-  selected: false,
-};
-
-/** Mock Herdr machine profile for remote Linux */
-const mockRemoteLinuxProfile: HerdrMachineProfile = {
-  id: "remote-linux-id",
-  label: "Remote Linux Server",
-  target: "remote-linux-server",
-  session: "default",
-  enabled: true,
-  selected: false,
-};
-
-/** Mock Herdr machine status for reachable */
-const mockReachableStatus: HerdrMachineStatus = {
-  id: "windows-machine-id",
-  label: "Windows Workstation",
-  status: "reachable",
-  error: null,
-};
-
-/** Mock Herdr machine status for disabled */
-const mockDisabledStatus: HerdrMachineStatus = {
-  id: "wsl-machine-id",
-  label: "Ubuntu (WSL)",
-  status: "disabled",
-  error: null,
-};
-
-/** Mock Herdr machine status for error */
-const mockErrorStatus: HerdrMachineStatus = {
-  id: "macos-machine-id",
-  label: "MacBook Pro",
-  status: "error",
-  error: "remote Herdr server is stopped or incompatible; run `herdr --remote device-macos --session default`",
-};
-
-/** Mock Herdr machine status for remote Linux */
-const mockRemoteLinuxStatus: HerdrMachineStatus = {
-  id: "remote-linux-id",
-  label: "Remote Linux Server",
-  status: "reachable",
-  error: null,
-};
-
-/** Create a mock machine for testing */
-function createMockMachine(
-  overrides: Partial<Machine> = {}
-): Machine {
-  return {
-    id: "test-machine",
-    label: "Test Machine",
-    os: null,
-    arch: null,
-    physicalHostGroup: null,
-    instanceIdHash: null,
-    target: "device-test",
-    session: "default",
-    isLocal: false,
-    resources: null,
-    capabilities: null,
-    availability: "unknown",
-    error: null,
-    herdrProfile: null,
-    herdrStatus: null,
-    ...overrides,
-  };
+const profile = (id: string, target: string) => ({ id, label: id, target, session: "default", enabled: true, selected: false });
+function runner(list: unknown, status: unknown, statusExit = 0, listExit = 0): Runner {
+  return (cmd) =>
+    cmd[2] === "list"
+      ? { exitCode: listExit, stdout: typeof list === "string" ? list : JSON.stringify(list), stderr: "" }
+      : { exitCode: statusExit, stdout: typeof status === "string" ? status : JSON.stringify(status), stderr: "" };
 }
+const st = (id: string, status: string, error: string | null = null) => ({ id, label: id, status, error });
+const inv = (profiles: any[], statuses: any[], declared: Record<string, Declared> = {}, statusExit = 0) =>
+  getInventory({ run: runner(profiles, statuses, statusExit), declared, local: null, now: NOW });
+const get = (m: Machine[], id: string) => m.find((x) => x.id === id)!;
 
-// ---------------------------------------------------------------------------
-// Mock Setup for Bun.spawnSync
-// ---------------------------------------------------------------------------
-
-let originalSpawnSync: typeof Bun.spawnSync | null = null;
-
-/** Create a mock for Bun.spawnSync */
-function setupMockSpawnSync(
-  mockResults: Map<string, { exitCode: number; stdout: string; stderr: string }>
-): () => void {
-  originalSpawnSync = Bun.spawnSync;
-  
-  Bun.spawnSync = (args: string[]) => {
-    const key = args.join(" ");
-    const mockResult = mockResults.get(key);
-    
-    if (mockResult) {
-      return {
-        exitCode: mockResult.exitCode,
-        stdout: Buffer.from(mockResult.stdout),
-        stderr: Buffer.from(mockResult.stderr),
-        stdin: null,
-        pid: 0,
-        timedOut: false,
-        signal: null,
-      };
+describe("real fixture: herdr 0.9.5 on macOS (REAL CLI output)", () => {
+  const real = fx("herdr-real-macos.json");
+  it("status exits 1 yet stdout is parsed; error surfaces as availability=error", () => {
+    expect(real.statusExit).toBe(1);
+    const r = getInventory({ run: runner(real.list, real.status, real.statusExit), local: null, now: NOW });
+    expect(r.errors).toEqual([]);
+    expect(r.machines.map((m) => m.availability).sort()).toEqual(["error", "offline", "offline", "online"]);
+    expect(r.machines.every((m) => m.isLocal === false)).toBe(true);
+  });
+  it("saved list output: targets hashed, never raw; error text scrubbed", () => {
+    const r = getInventory({ run: runner(real.list, real.status, 1), local: null, now: NOW });
+    const out = toJson(r);
+    for (const p of real.list) expect(out).not.toContain(p.target);
+    expect(out).toContain(hashId("target-1"));
+  });
+  it("stored real `machines.ts list --json` run keeps its real exit code and has no local-identity leakage onto remotes", () => {
+    const f = fx("machines-list-real-macos.json");
+    expect(f.exitCode).toBe(0);
+    const remotes = f.output.machines.filter((m: any) => !m.isLocal);
+    expect(remotes.length).toBe(4);
+    for (const m of remotes) {
+      expect(m.os.value).toBeNull();
+      expect(m.arch.value).toBeNull();
+      expect(m.resources.value).toBeNull();
+      expect(m.hostId.value).toBeNull();
+      expect(m.resources.status).toBe("unknown");
     }
-    
-    return {
-      exitCode: 0,
-      stdout: Buffer.from(""),
-      stderr: Buffer.from(""),
-      stdin: null,
-      pid: 0,
-      timedOut: false,
-      signal: null,
-    };
-  };
-  
-  return () => {
-    if (originalSpawnSync) {
-      Bun.spawnSync = originalSpawnSync;
-    }
-  };
-}
-
-// ---------------------------------------------------------------------------
-// Fixtures from real Herdr output (sanitized)
-// ---------------------------------------------------------------------------
-
-/** Real Herdr machine list output (sanitized for tests) */
-export const REAL_HERDR_LIST_JSON = `[
-  {
-    "id": "4729223c1554f417f43e826826adb9e3",
-    "label": "WSL · worker 1",
-    "target": "devnode-wsl-worker-1",
-    "session": "devnode-poc-wsl-2a1084ec",
-    "enabled": false,
-    "selected": false
-  },
-  {
-    "id": "3202e4b584c237bb11db58dddc10d640",
-    "label": "UUU · Windows",
-    "target": "devnode-win-uuu-recreated",
-    "session": "default",
-    "enabled": false,
-    "selected": false
-  },
-  {
-    "id": "3f85952ba63e2beab71a5325cb3376d9",
-    "label": "Windows",
-    "target": "device-windows",
-    "session": "default",
-    "enabled": true,
-    "selected": false
-  },
-  {
-    "id": "5ac021a51c055c8627fe0ef3f783daf2",
-    "label": "Ubuntu (WSL)",
-    "target": "device-wsl",
-    "session": "default",
-    "enabled": true,
-    "selected": false
-  }
-]`;
-
-/** Real Herdr machine status output (sanitized for tests) */
-export const REAL_HERDR_STATUS_JSON = `[
-  {
-    "id": "4729223c1554f417f43e826826adb9e3",
-    "label": "WSL · worker 1",
-    "status": "disabled",
-    "error": null
-  },
-  {
-    "id": "3202e4b584c237bb11db58dddc10d640",
-    "label": "UUU · Windows",
-    "status": "disabled",
-    "error": null
-  },
-  {
-    "id": "3f85952ba63e2beab71a5325cb3376d9",
-    "label": "Windows",
-    "status": "error",
-    "error": "remote Herdr server is stopped or incompatible; run \`herdr --remote device-windows --session default\`"
-  },
-  {
-    "id": "5ac021a51c055c8627fe0ef3f783daf2",
-    "label": "Ubuntu (WSL)",
-    "status": "reachable",
-    "error": null
-  }
-]`;
-
-// ---------------------------------------------------------------------------
-// 1. Windows + WSL Shared Capacity Tests
-// ---------------------------------------------------------------------------
-
-describe("Windows + WSL Shared Capacity", () => {
-  let restoreSpawn: () => void;
-
-  beforeEach(() => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_LIST_JSON,
-        stderr: "",
-      }
-    );
-    
-    mockResults.set(
-      "herdr machine status --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_STATUS_JSON,
-        stderr: "",
-      }
-    );
-    
-    restoreSpawn = setupMockSpawnSync(mockResults);
-  });
-
-  afterEach(() => {
-    restoreSpawn();
-  });
-
-  it("should detect Windows and WSL as having physical host groups from evidence", () => {
-    const windowsMachine = herdrProfileToMachine(mockWindowsProfile, {
-      id: "3f85952ba63e2beab71a5325cb3376d9",
-      label: "Windows",
-      status: "error",
-      error: "remote Herdr server is stopped",
-    });
-    const wslMachine = herdrProfileToMachine(mockWslProfile, {
-      id: "5ac021a51c055c8627fe0ef3f783daf2",
-      label: "Ubuntu (WSL)",
-      status: "reachable",
-      error: null,
-    });
-    
-    // Both should have physical host groups (null for remote machines without probing)
-    // Local machines would have hashed host groups
-    expect(windowsMachine.physicalHostGroup).toBeNull();
-    expect(wslMachine.physicalHostGroup).toBeNull();
-  });
-
-  it("should not double-count CPU/RAM for machines with same host group", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "windows-1",
-        label: "Windows",
-        os: "windows",
-        physicalHostGroup: "host-abc123",
-        resources: {
-          cpu: { cores: 16, model: "Intel i9" },
-          ramBytes: 32 * BYTES_PER_GB,
-          gpus: [{ vendor: "NVIDIA", model: "RTX 4090", vramBytes: 24 * BYTES_PER_GB }],
-          disks: [],
-        },
-      }),
-      createMockMachine({
-        id: "wsl-1",
-        label: "WSL",
-        os: "linux",
-        physicalHostGroup: "host-abc123",
-        resources: {
-          cpu: { cores: 8, model: "Intel i9" },
-          ramBytes: 16 * BYTES_PER_GB,
-          gpus: [],
-          disks: [],
-        },
-      }),
-    ];
-
-    const combined = getCombinedResources(machines);
-    const sharedResources = combined.get("host-abc123");
-    
-    expect(sharedResources).toBeDefined();
-    expect(sharedResources).not.toBeNull();
-    // Should use the first machine's resources for the group
-    expect(sharedResources!.cpu.cores).toBe(16);
-    expect(sharedResources!.ramBytes).toBe(32 * BYTES_PER_GB);
-  });
-
-  it("should detect shared host groups correctly", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "win-1",
-        label: "Windows",
-        os: "windows",
-        physicalHostGroup: "host-abc",
-      }),
-      createMockMachine({
-        id: "wsl-1",
-        label: "WSL",
-        os: "linux",
-        physicalHostGroup: "host-abc",
-      }),
-      createMockMachine({
-        id: "mac-1",
-        label: "Mac",
-        os: "macos",
-        physicalHostGroup: "host-xyz",
-      }),
-    ];
-
-    const hostGroups = detectSharedHosts(machines);
-    
-    expect(hostGroups.size).toBe(2);
-    expect(hostGroups.get("host-abc")).toHaveLength(2);
-    expect(hostGroups.get("host-xyz")).toHaveLength(1);
-  });
-
-  it("should treat unknown host groups conservatively as potentially shared", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "unknown-1",
-        physicalHostGroup: null,
-      }),
-      createMockMachine({
-        id: "unknown-2",
-        physicalHostGroup: null,
-      }),
-    ];
-
-    const hostGroups = detectSharedHosts(machines);
-    
-    // Both should be in the same fallback group
-    expect(hostGroups.size).toBe(1);
-    const fallbackGroup = hostGroups.keys().next().value;
-    expect(hostGroups.get(fallbackGroup)).toHaveLength(2);
+    expect(remotes.find((m: any) => m.availability === "error").error).not.toContain("device-windows");
   });
 });
 
-// ---------------------------------------------------------------------------
-// 2. Offline Machine Tests
-// ---------------------------------------------------------------------------
-
-describe("Offline Machine Handling", () => {
-  let restoreSpawn: () => void;
-
-  beforeEach(() => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_LIST_JSON,
-        stderr: "",
-      }
-    );
-    
-    mockResults.set(
-      "herdr machine status --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_STATUS_JSON,
-        stderr: "",
-      }
-    );
-    
-    restoreSpawn = setupMockSpawnSync(mockResults);
+describe("local probe (REAL, this host)", () => {
+  it("is the only local entry and carries measured evidence", () => {
+    const m = getLocalMachine(undefined, NOW);
+    expect(m.isLocal).toBe(true);
+    expect(m.os.status).toBe("verified-live");
+    expect(m.resources.value!.cpuCores).toBeGreaterThan(0);
+    expect(m.resources.value!.ramBytes).toBeGreaterThan(0);
+    expect(m.availability).toBe("online");
   });
-
-  afterEach(() => {
-    restoreSpawn();
-  });
-
-  it("should detect offline machines correctly", () => {
-    const machine = herdrProfileToMachine(
-      mockWindowsProfile,
-      { id: "windows-machine-id", label: "Windows Workstation", status: "disabled", error: null }
-    );
-    
-    expect(machine.availability).toBe("offline");
-  });
-
-  it("should handle machines with no status info", () => {
-    const machine = herdrProfileToMachine(mockWindowsProfile, null);
-    
-    expect(machine.availability).toBe("unknown");
-  });
-
-  it("should NOT select offline machines for placement by default (fail-closed)", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "online-1",
-        availability: "online",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 8, model: "Intel" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-      }),
-      createMockMachine({
-        id: "offline-1",
-        availability: "offline",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 16, model: "Intel" }, ramBytes: 32 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-      }),
-    ];
-
-    const constraints: PlacementConstraints = {
-      hard: {},
-      soft: {},
-    };
-
-    const result = findSuitableMachines(machines, constraints);
-    
-    // Only online machine should be suitable (fail-closed)
-    expect(result.suitable).toHaveLength(1);
-    expect(result.suitable[0].id).toBe("online-1");
-    expect(result.suitability[0].satisfiesHard).toBe(true);
-    expect(result.suitability[1].satisfiesHard).toBe(false);
-  });
-
-  it("should allow offline machines if explicitly opted in", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "online-1",
-        availability: "online",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 8, model: "Intel" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-      }),
-      createMockMachine({
-        id: "offline-1",
-        availability: "offline",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 16, model: "Intel" }, ramBytes: 32 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-      }),
-    ];
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        availability: ["online", "offline"],
-      },
-      soft: {},
-    };
-
-    const result = findSuitableMachines(machines, constraints);
-    
-    // Both should be suitable when explicitly opted in
-    expect(result.suitable).toHaveLength(2);
+  it("host identity mismatch between declared and measured makes it unsuitable", () => {
+    const m = getLocalMachine({ hostId: "definitely-not-this-host" }, NOW);
+    if (m.hostId.value === null) return; // platform without a host id: nothing to compare
+    expect(m.identityMismatch).toBe(true);
+    const e = evaluate(m, {}, groupHosts([m]));
+    expect(e.suitable).toBe(false);
+    expect(e.hardViolations.join()).toContain("mismatch");
+    expect(groupHosts([m])[0].sharedHostUnknown).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 3. Host Identity Mismatch Tests
-// ---------------------------------------------------------------------------
-
-describe("Host Identity Mismatch", () => {
-  it("should detect different physical host groups as different hosts", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "host-a-machine-1",
-        physicalHostGroup: "host-a-hash",
-        instanceIdHash: "instance-a-hash",
-      }),
-      createMockMachine({
-        id: "host-b-machine-1",
-        physicalHostGroup: "host-b-hash",
-        instanceIdHash: "instance-b-hash",
-      }),
-    ];
-
-    const hostGroups = detectSharedHosts(machines);
-    
-    expect(hostGroups.size).toBe(2);
-    expect(hostGroups.get("host-a-hash")).toHaveLength(1);
-    expect(hostGroups.get("host-b-hash")).toHaveLength(1);
+describe("remote machines (MOCK runner)", () => {
+  it("all saved herdr machines are remote even when target looks like localhost", () => {
+    const r = inv([profile("a", "localhost"), profile("b", "127.0.0.1"), profile("c", "device-wsl")], []);
+    expect(r.machines.every((m) => !m.isLocal)).toBe(true);
   });
-
-  it("should handle machines with null instanceIdHash", () => {
-    const machine = createMockMachine({
-      instanceIdHash: null,
-    });
-    
-    expect(machine.physicalHostGroup).toBeNull();
-    expect(machine.instanceIdHash).toBeNull();
+  it("no evidence => os/arch/resources/host unknown, not inherited from the local host", () => {
+    const m = get(inv([profile("a", "t")], [st("a", "reachable")]).machines, "a");
+    expect(m.os.value).toBeNull();
+    expect(m.arch.value).toBeNull();
+    expect(m.hostId.value).toBeNull();
+    expect(m.resources).toMatchObject({ value: null, status: "unknown" });
   });
-});
-
-// ---------------------------------------------------------------------------
-// 4. Resource Unknown Tests
-// ---------------------------------------------------------------------------
-
-describe("Resource Unknown Handling", () => {
-  it("should handle machines with null resources", () => {
-    const machine = createMockMachine({
-      resources: null,
-      capabilities: null,
-      os: null,
-      arch: null,
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        minCpuCores: 4,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations.length).toBeGreaterThan(0);
-    expect(suitability.hardViolations[0]).toContain("unknown");
+  it("declared facts are 'configured' with config provenance, not 'verified-live'", () => {
+    const m = get(inv([profile("a", "t")], [st("a", "reachable")], { a: { os: "windows", arch: "x64", cpuCores: 16, ramBytes: 32 * GB, hostId: "H" } }).machines, "a");
+    expect(m.os).toMatchObject({ value: "windows", status: "configured" });
+    expect(m.os.evidence?.source).toBe("config");
+    expect(m.resources.value!.cpuCores).toBe(16);
+    expect(m.resources.value!.hasGpu).toBeNull();
   });
-
-  it("should handle machines with unknown GPU VRAM", () => {
-    const machine = createMockMachine({
-      os: "linux",
-      arch: "x64",
-      resources: {
-        cpu: { cores: 8, model: "Intel" },
-        ramBytes: 16 * BYTES_PER_GB,
-        gpus: [{ vendor: "Unknown", model: "Unknown", vramBytes: null }],
-        disks: [],
-      },
-      capabilities: { gui: false, gpu: true, accelerated: false },
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        minGpuVramBytes: 8 * BYTES_PER_GB,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations.some(v => v.includes("GPU VRAM"))).toBe(true);
+  it("status exit 1 with valid stdout still maps error/offline; label never decides OS", () => {
+    const r = inv([profile("win", "t1"), profile("wsl", "t2")], [st("win", "error", "boom t1"), st("wsl", "disabled")], {}, 1);
+    expect(get(r.machines, "win").availability).toBe("error");
+    expect(get(r.machines, "win").error).toBe("boom [target]");
+    expect(get(r.machines, "wsl").availability).toBe("offline");
+    expect(get(r.machines, "win").os.value).toBeNull();
   });
-
-  it("should handle machines with null OS/arch", () => {
-    const machine = createMockMachine({
-      os: null,
-      arch: null,
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        os: ["linux"],
-        arch: ["x64"],
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations.length).toBeGreaterThan(0);
+  it("unparseable status => inventory error + availability unknown (fail-closed), not empty inventory", () => {
+    const r = getInventory({ run: runner([profile("a", "t")], "not json", 1), local: null, now: NOW });
+    expect(r.errors.length).toBe(1);
+    expect(get(r.machines, "a").availability).toBe("unknown");
+  });
+  it("herdr missing is an inventory error, local entry still present", () => {
+    const r = getInventory({ run: () => { throw new Error("ENOENT"); }, now: NOW });
+    expect(r.errors[0]).toContain("herdr unavailable");
+    expect(r.machines.length).toBe(1);
+    expect(r.machines[0].isLocal).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 5. GUI Singleton Tests
-// ---------------------------------------------------------------------------
+describe("host groups and capacity", () => {
+  const decl = { win: { hostId: "PC1", cpuCores: 16, ramBytes: 64 * GB }, wsl: { hostId: "PC1", cpuCores: 16, ramBytes: 32 * GB } };
+  const profiles = [profile("win", "t1"), profile("wsl", "t2")];
+  const all = [st("win", "reachable"), st("wsl", "reachable")];
 
-describe("GUI Singleton Detection", () => {
-  it("should detect GUI capability correctly", () => {
-    const withGui = createMockMachine({
-      capabilities: { gui: true, gpu: false, accelerated: false },
-      availability: "online",
-    });
-
-    const withoutGui = createMockMachine({
-      capabilities: { gui: false, gpu: false, accelerated: false },
-      availability: "online",
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        guiRequired: true,
-      },
-      soft: {},
-    };
-
-    const withGuiSuitability = evaluateSuitability(withGui, constraints);
-    const withoutGuiSuitability = evaluateSuitability(withoutGui, constraints);
-
-    expect(withGuiSuitability.satisfiesHard).toBe(true);
-    expect(withoutGuiSuitability.satisfiesHard).toBe(false);
-    expect(withoutGuiSuitability.hardViolations.some(v => v.includes("GUI"))).toBe(true);
+  it("Windows+WSL share one group on positive evidence; capacity is max, not sum", () => {
+    const g = groupHosts(inv(profiles, all, decl).machines);
+    expect(g.length).toBe(1);
+    expect(g[0].sharedHostUnknown).toBe(false);
+    expect(g[0].capacity).toEqual({ cpuCores: 16, ramBytes: 64 * GB });
+    expect(conservativeCapacity(g)).toEqual({ cpuCores: 16, ramBytes: 64 * GB });
   });
-
-  it("should handle machines with null capabilities", () => {
-    const machine = createMockMachine({
-      capabilities: null,
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        guiRequired: true,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations[0]).toContain("unknown");
+  it("without evidence they are NOT grouped: separate groups, each sharedHostUnknown, no constant hash", () => {
+    const g = groupHosts(inv(profiles, all).machines);
+    expect(g.length).toBe(2);
+    expect(g.every((x) => x.sharedHostUnknown)).toBe(true);
+    expect(new Set(g.map((x) => x.key)).size).toBe(2);
+  });
+  it("unknown-host groups count conservatively: only the largest contributes (they may be one host)", () => {
+    const g = groupHosts(inv(profiles, all, { win: { cpuCores: 8, ramBytes: 16 * GB }, wsl: { cpuCores: 12, ramBytes: 8 * GB } }).machines);
+    expect(conservativeCapacity(g)).toEqual({ cpuCores: 12, ramBytes: 16 * GB });
+  });
+  it("group representative is not the first machine's resources: unattributed members add nothing", () => {
+    const g = groupHosts(inv(profiles, all, { win: { hostId: "PC1" }, wsl: { hostId: "PC1", cpuCores: 4 } }).machines);
+    expect(g[0].capacity).toEqual({ cpuCores: 4, ramBytes: null });
+  });
+  it("distinct declared hosts stay separate", () => {
+    const g = groupHosts(inv(profiles, all, { win: { hostId: "A" }, wsl: { hostId: "B" } }).machines);
+    expect(g.length).toBe(2);
+    expect(g.every((x) => !x.sharedHostUnknown)).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 6. Remote Unreachable Tests
-// ---------------------------------------------------------------------------
-
-describe("Remote Unreachable - No Retry", () => {
-  let restoreSpawn: () => void;
-
-  beforeEach(() => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_LIST_JSON,
-        stderr: "",
-      }
-    );
-    
-    mockResults.set(
-      "herdr machine status --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_STATUS_JSON,
-        stderr: "",
-      }
-    );
-    
-    restoreSpawn = setupMockSpawnSync(mockResults);
+describe("placement", () => {
+  const base = (d: Declared, status = "reachable") => get(inv([profile("m", "t")], [st("m", status)], { m: d }).machines, "m");
+  it("availability is fail-closed: error/offline/unknown unsuitable by default", () => {
+    for (const s of ["error", "disabled", "weird"]) expect(evaluate(base({}, s), {}).suitable).toBe(false);
+    expect(evaluate(base({}), {}).suitable).toBe(true);
   });
-
-  afterEach(() => {
-    restoreSpawn();
+  it("explicit opt-in allows non-online", () => {
+    expect(evaluate(base({}, "error"), { allowAvailability: ["error"] }).suitable).toBe(true);
   });
-
-  it("should mark unreachable machines as error availability", () => {
-    const machine = herdrProfileToMachine(
-      mockWindowsProfile,
-      { id: "3f85952ba63e2beab71a5325cb3376d9", label: "Windows", status: "error", error: "remote Herdr server is stopped" }
-    );
-    
-    expect(machine.availability).toBe("error");
-    expect(machine.error).toContain("remote Herdr server is stopped");
+  it("resource unknown fails hard minimums with a stated reason", () => {
+    const e = evaluate(base({}), { minCpuCores: 4, minRamBytes: GB, guiRequired: true, os: ["linux"] });
+    expect(e.suitable).toBe(false);
+    expect(e.hardViolations.filter((v) => v.includes("unknown")).length).toBe(4);
   });
-
-  it("should NOT select error machines for placement by default", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "error-machine",
-        availability: "error",
-        error: "connection refused",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 16, model: "Intel" }, ramBytes: 32 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: true, accelerated: true },
-      }),
-      createMockMachine({
-        id: "reachable-machine",
-        availability: "online",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 8, model: "Intel" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-      }),
-    ];
-
-    const constraints: PlacementConstraints = {
-      hard: {},
-      soft: {},
-    };
-
-    const result = findSuitableMachines(machines, constraints);
-    
-    // Only reachable machine should be suitable (fail-closed)
-    expect(result.suitable).toHaveLength(1);
-    expect(result.suitable[0].id).toBe("reachable-machine");
+  it("hard constraints satisfied from declared evidence", () => {
+    const e = evaluate(base({ os: "linux", arch: "arm64", cpuCores: 8, ramBytes: 16 * GB, hasGpu: true, gpuVramBytes: 8 * GB, gui: true }), {
+      os: ["linux"], arch: ["arm64"], minCpuCores: 4, minRamBytes: 8 * GB, gpuRequired: true, minGpuVramBytes: 4 * GB, guiRequired: true,
+    });
+    expect(e.suitable).toBe(true);
+    expect(e.reasoning.length).toBeGreaterThan(4);
   });
-
-  it("should return explicit error on herdr command failure", () => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 1,
-        stdout: "",
-        stderr: "herdr: command not found",
-      }
-    );
-    
-    const restore = setupMockSpawnSync(mockResults);
-    
-    try {
-      const result = getHerdrProfiles();
-      expect(result).toHaveProperty("type", "inventory-error");
-      expect((result as InventoryError).error).toContain("herdr: command not found");
-    } finally {
-      restore();
-    }
+  it("soft misses lower score but do not exclude", () => {
+    const e = evaluate(base({ os: "linux" }), { preferOs: ["macos"] });
+    expect(e.suitable).toBe(true);
+    expect(e.softMisses.length).toBe(1);
+    expect(e.score).toBeLessThan(1);
   });
-
-  it("should return explicit error on invalid JSON", () => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 0,
-        stdout: "not valid json",
-        stderr: "",
-      }
-    );
-    
-    const restore = setupMockSpawnSync(mockResults);
-    
-    try {
-      const result = getHerdrProfiles();
-      expect(result).toHaveProperty("type", "inventory-error");
-      expect((result as InventoryError).error).toContain("invalid JSON");
-    } finally {
-      restore();
-    }
+  it("GUI is a singleton per physical host group (Windows+WSL share it on positive evidence)", () => {
+    const r = inv([profile("win", "t1"), profile("wsl", "t2")], [st("win", "reachable"), st("wsl", "reachable")], {
+      win: { hostId: "PC1", gui: true },
+      wsl: { hostId: "PC1", gui: true },
+    });
+    const groups = groupHosts(r.machines);
+    const c = { guiRequired: true, busyGuiGroups: [groups[0].key] };
+    expect(evaluate(get(r.machines, "wsl"), c, groups).suitable).toBe(false);
+    expect(evaluate(get(r.machines, "wsl"), { guiRequired: true }, groups).suitable).toBe(true);
   });
 });
 
-// ---------------------------------------------------------------------------
-// 7. Placement Suitability Tests
-// ---------------------------------------------------------------------------
-
-describe("Placement Suitability Evaluation", () => {
-  it("should satisfy all hard constraints", () => {
-    const machine = createMockMachine({
-      os: "linux",
-      arch: "x64",
-      resources: {
-        cpu: { cores: 8, model: "Intel" },
-        ramBytes: 16 * BYTES_PER_GB,
-        gpus: [{ vendor: "NVIDIA", model: "RTX 3080", vramBytes: 10 * BYTES_PER_GB }],
-        disks: [],
-      },
-      capabilities: { gui: true, gpu: true, accelerated: true },
-      availability: "online",
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        os: ["linux", "macos"],
-        arch: ["x64", "arm64"],
-        minCpuCores: 4,
-        minRamBytes: 8 * BYTES_PER_GB,
-        minGpuVramBytes: 8 * BYTES_PER_GB,
-        gpuRequired: true,
-        guiRequired: true,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(true);
-    expect(suitability.hardViolations).toHaveLength(0);
-    expect(suitability.score).toBe(1.0);
-  });
-
-  it("should report hard constraint violations for unknown values", () => {
-    const machine = createMockMachine({
-      os: null,
-      arch: null,
-      resources: null,
-      capabilities: null,
-      availability: "unknown",
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        os: ["linux", "macos"],
-        minCpuCores: 4,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations.length).toBeGreaterThan(0);
-  });
-
-  it("should report soft constraint violations", () => {
-    const machine = createMockMachine({
-      os: "windows",
-      arch: "x64",
-      resources: {
-        cpu: { cores: 4, model: "Intel" },
-        ramBytes: 8 * BYTES_PER_GB,
-        gpus: [],
-        disks: [],
-      },
-      capabilities: { gui: true, gpu: false, accelerated: false },
-      availability: "online",
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        os: ["windows", "linux", "macos"],
-      },
-      soft: {
-        preferredOs: ["linux", "macos"],
-        preferredArch: ["arm64"],
-        minPreferredCpuCores: 8,
-        minPreferredRamBytes: 16 * BYTES_PER_GB,
-      },
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(true);
-    expect(suitability.satisfiesSoft).toBe(false);
-    expect(suitability.softViolations.length).toBeGreaterThan(0);
-  });
-
-  it("should sort machines by score", () => {
-    const machines: Machine[] = [
-      createMockMachine({
-        id: "low-score",
-        os: "windows",
-        arch: "x86",
-        resources: { cpu: { cores: 2, model: "Intel" }, ramBytes: 4 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: false, gpu: false, accelerated: false },
-        availability: "online",
-      }),
-      createMockMachine({
-        id: "high-score",
-        os: "linux",
-        arch: "x64",
-        resources: { cpu: { cores: 16, model: "Intel" }, ramBytes: 32 * BYTES_PER_GB, gpus: [], disks: [] },
-        capabilities: { gui: true, gpu: false, accelerated: false },
-        availability: "online",
-      }),
-    ];
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        os: ["linux", "windows"],
-        minCpuCores: 2,
-      },
-      soft: {
-        preferredOs: ["linux"],
-        minPreferredCpuCores: 8,
-      },
-    };
-
-    const result = findSuitableMachines(machines, constraints);
-    
-    expect(result.suitable[0].id).toBe("high-score");
-    expect(result.suitable[1].id).toBe("low-score");
-    expect(result.suitability[0].score).toBeGreaterThan(result.suitability[1].score);
+describe("no silent retry on another host", () => {
+  it("requested machine unreachable => null selection, other healthy machine untouched", () => {
+    const r = inv([profile("a", "t1"), profile("b", "t2")], [st("a", "error"), st("b", "reachable")]);
+    const s = selectMachine(r.machines, {}, "a");
+    expect(s.selected).toBeNull();
+    expect(s.evaluations.map((e) => e.machineId)).toEqual(["a"]);
+    expect(selectMachine(r.machines, {}).selected?.id).toBe("b");
   });
 });
 
-// ---------------------------------------------------------------------------
-// 8. Attestation Tests
-// ---------------------------------------------------------------------------
-
-describe("Machine Attestation", () => {
-  it("should attest local machine with evidence", () => {
-    const now = new Date().toISOString();
-    const machine = createMockMachine({
-      id: "local-test",
-      isLocal: true,
-      os: "macos",
-      arch: "arm64",
-      resources: {
-        cpu: { cores: 8, model: "Apple M5" },
-        ramBytes: 16 * BYTES_PER_GB,
-        gpus: [],
-        disks: [],
-      },
-    });
-
-    const evidence: Evidence = {
-      at: now,
-      source: "probe",
-      note: "Local machine probe",
-    };
-
-    const attested = attestMachine(machine, evidence);
-    
-    expect(attested.attestation.status).toBe("verified-live");
-    expect(attested.attestation.provenance).toBe("measured");
-    expect(attested.attestation.value).toEqual(machine.resources);
-    expect(attested.attestation.evidence).toEqual(evidence);
-  });
-
-  it("should attest configured machine correctly", () => {
-    const machine = createMockMachine({
-      isLocal: false,
-      herdrProfile: mockRemoteLinuxProfile,
-      herdrStatus: mockRemoteLinuxStatus,
-      os: null,
-      arch: null,
-      resources: null,
-    });
-
-    const evidence: Evidence = {
-      at: new Date().toISOString(),
-      source: "config",
-      note: "Configured machine",
-    };
-
-    const attested = attestMachine(machine, evidence);
-    
-    expect(attested.attestation.status).toBe("configured");
-    expect(attested.attestation.provenance).toBe("estimated");
-  });
-
-  it("should attest multiple machines", () => {
-    const now = new Date().toISOString();
-    const machines: Machine[] = [
-      createMockMachine({ id: "m1", isLocal: true, os: "macos", arch: "arm64", resources: { cpu: { cores: 8, model: "M5" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] } }),
-      createMockMachine({ id: "m2", isLocal: false, herdrProfile: mockRemoteLinuxProfile, herdrStatus: mockRemoteLinuxStatus, os: null, arch: null, resources: null }),
-      createMockMachine({ id: "m3", isLocal: false, herdrProfile: mockWindowsProfile, herdrStatus: null, os: null, arch: null, resources: null }),
-    ];
-
-    const attested = attestMachines(machines);
-    
-    expect(attested).toHaveLength(3);
-    expect(attested.every(m => m.attestation)).toBe(true);
-    expect(attested[0].attestation.status).toBe("verified-live");
-    expect(attested[1].attestation.status).toBe("configured");
-    expect(attested[2].attestation.status).toBe("configured");
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 9. WSL Detection Tests
-// ---------------------------------------------------------------------------
-
-describe("WSL Detection", () => {
-  it("should detect WSL from /proc/version for local Linux", () => {
-    // This test would need to run on actual WSL to pass
-    // For now, we test the logic with a mock
-    const machine = createMockMachine({
-      isLocal: true,
-      os: "linux",
-    });
-
-    // On non-WSL Linux, should return false
-    // On WSL, would read /proc/version and find "Microsoft"
-    const result = isWsl(machine);
-    
-    // On macOS, this will be false (can't read /proc/version)
-    expect(typeof result).toBe("boolean");
-  });
-
-  it("should not detect Windows as WSL", () => {
-    const machine = createMockMachine({
-      os: "windows",
-    });
-
-    expect(isWsl(machine)).toBe(false);
-  });
-
-  it("should not detect macOS as WSL", () => {
-    const machine = createMockMachine({
-      os: "macos",
-    });
-
-    expect(isWsl(machine)).toBe(false);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 10. Utility Tests
-// ---------------------------------------------------------------------------
-
-describe("Utility Functions", () => {
-  describe("formatBytes", () => {
-    it("should format GB correctly", () => {
-      expect(formatBytes(2 * BYTES_PER_GB)).toBe("2.00 GB");
-    });
-
-    it("should format MB correctly", () => {
-      expect(formatBytes(500 * BYTES_PER_MB)).toBe("500.00 MB");
-    });
-
-    it("should format KB correctly", () => {
-      expect(formatBytes(1024 * 1024)).toBe("1.00 MB");
-    });
-
-    it("should format bytes correctly", () => {
-      expect(formatBytes(500)).toBe("500 B");
-    });
-  });
-
-  describe("herdrProfileToMachine", () => {
-    it("should convert Windows profile correctly", () => {
-      const machine = herdrProfileToMachine(mockWindowsProfile, mockReachableStatus);
-      
-      expect(machine.id).toBe(mockWindowsProfile.id);
-      expect(machine.label).toBe(mockWindowsProfile.label);
-      expect(machine.target).toBe(mockWindowsProfile.target);
-      expect(machine.session).toBe(mockWindowsProfile.session);
-      expect(machine.herdrProfile).toEqual(mockWindowsProfile);
-      expect(machine.herdrStatus).toEqual(mockReachableStatus);
-    });
-
-    it("should handle null status", () => {
-      const machine = herdrProfileToMachine(mockWindowsProfile, null);
-      
-      expect(machine.herdrProfile).toEqual(mockWindowsProfile);
-      expect(machine.herdrStatus).toBeNull();
-      expect(machine.availability).toBe("unknown");
-    });
-
-    it("should NOT attribute local resources to remote machines", () => {
-      const machine = herdrProfileToMachine(mockRemoteLinuxProfile, mockRemoteLinuxStatus);
-      
-      // Remote machine should have null resources (not local machine's resources)
-      expect(machine.resources).toBeNull();
-      expect(machine.os).toBeNull();
-      expect(machine.arch).toBeNull();
-      expect(machine.isLocal).toBe(false);
-    });
-
-    it("should detect local machines by target pattern", () => {
-      const localTargets = ["device-windows", "device-wsl", "device-macos"];
-      
-      for (const target of localTargets) {
-        const profile: HerdrMachineProfile = {
-          id: "test-id",
-          label: "Test",
-          target,
-          session: "default",
-          enabled: true,
-          selected: false,
-        };
-        const machine = herdrProfileToMachine(profile, null);
-        expect(machine.isLocal).toBe(true);
-      }
-    });
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 11. Contract Compliance Tests
-// ---------------------------------------------------------------------------
-
-describe("Contract Compliance", () => {
-  it("should use contract types correctly", () => {
-    const now = new Date().toISOString();
-    const machine = createMockMachine({ isLocal: true, os: "macos", arch: "arm64", resources: { cpu: { cores: 8, model: "M5" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] } });
-    const evidence: Evidence = {
-      at: now,
-      source: "probe",
-      note: "Test probe",
-    };
-    const attested = attestMachine(machine, evidence);
-    
-    expect(attested.attestation).toHaveProperty("value");
-    expect(attested.attestation).toHaveProperty("status");
-    expect(attested.attestation).toHaveProperty("provenance");
-    expect(attested.attestation).toHaveProperty("evidence");
-    
-    const validStatuses: VerificationStatus[] = [
-      "configured",
-      "verified-live",
-      "restricted",
-      "unknown",
-    ];
-    expect(validStatuses).toContain(attested.attestation.status);
-    
-    const validProvenances: Provenance[] = ["measured", "estimated", "official"];
-    expect(validProvenances).toContain(attested.attestation.provenance);
-  });
-
-  it("should handle evidence correctly", () => {
-    const now = new Date().toISOString();
-    const machine = createMockMachine({ isLocal: false, herdrProfile: mockRemoteLinuxProfile, herdrStatus: mockRemoteLinuxStatus, os: null, arch: null, resources: null });
-    const evidence: Evidence = {
-      at: now,
-      source: "config",
-      note: "Configured",
-    };
-    const attested = attestMachine(machine, evidence);
-    
-    expect(attested.attestation.evidence).toEqual(evidence);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 12. Edge Cases
-// ---------------------------------------------------------------------------
-
-describe("Edge Cases", () => {
-  it("should handle empty machine list", () => {
-    const machines: Machine[] = [];
-    const hostGroups = detectSharedHosts(machines);
-    
-    expect(hostGroups.size).toBe(0);
-  });
-
-  it("should handle machine with no capabilities", () => {
-    const machine = createMockMachine({
-      capabilities: null,
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        gpuRequired: true,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations[0]).toContain("unknown");
-  });
-
-  it("should handle machine with no resources", () => {
-    const machine = createMockMachine({
-      resources: null,
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        minCpuCores: 4,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations[0]).toContain("unknown");
-  });
-
-  it("should handle empty constraints", () => {
-    const machine = createMockMachine({
-      os: "linux",
-      arch: "x64",
-      resources: { cpu: { cores: 8, model: "Intel" }, ramBytes: 16 * BYTES_PER_GB, gpus: [], disks: [] },
-      capabilities: { gui: true, gpu: false, accelerated: false },
-      availability: "online",
-    });
-    const constraints: PlacementConstraints = {
-      hard: {},
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(true);
-    expect(suitability.satisfiesSoft).toBe(true);
-    expect(suitability.score).toBe(1.0);
-  });
-
-  it("should handle machine with empty gpus array", () => {
-    const machine = createMockMachine({
-      os: "linux",
-      arch: "x64",
-      resources: {
-        cpu: { cores: 8, model: "Intel" },
-        ramBytes: 16 * BYTES_PER_GB,
-        gpus: [],
-        disks: [],
-      },
-      capabilities: { gui: true, gpu: false, accelerated: false },
-    });
-
-    const constraints: PlacementConstraints = {
-      hard: {
-        gpuRequired: true,
-      },
-      soft: {},
-    };
-
-    const suitability = evaluateSuitability(machine, constraints);
-    
-    expect(suitability.satisfiesHard).toBe(false);
-    expect(suitability.hardViolations.some(v => v.includes("GPU"))).toBe(true);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// 13. Real Herdr Output Tests
-// ---------------------------------------------------------------------------
-
-describe("Real Herdr Output (sanitized fixtures)", () => {
-  let restoreSpawn: () => void;
-
-  beforeEach(() => {
-    const mockResults = new Map<string, { exitCode: number; stdout: string; stderr: string }>();
-    
-    mockResults.set(
-      "herdr machine list --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_LIST_JSON,
-        stderr: "",
-      }
-    );
-    
-    mockResults.set(
-      "herdr machine status --json",
-      {
-        exitCode: 0,
-        stdout: REAL_HERDR_STATUS_JSON,
-        stderr: "",
-      }
-    );
-    
-    restoreSpawn = setupMockSpawnSync(mockResults);
-  });
-
-  afterEach(() => {
-    restoreSpawn();
-  });
-
-  it("should parse real Herdr list output correctly", () => {
-    const result = getHerdrProfiles();
-    
-    expect(Array.isArray(result)).toBe(true);
-    expect((result as HerdrMachineProfile[]).length).toBe(4);
-    
-    const profiles = result as HerdrMachineProfile[];
-    expect(profiles[0].id).toBe("4729223c1554f417f43e826826adb9e3");
-    expect(profiles[0].label).toBe("WSL · worker 1");
-    expect(profiles[0].target).toBe("devnode-wsl-worker-1");
-  });
-
-  it("should parse real Herdr status output correctly", () => {
-    const result = getHerdrStatuses();
-    
-    expect(Array.isArray(result)).toBe(true);
-    expect((result as HerdrMachineStatus[]).length).toBe(4);
-    
-    const statuses = result as HerdrMachineStatus[];
-    expect(statuses[2].status).toBe("error");
-    expect(statuses[2].error).toContain("remote Herdr server is stopped");
-    expect(statuses[3].status).toBe("reachable");
-  });
-
-  it("should match status to profile by id", () => {
-    const machinesResult = getMachinesFromHerdr();
-    
-    expect(Array.isArray(machinesResult)).toBe(true);
-    const machines = machinesResult as Machine[];
-    
-    // Find the Windows machine with error status
-    const windowsMachine = machines.find(m => m.label === "Windows");
-    expect(windowsMachine).toBeDefined();
-    expect(windowsMachine!.availability).toBe("error");
-    expect(windowsMachine!.error).toContain("remote Herdr server is stopped");
+describe("misc", () => {
+  it("WSL detection precedence is correct", () => {
+    expect(detectWsl("Linux version 5.15.90.1-microsoft-standard-WSL2")).toBe(true);
+    expect(detectWsl("Linux version 6.1.0-debian")).toBe(false);
+    expect(detectWsl("")).toBe(false);
   });
 });

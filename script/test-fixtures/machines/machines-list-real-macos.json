@@ -1,0 +1,240 @@
+{
+  "note": "REAL `bun script/agent/machines.ts list --json` on macOS (sanitized: local host hash, disk, timestamps).",
+  "exitCode": 0,
+  "output": {
+    "errors": [],
+    "machines": [
+      {
+        "arch": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "availability": "offline",
+        "enabled": false,
+        "error": null,
+        "gui": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "hostId": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "id": "4729223c1554f417f43e826826adb9e3",
+        "identityMismatch": false,
+        "isLocal": false,
+        "label": "WSL · worker 1",
+        "os": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "resources": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "session": "session-1",
+        "targetHash": "hash(target-1)"
+      },
+      {
+        "arch": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "availability": "offline",
+        "enabled": false,
+        "error": null,
+        "gui": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "hostId": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "id": "3202e4b584c237bb11db58dddc10d640",
+        "identityMismatch": false,
+        "isLocal": false,
+        "label": "UUU · Windows",
+        "os": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "resources": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "session": "default",
+        "targetHash": "hash(target-2)"
+      },
+      {
+        "arch": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "availability": "error",
+        "enabled": true,
+        "error": "remote Herdr server is stopped or incompatible; run `herdr --remote [target] --session default`",
+        "gui": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "hostId": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "id": "3f85952ba63e2beab71a5325cb3376d9",
+        "identityMismatch": false,
+        "isLocal": false,
+        "label": "Windows",
+        "os": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "resources": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "session": "default",
+        "targetHash": "hash(target-3)"
+      },
+      {
+        "arch": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "availability": "online",
+        "enabled": true,
+        "error": null,
+        "gui": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "hostId": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "id": "5ac021a51c055c8627fe0ef3f783daf2",
+        "identityMismatch": false,
+        "isLocal": false,
+        "label": "Ubuntu (WSL)",
+        "os": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "resources": {
+          "evidence": null,
+          "provenance": "estimated",
+          "status": "unknown",
+          "value": null
+        },
+        "session": "default",
+        "targetHash": "hash(target-4)"
+      },
+      {
+        "arch": {
+          "evidence": {
+            "at": "<timestamp>",
+            "note": "local host probe",
+            "source": "probe"
+          },
+          "provenance": "measured",
+          "status": "verified-live",
+          "value": "arm64"
+        },
+        "availability": "online",
+        "enabled": true,
+        "error": null,
+        "gui": {
+          "evidence": {
+            "at": "<timestamp>",
+            "note": "local host probe",
+            "source": "probe"
+          },
+          "provenance": "measured",
+          "status": "verified-live",
+          "value": true
+        },
+        "hostId": {
+          "evidence": {
+            "at": "<timestamp>",
+            "note": "local host probe",
+            "source": "probe"
+          },
+          "provenance": "measured",
+          "status": "verified-live",
+          "value": "<redacted-local-host-hash>"
+        },
+        "id": "local-darwin",
+        "identityMismatch": false,
+        "isLocal": true,
+        "label": "Local (darwin)",
+        "os": {
+          "evidence": {
+            "at": "<timestamp>",
+            "note": "local host probe",
+            "source": "probe"
+          },
+          "provenance": "measured",
+          "status": "verified-live",
+          "value": "macos"
+        },
+        "resources": {
+          "evidence": {
+            "at": "<timestamp>",
+            "note": "local host probe",
+            "source": "probe"
+          },
+          "provenance": "measured",
+          "status": "verified-live",
+          "value": {
+            "cpuCores": 10,
+            "diskAvailableBytes": "<varies>",
+            "gpuVramBytes": null,
+            "hasGpu": true,
+            "ramBytes": 25769803776
+          }
+        },
+        "session": null,
+        "targetHash": null
+      }
+    ]
+  }
+}
