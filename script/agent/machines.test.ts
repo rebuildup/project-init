@@ -20,10 +20,11 @@ import {
   hashId,
   selectMachine,
   type Declared,
+  type HerdrMachineProfile,
   type Machine,
   type Runner,
 } from "./machines";
-import { toJson } from "./contract";
+import { ContractError, REDACTED, toJson } from "./contract";
 
 const fx = (name: string) => JSON.parse(readFileSync(join(import.meta.dir, "../test-fixtures/machines", name), "utf8"));
 const NOW = () => "2026-01-01T00:00:00Z";
@@ -256,5 +257,66 @@ describe("cold review round 3: fail-closed regressions", () => {
     expect(m.resources.value).toBeNull();
     expect(m.gui.value).toBeNull();
     expect(evaluate(m, { os: ["linux"], guiRequired: true }).suitable).toBe(false);
+  });
+});
+
+describe("cold review round 4: fail-closed regressions", () => {
+  it("N1: any busy gui group blocks an unknown-host gui candidate (even a known-host key)", () => {
+    const r = inv([profile("k", "t1"), profile("u", "t2")], [st("k", "reachable"), st("u", "reachable")], {
+      k: { hostId: "H1", gui: true },
+      u: { gui: true },
+    });
+    const groups = groupHosts(r.machines);
+    const busyKey = groups.find((g) => g.machineIds.includes("k"))!.key; // host:<hash>, not unknown:*
+    expect(busyKey.startsWith("unknown:")).toBe(false);
+    const e = evaluate(get(r.machines, "u"), { guiRequired: true, busyGuiGroups: [busyKey] }, groups);
+    expect(e.suitable).toBe(false);
+    expect(e.hardViolations.join()).toContain("host identity unknown");
+  });
+  it("N2: disabled machines are never suitable and never selected", () => {
+    const m = { ...get(inv([profile("a", "t")], [st("a", "reachable")]).machines, "a"), enabled: false };
+    const e = evaluate(m, {});
+    expect(e.suitable).toBe(false);
+    expect(e.hardViolations.join()).toContain("disabled");
+    expect(selectMachine([m], {}).selected).toBeNull();
+  });
+  it("N2: herdr profile without enabled is disabled (fail closed, never defaulted to enabled)", () => {
+    const p = { ...profile("a", "t"), enabled: undefined };
+    const m = get(inv([p as unknown as HerdrMachineProfile], [st("a", "reachable")]).machines, "a");
+    expect(m.enabled).toBe(false);
+    expect(evaluate(m, {}).suitable).toBe(false);
+  });
+  it("N3: scrub with an empty target is a no-op", () => {
+    const m = get(inv([profile("a", "")], [st("a", "error", "boom")]).machines, "a");
+    expect(m.error).toBe("boom");
+  });
+  it("N4/N6: hostile machine ids are dropped, not emitted", () => {
+    const r = inv([profile("bad\u0000id", "t1"), profile("ok", "t2")], [st("bad\u0000id", "reachable"), st("ok", "reachable")]);
+    expect(r.machines.map((m) => m.id)).toEqual(["ok"]);
+    expect(r.errors.join()).toContain("unusable id");
+  });
+  it("N4/N6: secret-shaped labels are redacted; hostile labels/sessions clipped and printable", () => {
+    const p = { ...profile("a", "t"), label: "sk-abcdefghijklmnop1234", session: "s".repeat(500) };
+    const m = get(inv([p], [st("a", "reachable")]).machines, "a");
+    expect(m.label).toBe(REDACTED);
+    expect(m.session!.length).toBeLessThanOrEqual(100);
+    const p2 = { ...profile("b", "t"), label: "bad\u0007bell" };
+    const m2 = get(inv([p2], [st("b", "reachable")]).machines, "b");
+    expect(m2.label).not.toMatch(/[\u0000-\u001f\u007f]/);
+  });
+  it("N5: invalid placement constraints throw ContractError, never suitable", () => {
+    const m = get(inv([profile("a", "t")], [st("a", "reachable")]).machines, "a");
+    for (const bad of [NaN, -1, Infinity]) {
+      expect(() => evaluate(m, { minCpuCores: bad })).toThrow(ContractError);
+      expect(() => evaluate(m, { minRamBytes: bad })).toThrow(ContractError);
+      expect(() => evaluate(m, { minGpuVramBytes: bad })).toThrow(ContractError);
+    }
+  });
+  it("N5: absurd declared values are unknown, not trusted", () => {
+    const m = get(
+      inv([profile("a", "t")], [st("a", "reachable")], { a: { cpuCores: 1e308, ramBytes: 1e308, gpuVramBytes: 1e308 } }).machines,
+      "a",
+    );
+    expect(m.resources.value).toBeNull();
   });
 });

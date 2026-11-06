@@ -29,7 +29,16 @@ import { platform, arch, totalmem, cpus } from "node:os";
 import { readFileSync, existsSync } from "node:fs";
 import { basename, join } from "node:path";
 import { createHash } from "node:crypto";
-import { attest, agentStateDir, toJson, type Attested, type Evidence } from "./contract";
+import {
+  attest,
+  agentStateDir,
+  toJson,
+  ContractError,
+  REDACTED,
+  looksLikeSecretValue,
+  type Attested,
+  type Evidence,
+} from "./contract";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -171,18 +180,18 @@ const OS_VALUES: readonly MachineOS[] = ["linux", "macos", "windows"];
  */
 function declaredFacts(d: Declared | undefined): Declared {
   const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim().length > 0 ? v : undefined);
-  const num = (v: unknown): number | undefined =>
-    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
+  const num = (v: unknown, max: number): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 && v <= max ? v : undefined;
   const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
   if (d === undefined) return {};
   return {
     os: OS_VALUES.includes(d.os as MachineOS) ? (d.os as MachineOS) : undefined,
     arch: str(d.arch),
     hostId: str(d.hostId),
-    cpuCores: num(d.cpuCores),
-    ramBytes: num(d.ramBytes),
+    cpuCores: num(d.cpuCores, MAX_CPU_CORES),
+    ramBytes: num(d.ramBytes, MAX_BYTES),
     hasGpu: bool(d.hasGpu),
-    gpuVramBytes: num(d.gpuVramBytes),
+    gpuVramBytes: num(d.gpuVramBytes, MAX_BYTES),
     gui: bool(d.gui),
   };
 }
@@ -235,8 +244,31 @@ function herdrAvailability(status: string | undefined): MachineAvailability {
 }
 
 function scrub(text: string | null, target: string): string | null {
-  if (text === null) return null;
+  if (text === null || target === "") return text;
   return text.split(target).join("[target]").slice(0, 300);
+}
+
+/** Upper bound for herdr-provided display text. */
+const TEXT_CAP = 100;
+/** Absurd-value caps for declared numbers: no real host exceeds these. */
+const MAX_CPU_CORES = 1 << 16;
+const MAX_BYTES = 2 ** 48; // 256 TiB
+
+/**
+ * Herdr-provided strings are untrusted: clipped to `cap` characters, control
+ * characters replaced, secret-shaped values redacted. null = unusable.
+ */
+function safeText(raw: unknown, cap: number = TEXT_CAP): string | null {
+  if (typeof raw !== "string") return null;
+  const clipped = raw.slice(0, cap).replace(/[\u0000-\u001f\u007f]/g, "\uFFFD");
+  return looksLikeSecretValue(clipped) ? REDACTED : clipped;
+}
+
+/** An id must stay a stable lookup key: printable, capped, non-empty; else rejected. */
+function safeId(raw: unknown): string | null {
+  if (typeof raw !== "string" || raw.length === 0 || raw.length > TEXT_CAP) return null;
+  if (/[\u0000-\u001f\u007f]/.test(raw)) return null;
+  return looksLikeSecretValue(raw) ? REDACTED : raw;
 }
 
 export function loadDeclared(path?: string): Record<string, Declared> {
@@ -258,14 +290,14 @@ function remoteMachine(
   const d = declaredFacts(declared);
   const hasRes = [d.cpuCores, d.ramBytes, d.hasGpu, d.gpuVramBytes].some((v) => v !== undefined);
   return {
-    id: profile.id,
-    label: profile.label,
+    id: safeId(profile.id) ?? "",
+    label: safeText(profile.label) ?? "",
     isLocal: false, // every saved Herdr machine is remote
     targetHash: hashId(profile.target),
-    session: profile.session,
+    session: safeText(profile.session),
     enabled: profile.enabled === true,
     availability: statusKnown ? herdrAvailability(status?.status) : "unknown",
-    error: scrub(status?.error ?? null, profile.target),
+    error: safeText(scrub(status?.error ?? null, profile.target), 300),
     os: declaredFact(d.os, ev),
     arch: declaredFact(d.arch, ev),
     hostId: declaredFact(d.hostId === undefined ? undefined : hashId(d.hostId), ev),
@@ -380,7 +412,7 @@ export function getLocalMachine(declared?: Declared, now: () => string = () => n
     isLocal: true,
     targetHash: null,
     session: null,
-    enabled: true,
+    enabled: true, // the host running this process is by definition usable
     availability: "online",
     error: null,
     os: measuredFact(osName[platform()] ?? null, ev),
@@ -424,6 +456,10 @@ export function getInventory(opts: InventoryOptions = {}): Inventory {
   const at = now();
   const byId = new Map(statuses.map((s) => [s.id, s]));
   for (const p of profiles) {
+    if (safeId(p.id) === null) {
+      errors.push("herdr machine list: machine with unusable id dropped");
+      continue;
+    }
     machines.push(remoteMachine(p, byId.get(p.id), statusKnown, declared[p.id], at));
   }
   const local = opts.local === undefined ? getLocalMachine(declared.local, now) : opts.local;
@@ -488,6 +524,16 @@ export function evaluate(machine: Machine, c: PlacementConstraints, groups: Host
   const why: string[] = [];
   const r = machine.resources.value;
 
+  const minConstraint = (v: number | undefined, name: string): void => {
+    if (v === undefined) return;
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0)
+      throw new ContractError("schema", `invalid placement constraint ${name}: must be a non-negative finite number`);
+  };
+  minConstraint(c.minCpuCores, "minCpuCores");
+  minConstraint(c.minRamBytes, "minRamBytes");
+  minConstraint(c.minGpuVramBytes, "minGpuVramBytes");
+
+  if (!machine.enabled) hard.push("machine disabled");
   if (!(machine.availability === "online" || c.allowAvailability?.includes(machine.availability))) {
     hard.push(`availability ${machine.availability} is not suitable (fail-closed)`);
   }
@@ -523,7 +569,7 @@ export function evaluate(machine: Machine, c: PlacementConstraints, groups: Host
       // GUI is a per-physical-host singleton.
       const g = groups.find((x) => x.machineIds.includes(machine.id));
       if (g && c.busyGuiGroups?.includes(g.key)) hard.push(`gui singleton already in use on host group ${g.key}`);
-      else if (g?.sharedHostUnknown && c.busyGuiGroups?.some((k) => k.startsWith("unknown:")))
+      else if (g?.sharedHostUnknown && c.busyGuiGroups?.length)
         hard.push("host identity unknown: cannot prove a physical host distinct from busy gui groups");
     }
   }
