@@ -52,6 +52,7 @@ import { dirname, join } from "node:path";
 import {
   CONTRACT_VERSION,
   ContractError,
+  REDACTED,
   agentStateDir,
   isPlainObject,
   isStale,
@@ -100,6 +101,10 @@ export type ProbeLayer =
   | "real-response"
   | "tool-call";
 
+/** Outcome of one layer. `stale` = observed before, outside the TTL. */
+export type ProbeLayerStatus = "pass" | "fail" | "stale" | "skipped" | "not-applicable";
+
+/** The distinct readiness layers, in evaluation order. */
 export const PROBE_LAYERS: readonly ProbeLayer[] = [
   "configured",
   "credential-present",
@@ -109,8 +114,14 @@ export const PROBE_LAYERS: readonly ProbeLayer[] = [
   "tool-call",
 ];
 
-/** Outcome of one layer. `stale` = observed before, outside the TTL. */
-export type ProbeLayerStatus = "pass" | "fail" | "stale" | "skipped" | "not-applicable";
+/** Valid statuses for a layer result (state validation vocabulary). */
+export const PROBE_LAYER_STATUSES: readonly ProbeLayerStatus[] = [
+  "pass",
+  "fail",
+  "stale",
+  "skipped",
+  "not-applicable",
+];
 
 /**
  * Machine-readable failure classification. `rate-limit-cooldown` and
@@ -122,6 +133,7 @@ export type ProbeFailureKind =
   | "model-mismatch"
   | "credential-missing"
   | "not-launchable"
+  | "dns"
   | "network"
   | "timeout"
   | "auth"
@@ -197,13 +209,26 @@ export interface ProbeTransport {
 
 /** Transport failure with a machine-readable kind. */
 export class ProbeTransportError extends Error {
-  kind: "timeout" | "network";
+  kind: "timeout" | "network" | "dns";
 
-  constructor(kind: "timeout" | "network", message: string) {
+  constructor(kind: "timeout" | "network" | "dns", message: string) {
     super(message);
     this.name = "ProbeTransportError";
     this.kind = kind;
   }
+}
+
+/**
+ * Split DNS failure from offline/unreachable when the runtime exposes the
+ * cause code (Node/Bun fetch wraps socket errors in `error.cause`).
+ * Distinguishable cases get their own failure kind; everything else stays
+ * "network" — never guessed.
+ */
+export function transportKindFor(exc: unknown): "timeout" | "network" | "dns" {
+  const cause = (exc as Error & { cause?: { code?: string } })?.cause;
+  const code = cause?.code ?? "";
+  if (code === "ENOTFOUND" || code === "EAI_AGAIN") return "dns";
+  return "network";
 }
 
 /**
@@ -227,7 +252,7 @@ export function httpTransport(timeoutMs: number): ProbeTransport {
         if (name === "TimeoutError" || name === "AbortError") {
           throw new ProbeTransportError("timeout", `request timed out after ${timeoutMs}ms: ${url}`);
         }
-        throw new ProbeTransportError("network", `request failed: ${(exc as Error)?.message ?? exc}`);
+        throw new ProbeTransportError(transportKindFor(exc), `request failed: ${(exc as Error)?.message ?? exc}`);
       }
       const headers: Record<string, string> = {};
       response.headers.forEach((value, key) => {
@@ -479,6 +504,19 @@ function analyzeResponse(wire: Wire, body: string | null): ResponseAnalysis {
   };
 }
 
+/**
+ * Model echo compatibility: a provider may answer with a dated/suffixed
+ * snapshot of the requested model ("glm-5.3" requested, "glm-5.3-20261101"
+ * answered) or the reverse. Prefix-compatible ids in EITHER direction match;
+ * a separator must follow the prefix so "glm-5.3" never matches "glm-5.35".
+ */
+function modelEchoMatches(echo: string, model: string): boolean {
+  if (echo === model) return true;
+  const sepPrefixed = (long: string, short: string): boolean =>
+    long.startsWith(short) && /^[-@:./_]/.test(long.slice(short.length));
+  return sepPrefixed(echo, model) || sepPrefixed(model, echo);
+}
+
 /** Classify a non-2xx provider response; null means 2xx (handled elsewhere). */
 function classifyFailure(status: number, body: string | null): { failure: ProbeFailureKind; detail: string } {
   if (status === 401) return { failure: "auth", detail: "HTTP 401: credential rejected" };
@@ -510,6 +548,8 @@ interface CachedProbe {
   route: string;
   model: string;
   mode: "live";
+  /** Transport kind that produced the observation ("http" for real runs). */
+  transport: string;
   time: string;
   quota_scope: string | null;
   layers: ProbeLayerResult[];
@@ -527,6 +567,12 @@ function statePath(stateDir: string): string {
   return join(stateDir, STATE_SUBPATH);
 }
 
+/**
+ * Load the probe cache. A corrupt state file is an EXPLICIT recoverable
+ * error (ContractError, code "state"): the caller resets it by deleting
+ * the file — it is never silently ignored (false greens) and never a raw
+ * SyntaxError.
+ */
 function loadProbeState(stateDir: string): ProbeState {
   let text: string;
   try {
@@ -534,12 +580,24 @@ function loadProbeState(stateDir: string): ProbeState {
   } catch {
     return { probes: {}, cooldowns: {} };
   }
-  const envelope = parseEnvelope(JSON.parse(text), STATE_PAYLOAD_FIELDS, "probe state");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch (exc) {
+    throw new ContractError(
+      "state",
+      `probe state at ${statePath(stateDir)} is corrupt (delete it to reset): ${(exc as Error).message}`,
+    );
+  }
+  const envelope = parseEnvelope(parsed, STATE_PAYLOAD_FIELDS, "probe state");
   const state: ProbeState = { probes: {}, cooldowns: {} };
   if (isPlainObject(envelope.payload["probes"])) {
     for (const [key, entry] of Object.entries(envelope.payload["probes"] as Record<string, unknown>)) {
       if (!isPlainObject(entry)) {
-        throw new ContractError("schema", `probe state: probes.'${key}': object expected`);
+        throw new ContractError(
+          "state",
+          `probe state at ${statePath(stateDir)} is corrupt: probes.'${key}' must be an object`,
+        );
       }
       state.probes[key] = {
         route: requireStr(entry, "route", `probe state probes.'${key}'`),
@@ -547,7 +605,8 @@ function loadProbeState(stateDir: string): ProbeState {
         mode: "live",
         time: requireStr(entry, "time", `probe state probes.'${key}'`),
         quota_scope: typeof entry["quota_scope"] === "string" ? entry["quota_scope"] : null,
-        layers: entry["layers"] as ProbeLayerResult[],
+        transport: typeof entry["transport"] === "string" ? entry["transport"] : "unknown",
+        layers: validateCachedLayers(entry["layers"], `probe state probes.'${key}'`),
       };
     }
   }
@@ -557,6 +616,27 @@ function loadProbeState(stateDir: string): ProbeState {
     }
   }
   return state;
+}
+
+/** Validate cached layer entries against the known layer/status vocabulary. */
+function validateCachedLayers(raw: unknown, where: string): ProbeLayerResult[] {
+  if (!Array.isArray(raw)) {
+    throw new ContractError("state", `${where}: layers must be an array`);
+  }
+  return raw.map((entry) => {
+    if (!isPlainObject(entry)) {
+      throw new ContractError("state", `${where}: layer entry must be an object`);
+    }
+    const layer = entry["layer"];
+    const status = entry["status"];
+    if (typeof layer !== "string" || !PROBE_LAYERS.includes(layer as ProbeLayer)) {
+      throw new ContractError("state", `${where}: unknown layer '${String(layer)}'`);
+    }
+    if (typeof status !== "string" || !PROBE_LAYER_STATUSES.includes(status as ProbeLayerStatus)) {
+      throw new ContractError("state", `${where}: unknown status '${String(status)}' for layer '${layer}'`);
+    }
+    return entry as ProbeLayerResult;
+  });
 }
 
 function saveProbeState(stateDir: string, state: ProbeState): void {
@@ -636,6 +716,8 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
     layers.push(layer);
   };
   let credential = "";
+  /** Credential VALUES seen this run; scrubbed from every output/state write. */
+  const secrets: string[] = [];
   let model = "";
   let provider: ProbeProviderConfig | null = null;
   let harness: ProbeHarnessConfig | null = null;
@@ -660,7 +742,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
           : `route '${options.target.route}' is not declared in [routes]`,
       evidence: { at, source: "config", note: "static config check" },
     });
-    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   const effectiveModels = routeCfg.models ?? provider.models;
@@ -673,7 +755,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "route requires an explicit model (no default_model declared)",
       evidence: { at, source: "config", note: "static config check" },
     });
-    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
   model = parseModelId(requested);
   if (effectiveModels.length > 0 && !effectiveModels.includes(model)) {
@@ -684,7 +766,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: `model '${model}' is not in the route allowlist [${effectiveModels.join(", ")}]`,
       evidence: { at, source: "config", note: "static config check" },
     });
-    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(skippedAll(layers, "upstream configured check failed"), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
   baseUrl = provider.base_url;
   wire = wireFor(provider, harness);
@@ -696,7 +778,12 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
   });
 
   // -- credential-present --------------------------------------------------
+  // Mirror the launcher (script/agent.ts ~1196-1204): the credential env
+  // NAME is `provider.env || provider.secret` and the Infisical secret NAME
+  // is `provider.secret || provider.env` — the credential is present when
+  // EITHER name is set in this process. Values are never recorded.
   const envName = provider.env || provider.secret;
+  const secretName = provider.secret || provider.env;
   if (!provider.secret && !provider.env) {
     add({
       layer: "credential-present",
@@ -705,7 +792,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       evidence: { at, source: "config", note: "static config check" },
     });
   } else {
-    const value = env[envName!];
+    const value = env[envName!] ?? env[secretName!];
     if (value === undefined || value === "") {
       add({
         layer: "credential-present",
@@ -714,9 +801,10 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         detail: `credential env ${envName} is not set in this process (inject via script/with-secrets)`,
         evidence: { at, source: "probe", note: "process env checked by NAME only" },
       });
-      return finish(skippedAll(layers, "upstream credential check failed"), options.target.route, model, mode, transport, quotaScope, now, started);
+      return finish(skippedAll(layers, "upstream credential check failed"), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
     }
     credential = value; // used only to build request headers; never recorded
+    secrets.push(value);
     add({
       layer: "credential-present",
       status: "pass",
@@ -751,7 +839,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         evidence: null,
       });
     }
-    return finish(overlayCache(layers, options.target.route, model, options.force ?? false, stateDir, ttlMs, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(overlayCache(layers, options.target.route, model, options.force ?? false, stateDir, ttlMs, now), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   // mode === "live": opt-in, bounded, rate-limit-aware.
@@ -768,7 +856,17 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         evidence: { at, source: "probe", note: "no request sent" },
       });
     }
-    return finish(layers, options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(layers, options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+  }
+
+  // Live mode honours the TTL: a fresh cached observation is served without
+  // touching the network unless force is set. Only http-transport evidence is
+  // eligible — mock/non-http cache entries never drive a live probe.
+  if (!(options.force ?? false)) {
+    const cached = loadCachedLive(stateDir, options.target.route, model);
+    if (cached && cached.transport === "http" && !isStale({ at: cached.time, source: "probe" }, now, ttlMs)) {
+      return finish(cached.layers.map((l) => ({ ...l, cached: true })), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+    }
   }
 
   const restriction = loadRestriction(options.configFile, options.target.route, ref.provider);
@@ -782,7 +880,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         evidence: { at, source: "probe", note: "no request sent" },
       });
     }
-    return finish(layers, options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(layers, options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   let live: ProbeLayerResult[] = [];
@@ -797,12 +895,46 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
   } else {
     try {
       const res = await transport.fetch(baseUrl, { method: "GET" });
+      if (res.http_status === 429 || res.http_status >= 500) {
+        // The provider answered but refused/broke: report it as such, start
+        // a cooldown (429), and NEVER proceed to the completion request.
+        const classified = classifyFailure(res.http_status, res.body);
+        const layer: ProbeLayerResult = {
+          layer: "provider-reachable",
+          status: "fail",
+          failure: classified.failure,
+          http_status: res.http_status,
+          detail: classified.detail,
+          evidence: { at, source: "probe", note: classified.detail },
+        };
+        if (classified.failure === "rate-limit") {
+          const retryAfter = parseRetryAfter(res.headers["retry-after"]);
+          if (retryAfter !== null) {
+            layer.retry_after_s = Math.round(retryAfter / 1000);
+            layer.detail = `${classified.detail}; Retry-After ${layer.retry_after_s}s`;
+          }
+        }
+        live.push(layer);
+        live.push({
+          layer: "real-response",
+          status: "skipped",
+          detail: "upstream provider-reachable check failed",
+          evidence: null,
+        });
+        live.push({
+          layer: "tool-call",
+          status: "skipped",
+          detail: "upstream provider-reachable check failed",
+          evidence: null,
+        });
+        return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
+      }
       live.push({
         layer: "provider-reachable",
         status: "pass",
         http_status: res.http_status,
         detail: `GET ${baseUrl} -> HTTP ${res.http_status}`,
-        evidence: { at, source: "probe", note: "any HTTP response proves reachability" },
+        evidence: { at, source: "probe", note: "any non-refusing HTTP response proves reachability" },
       });
     } catch (exc) {
       live.push(transportFailure("provider-reachable", exc, at));
@@ -818,7 +950,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
         detail: "upstream provider-reachable check failed",
         evidence: null,
       });
-      return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+      return finish(saveLive(layers, live, options.target.route, model, transport, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
     }
   }
 
@@ -837,7 +969,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "real-response check not applicable",
       evidence: null,
     });
-    return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   const request = buildRequest(wire, baseUrl!, model, credential);
@@ -852,7 +984,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "upstream real-response check failed",
       evidence: null,
     });
-    return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   if (res.http_status < 200 || res.http_status >= 300) {
@@ -879,7 +1011,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "upstream real-response check failed",
       evidence: null,
     });
-    return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   const analysis = analyzeResponse(wire, res.body);
@@ -898,10 +1030,10 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "upstream real-response check failed",
       evidence: null,
     });
-    return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
-  if (analysis.model_echo !== null && analysis.model_echo !== model) {
+  if (analysis.model_echo !== null && !modelEchoMatches(analysis.model_echo, model)) {
     live.push({
       layer: "real-response",
       status: "fail",
@@ -916,7 +1048,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
       detail: "upstream real-response check failed",
       evidence: null,
     });
-    return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+    return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
   }
 
   live.push({
@@ -933,7 +1065,7 @@ export async function probeRoute(options: ProbeOptions): Promise<ProbeReport> {
     detail: analysis.tool_call ? "tool_use observed in the response" : "response did not use the probe tool",
     evidence: { at, source: "probe", note: "same bounded completion request" },
   });
-  return finish(saveLive(layers, live, options.target.route, model, options.cooldownMs, stateDir, quotaScope, now), options.target.route, model, mode, transport, quotaScope, now, started);
+  return finish(saveLive(layers, live, options.target.route, model, transport.kind, options.cooldownMs, stateDir, quotaScope, now, secrets), options.target.route, model, mode, transport, quotaScope, now, started, secrets);
 }
 
 // ---------------------------------------------------------------------------
@@ -1014,6 +1146,10 @@ function overlayCache(
   if (force) return layers;
   const cached = loadCachedLive(stateDir, route, model);
   if (!cached) return layers;
+  // Only REAL network evidence may be overlaid: a cached entry produced by a
+  // mock/non-http transport is never shown as http evidence and never drives
+  // the overall readiness.
+  if (cached.transport !== "http") return layers;
   const stale = isStale({ at: cached.time, source: "probe" }, now, ttlMs);
   const overlaid = layers.map((layer) => {
     const hit = cached.layers.find((l) => l.layer === layer.layer);
@@ -1047,23 +1183,32 @@ function saveLive(
   live: ProbeLayerResult[],
   route: string,
   model: string,
+  transportKind: string,
   cooldownMs: number | undefined,
   stateDir: string,
   quotaScope: string | null,
   now: number,
+  secrets: readonly string[],
 ): ProbeLayerResult[] {
   const merged = [...layers.filter((l) => !live.some((x) => x.layer === l.layer)), ...live];
   const rateLimit = live.find((l) => l.failure === "rate-limit");
   if (!live.some((l) => l.status === "pass" || l.status === "fail") && !rateLimit) return merged;
+  // Only REAL network evidence (http transport) is durable. Mock/test
+  // transports never enter state, so they can never be shown as http
+  // evidence or drive a later probeOverall.
+  if (transportKind !== "http") return merged;
   try {
     const state = loadProbeState(stateDir);
+    // Scrub credential values before anything is persisted.
+    const scrubbed = scrubSecrets(live, secrets) as ProbeLayerResult[];
     state.probes[cacheKey(route, model)] = {
       route,
       model,
       mode: "live",
+      transport: transportKind,
       time: new Date(now).toISOString(),
       quota_scope: quotaScope,
-      layers: live,
+      layers: scrubbed,
     };
     if (rateLimit) {
       const wait = rateLimit.retry_after_s ? rateLimit.retry_after_s * 1000 : undefined;
@@ -1071,23 +1216,11 @@ function saveLive(
       state.cooldowns[quotaScope ?? route] = new Date(until).toISOString();
     }
     saveProbeState(stateDir, state);
-  } catch (exc) {
-    // Cache failure must never mask the probe result; diagnostics stay complete.
-    merged.push({
-      layer: "tool-call",
-      status: "skipped",
-      detail: `state cache unavailable: ${(exc as Error)?.message ?? String(exc)}`,
-      evidence: null,
-    });
+  } catch {
+    // Cache failure must never mask the probe result; the report stands as-is
+    // (no duplicate "state cache unavailable" layer is synthesized).
   }
   return merged;
-}
-
-function currentModel(layers: ProbeLayerResult[]): string {
-  const configured = layers.find((l) => l.layer === "configured" && l.status === "pass");
-  const match = configured?.detail?.match(/model '([^']+)'/);
-  if (!match) throw new ContractError("schema", "probe: configured layer did not record a model");
-  return match[1]!;
 }
 
 function finish(
@@ -1099,6 +1232,7 @@ function finish(
   quotaScope: string | null,
   now: number,
   started: number,
+  secrets: readonly string[],
 ): ProbeReport {
   const ordered = PROBE_LAYERS.map(
     (layer) => layers.find((l) => l.layer === layer) ?? { layer, status: "skipped" as const, detail: "not evaluated", evidence: null },
@@ -1116,7 +1250,34 @@ function finish(
     layers: ordered,
     cached: ordered.some((l) => l.cached === true),
   };
-  return report;
+  // Mandatory last step before any output: credential values never appear in
+  // a report, even when a provider error message echoes them back.
+  return scrubSecrets(report, secrets) as ProbeReport;
+}
+
+/**
+ * Exact-match scrub: replace every occurrence of a credential VALUE with
+ * `[redacted]`, recursively through strings, arrays and plain objects.
+ * Exact match only — no pattern guessing, no over-redaction.
+ */
+function scrubSecrets(value: unknown, secrets: readonly string[]): unknown {
+  if (secrets.length === 0) return value;
+  if (typeof value === "string") {
+    let out = value;
+    for (const secret of secrets) {
+      if (secret) out = out.split(secret).join(REDACTED);
+    }
+    return out;
+  }
+  if (Array.isArray(value)) return value.map((item) => scrubSecrets(item, secrets));
+  if (isPlainObject(value)) {
+    const out: Record<string, unknown> = {};
+    for (const [key, item] of Object.entries(value)) {
+      out[key] = scrubSecrets(item, secrets);
+    }
+    return out;
+  }
+  return value;
 }
 
 // ---------------------------------------------------------------------------
