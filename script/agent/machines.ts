@@ -162,6 +162,31 @@ function declaredFact<T>(value: T | undefined, evidence: Evidence): Attested<T> 
   return attest({ value, status: "configured", provenance: "estimated", evidence });
 }
 
+const OS_VALUES: readonly MachineOS[] = ["linux", "macos", "windows"];
+
+/**
+ * Type-validate declared facts: JSON config is untrusted input, so any field
+ * of the wrong type or value is dropped to undefined (=> unknown attestation)
+ * instead of being trusted.
+ */
+function declaredFacts(d: Declared | undefined): Declared {
+  const str = (v: unknown): string | undefined => (typeof v === "string" && v.trim().length > 0 ? v : undefined);
+  const num = (v: unknown): number | undefined =>
+    typeof v === "number" && Number.isFinite(v) && v >= 0 ? v : undefined;
+  const bool = (v: unknown): boolean | undefined => (typeof v === "boolean" ? v : undefined);
+  if (d === undefined) return {};
+  return {
+    os: OS_VALUES.includes(d.os as MachineOS) ? (d.os as MachineOS) : undefined,
+    arch: str(d.arch),
+    hostId: str(d.hostId),
+    cpuCores: num(d.cpuCores),
+    ramBytes: num(d.ramBytes),
+    hasGpu: bool(d.hasGpu),
+    gpuVramBytes: num(d.gpuVramBytes),
+    gui: bool(d.gui),
+  };
+}
+
 function measuredFact<T>(value: T | null, evidence: Evidence): Attested<T> {
   if (value === null) return unknownFact<T>();
   return attest({ value, status: "verified-live", provenance: "measured", evidence });
@@ -230,7 +255,7 @@ function remoteMachine(
   at: string,
 ): Machine {
   const ev: Evidence = { at, source: "config", note: "declared machine facts" };
-  const d = declared ?? {};
+  const d = declaredFacts(declared);
   const hasRes = [d.cpuCores, d.ramBytes, d.hasGpu, d.gpuVramBytes].some((v) => v !== undefined);
   return {
     id: profile.id,
@@ -238,7 +263,7 @@ function remoteMachine(
     isLocal: false, // every saved Herdr machine is remote
     targetHash: hashId(profile.target),
     session: profile.session,
-    enabled: profile.enabled,
+    enabled: profile.enabled === true,
     availability: statusKnown ? herdrAvailability(status?.status) : "unknown",
     error: scrub(status?.error ?? null, profile.target),
     os: declaredFact(d.os, ev),
@@ -318,14 +343,27 @@ function localGpu(): { hasGpu: boolean | null; vram: number | null } {
 }
 
 function localGui(): boolean | null {
-  if (platform() === "darwin" || platform() === "win32") return true;
-  if (platform() === "linux") return !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
-  return null;
+  // Attached over SSH we are not in the console session and cannot verify it.
+  if (process.env.SSH_CONNECTION || process.env.SSH_TTY) return null;
+  switch (platform()) {
+    case "darwin":
+      // WindowServer runs only inside a graphical login session.
+      return sh(["pgrep", "-x", "WindowServer"]) !== null;
+    case "win32": {
+      const out = sh(["tasklist", "/FI", "IMAGENAME eq explorer.exe", "/NH"]);
+      return out === null ? null : /explorer\.exe/i.test(out);
+    }
+    case "linux":
+      return !!(process.env.DISPLAY || process.env.WAYLAND_DISPLAY);
+    default:
+      return null;
+  }
 }
 
 export function getLocalMachine(declared?: Declared, now: () => string = () => new Date().toISOString()): Machine {
   const ev: Evidence = { at: now(), source: "probe", note: "local host probe" };
   const osName: Record<string, MachineOS> = { darwin: "macos", win32: "windows", linux: "linux" };
+  const declaredHostId = typeof declared?.hostId === "string" && declared.hostId.length > 0 ? declared.hostId : null;
   const raw = localHostId();
   const hostIdHash = raw ? hashId(raw) : null;
   const gpu = localGpu();
@@ -350,7 +388,7 @@ export function getLocalMachine(declared?: Declared, now: () => string = () => n
     hostId: measuredFact(hostIdHash, ev),
     resources: measuredFact(resources, ev),
     gui: measuredFact(localGui(), ev),
-    identityMismatch: declared?.hostId !== undefined && hostIdHash !== null && hashId(declared.hostId) !== hostIdHash,
+    identityMismatch: declaredHostId !== null && hostIdHash !== null && hashId(declaredHostId) !== hostIdHash,
   };
 }
 
@@ -419,9 +457,9 @@ export function groupHosts(machines: Machine[]): HostGroup[] {
 }
 
 /**
- * Conservative capacity: known groups add up; groups of unknown host identity
- * may all be the same physical host, so together they contribute only the
- * largest single one.
+ * Unknown-host machines may share a physical host with a known group, so their
+ * capacity can never be added on top of the known sum: the bound is whichever
+ * of the two is larger.
  */
 export function conservativeCapacity(groups: HostGroup[]): { cpuCores: number; ramBytes: number } {
   let cpu = 0;
@@ -437,7 +475,7 @@ export function conservativeCapacity(groups: HostGroup[]): { cpuCores: number; r
       ram += g.capacity.ramBytes ?? 0;
     }
   }
-  return { cpuCores: cpu + uCpu, ramBytes: ram + uRam };
+  return { cpuCores: Math.max(cpu, uCpu), ramBytes: Math.max(ram, uRam) };
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +523,8 @@ export function evaluate(machine: Machine, c: PlacementConstraints, groups: Host
       // GUI is a per-physical-host singleton.
       const g = groups.find((x) => x.machineIds.includes(machine.id));
       if (g && c.busyGuiGroups?.includes(g.key)) hard.push(`gui singleton already in use on host group ${g.key}`);
+      else if (g?.sharedHostUnknown && c.busyGuiGroups?.some((k) => k.startsWith("unknown:")))
+        hard.push("host identity unknown: cannot prove a physical host distinct from busy gui groups");
     }
   }
 

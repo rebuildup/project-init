@@ -220,3 +220,41 @@ describe("misc", () => {
     expect(detectWsl("")).toBe(false);
   });
 });
+
+describe("cold review round 3: fail-closed regressions", () => {
+  it("conservative capacity never adds unknown-host capacity on top of known groups", () => {
+    const g = groupHosts(
+      inv([profile("a", "t1"), profile("b", "t2")], [st("a", "reachable"), st("b", "reachable")], {
+        a: { hostId: "H1", cpuCores: 8, ramBytes: 32 * GB },
+        b: { cpuCores: 16, ramBytes: 64 * GB },
+      }).machines,
+    );
+    // b has no declared hostId => its own sharedHostUnknown group; the bound is
+    // max(known sum, largest unknown group), never their sum.
+    expect(conservativeCapacity(g)).toEqual({ cpuCores: 16, ramBytes: 64 * GB });
+  });
+  it("a busy unknown-host gui machine blocks every other unknown-host gui candidate", () => {
+    const r = inv([profile("u1", "t1"), profile("u2", "t2")], [st("u1", "reachable"), st("u2", "reachable")], {
+      u1: { gui: true },
+      u2: { gui: true },
+    });
+    const groups = groupHosts(r.machines);
+    const busyKey = groups.find((g) => g.machineIds.includes("u1"))!.key;
+    const e = evaluate(get(r.machines, "u2"), { guiRequired: true, busyGuiGroups: [busyKey] }, groups);
+    expect(e.suitable).toBe(false);
+    expect(e.hardViolations.join()).toContain("host identity unknown");
+  });
+  it("declared facts of the wrong type are unknown, never satisfy a constraint", () => {
+    const m = get(
+      inv([profile("a", "t")], [st("a", "reachable")], {
+        a: { os: 42, arch: 7, hostId: "", cpuCores: "8", ramBytes: -1, hasGpu: "yes", gui: "true" } as unknown as Declared,
+      }).machines,
+      "a",
+    );
+    expect(m.os.value).toBeNull();
+    expect(m.arch.value).toBeNull();
+    expect(m.resources.value).toBeNull();
+    expect(m.gui.value).toBeNull();
+    expect(evaluate(m, { os: ["linux"], guiRequired: true }).suitable).toBe(false);
+  });
+});
