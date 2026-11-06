@@ -8,8 +8,12 @@
  * Contract: read-only use of `herdr machine list/status`; never duplicates
  *           dotfiles#78 device connectivity; never implements custom transport.
  *
- * Shared host rule: Windows native + WSL on one physical host MUST share
- *                   `physical_host_group`; their CPU/RAM counted once.
+ * Key invariants:
+ *   - A machine's identity/resources/arch MUST come from evidence about THAT machine
+ *   - Windows+WSL shared-host grouping derived from evidence, not guessed
+ *   - Availability is fail-closed: error/offline/unknown NOT suitable by default
+ *   - Parse/exec failures return explicit inventory-error, not swallowed
+ *   - Host identifiers are hashed (no raw IOPlatformUUID/SSH targets in output)
  *
  * Run: bun test script/agent/machines.test.ts
  */
@@ -17,6 +21,7 @@
 import { platform, arch, totalmem, cpus, homedir, userInfo } from "node:os";
 import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
+import { createHash } from "node:crypto";
 import {
   parseMachineId,
   ContractError,
@@ -94,29 +99,36 @@ export interface HerdrMachineStatus {
   error: string | null;
 }
 
+/** Inventory error - distinct from empty inventory */
+export interface InventoryError {
+  type: "inventory-error";
+  error: string;
+  timestamp: string;
+}
+
 /** Complete machine identity and state */
 export interface Machine {
-  /** Machine ID (from Herdr profile or generated for local) */
+  /** Machine ID (from Herdr profile) */
   id: string;
-  /** Human-readable label */
+  /** Human-readable label (from Herdr profile) */
   label: string;
-  /** OS type */
-  os: MachineOS;
-  /** Architecture */
-  arch: string;
-  /** Physical host group - same for Windows+WSL on same host */
-  physicalHostGroup: PhysicalHostGroup;
-  /** Instance ID from devices.ts (if available) */
-  instanceId: string | null;
+  /** OS type - from evidence or unknown */
+  os: MachineOS | null;
+  /** Architecture - from evidence or unknown */
+  arch: string | null;
+  /** Physical host group hash - derived from evidence */
+  physicalHostGroup: PhysicalHostGroup | null;
+  /** Instance ID hash (never raw) */
+  instanceIdHash: string | null;
   /** Herdr target (SSH host identifier) */
   target: string | null;
   /** Herdr session */
   session: string | null;
-  /** Whether this is the local machine */
+  /** Whether this is the local machine (best effort detection) */
   isLocal: boolean;
-  /** Resource inventory */
+  /** Resource inventory - null if unknown/unprobed */
   resources: MachineResources | null;
-  /** Capabilities */
+  /** Capabilities - null if unknown/unprobed */
   capabilities: MachineCapabilities | null;
   /** Availability */
   availability: MachineAvailability;
@@ -179,119 +191,342 @@ export interface AttestedMachine extends Machine {
 export const BYTES_PER_GB = 1024 * 1024 * 1024;
 export const BYTES_PER_MB = 1024 * 1024;
 
+/** Hash a string value for host identifiers */
+function hashIdentifier(input: string): string {
+  return createHash("sha256").update(input).digest("hex").slice(0, 16);
+}
+
 // ---------------------------------------------------------------------------
-// Physical Host Group Detection
+// Herdr Integration
 // ---------------------------------------------------------------------------
 
 /**
- * Generate a physical host group identifier.
- * Windows and WSL on the same physical host share the same group.
- * Uses a combination of hardware identifiers to detect shared hosts.
+ * Get Herdr machine profiles from `herdr machine list --json`
+ * Returns explicit error if command fails, not empty array
  */
-function detectPhysicalHostGroup(os: MachineOS, instanceId: string | null): PhysicalHostGroup {
-  // For local machine, use instance ID if available
-  if (instanceId) {
-    return `host-${instanceId}`;
-  }
-
-  // Try to get a stable hardware identifier
+export function getHerdrProfiles(): HerdrMachineProfile[] | InventoryError {
   try {
-    if (os === "windows") {
-      // On Windows, use MachineGuid from registry
-      return `host-${localInstanceId("windows")}`;
-    } else if (os === "linux") {
-      // On Linux/WSL, check for WSL-specific indicators
-      const version = readFileSync("/proc/version", "utf8");
-      if (version.toLowerCase().includes("microsoft") || version.toLowerCase().includes("wsl")) {
-        // This is WSL - use the same approach as Windows
-        // WSL shares the same MachineGuid as its Windows host
-        return `host-${localInstanceId("linux")}`;
+    const result = Bun.spawnSync(
+      ["herdr", "machine", "list", "--json"],
+      { stdout: "pipe", stderr: "pipe" }
+    );
+    
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr.toString().trim();
+      // Only return empty if Herdr explicitly says no machines
+      if (stderr.includes("No machines") || stderr.includes("no machines")) {
+        return [];
       }
-      // Native Linux
-      return `host-${localInstanceId("linux")}`;
-    } else if (os === "macos") {
-      return `host-${localInstanceId("macos")}`;
+      return {
+        type: "inventory-error",
+        error: `herdr machine list failed with exit code ${result.exitCode}: ${stderr}`,
+        timestamp: new Date().toISOString(),
+      };
     }
-  } catch {
-    // Fallback: use a hash of available info
-    const info = [os, arch(), cpus()[0]?.model || ""].join("|");
-    // Simple hash for fallback
-    let hash = 0;
-    for (let i = 0; i < info.length; i++) {
-      hash = (hash << 5) - hash + info.charCodeAt(i);
-      hash |= 0;
+    
+    const output = result.stdout.toString();
+    try {
+      return JSON.parse(output) as HerdrMachineProfile[];
+    } catch (parseError) {
+      return {
+        type: "inventory-error",
+        error: `herdr machine list returned invalid JSON: ${parseError}`,
+        timestamp: new Date().toISOString(),
+      };
     }
-    return `host-fallback-${Math.abs(hash).toString(16)}`;
+  } catch (error) {
+    return {
+      type: "inventory-error",
+      error: `herdr machine list execution failed: ${error}`,
+      timestamp: new Date().toISOString(),
+    };
   }
-
-  return `host-unknown`;
 }
 
 /**
- * Get local instance ID based on OS
- * Matches the logic in devices.ts:localInstance()
+ * Get Herdr machine statuses from `herdr machine status --json`
+ * Returns explicit error if command fails, not empty array
  */
-function localInstanceId(os: MachineOS): string {
-  const actualOs = platform();
+export function getHerdrStatuses(): HerdrMachineStatus[] | InventoryError {
+  try {
+    const result = Bun.spawnSync(
+      ["herdr", "machine", "status", "--json"],
+      { stdout: "pipe", stderr: "pipe" }
+    );
+    
+    if (result.exitCode !== 0) {
+      const stderr = result.stderr.toString().trim();
+      if (stderr.includes("No machines") || stderr.includes("no machines")) {
+        return [];
+      }
+      return {
+        type: "inventory-error",
+        error: `herdr machine status failed with exit code ${result.exitCode}: ${stderr}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+    
+    const output = result.stdout.toString();
+    try {
+      return JSON.parse(output) as HerdrMachineStatus[];
+    } catch (parseError) {
+      return {
+        type: "inventory-error",
+        error: `herdr machine status returned invalid JSON: ${parseError}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+  } catch (error) {
+    return {
+      type: "inventory-error",
+      error: `herdr machine status execution failed: ${error}`,
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+/**
+ * Get both profiles and statuses, with proper error handling
+ */
+export function getHerdrInventory(): {
+  profiles: HerdrMachineProfile[] | InventoryError;
+  statuses: HerdrMachineStatus[] | InventoryError;
+} {
+  const profiles = getHerdrProfiles();
+  const statuses = getHerdrStatuses();
+  
+  // If either is an error, return both as-is
+  return { profiles, statuses };
+}
+
+/**
+ * Map Herdr status to our availability enum
+ */
+function herdrStatusToAvailability(status: string | null): MachineAvailability {
+  if (!status) return "unknown";
+  
+  const lower = status.toLowerCase();
+  if (lower === "reachable") return "online";
+  if (lower === "disabled") return "offline";
+  if (lower === "error") return "error";
+  return "unknown";
+}
+
+// ---------------------------------------------------------------------------
+// Local Machine Detection
+// ---------------------------------------------------------------------------
+
+/**
+ * Get local instance ID (hashed, never raw)
+ */
+function getLocalInstanceIdHash(): string | null {
+  try {
+    if (platform() === "win32") {
+      const result = Bun.spawnSync(
+        ["powershell", "-NoProfile", "-Command", 
+         "(Get-ItemProperty HKLM:\\SOFTWARE\\Microsoft\\Cryptography).MachineGuid"],
+        { stdout: "pipe" }
+      );
+      if (result.exitCode === 0) {
+        const guid = result.stdout.toString().trim();
+        if (guid) return hashIdentifier(guid);
+      }
+    } else if (platform() === "linux") {
+      try {
+        const machineId = readFileSync("/etc/machine-id", "utf8").trim();
+        if (machineId) return hashIdentifier(machineId);
+      } catch {
+        // Try /proc/sys/kernel/random/boot_id as fallback
+        try {
+          const bootId = readFileSync("/proc/sys/kernel/random/boot_id", "utf8").trim();
+          if (bootId) return hashIdentifier(bootId);
+        } catch {}
+      }
+      // Check for WSL
+      try {
+        const version = readFileSync("/proc/version", "utf8");
+        if (version.toLowerCase().includes("microsoft")) {
+          // WSL - use a WSL-specific identifier
+          return hashIdentifier("wsl-" + version.split(" ")[2] || "unknown");
+        }
+      } catch {}
+    } else if (platform() === "darwin") {
+      const result = Bun.spawnSync(
+        ["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"],
+        { stdout: "pipe" }
+      );
+      if (result.exitCode === 0) {
+        const output = result.stdout.toString();
+        const match = output.match(/"IOPlatformUUID" = "([^"]+)"/);
+        if (match) return hashIdentifier(match[1]);
+      }
+    }
+  } catch {
+    // Fallback: hash platform + arch + username
+    return hashIdentifier(`${platform()}-${arch()}-${userInfo().username}`);
+  }
+  return null;
+}
+
+/**
+ * Get local machine OS from platform
+ */
+function getLocalOS(): MachineOS {
   const osMap: Record<string, MachineOS> = {
     win32: "windows",
     darwin: "macos",
     linux: "linux",
   };
-
-  // If we're detecting for the current OS, use the actual platform
-  const targetOs = osMap[actualOs] || os;
-
-  if (targetOs === "windows") {
-    // Would need PowerShell, but we're on macOS currently
-    // For cross-platform detection, we'll use a fallback
-    return "unknown-windows";
-  } else if (targetOs === "linux") {
-    try {
-      return readFileSync("/etc/machine-id", "utf8").trim().toLowerCase();
-    } catch {
-      // Try WSL-specific
-      try {
-        const version = readFileSync("/proc/version", "utf8");
-        if (version.includes("Microsoft")) {
-          // WSL - try to get machine ID from Windows registry via /mnt/c
-          // This is a fallback
-          return "wsl-host";
-        }
-      } catch {
-        return "unknown-linux";
-      }
-    }
-  } else if (targetOs === "macos") {
-    try {
-      const result = Bun.spawnSync(["ioreg", "-rd1", "-c", "IOPlatformExpertDevice"], {
-        stdout: "pipe",
-      });
-      const output = result.stdout.toString();
-      const match = output.match(/"IOPlatformUUID" = "([^"]+)"/);
-      if (match) {
-        return match[1].toLowerCase();
-      }
-    } catch {
-      return "unknown-macos";
-    }
-  }
-
-  return "unknown";
+  return osMap[platform()] || "linux";
 }
 
 // ---------------------------------------------------------------------------
-// Resource Probing
+// Machine Construction
 // ---------------------------------------------------------------------------
 
 /**
- * Probe CPU information
+ * Convert Herdr profile to Machine with proper evidence handling
+ * NEVER attributes local host's identity/resources to remote machines
+ */
+export function herdrProfileToMachine(
+  profile: HerdrMachineProfile,
+  status: HerdrMachineStatus | null
+): Machine {
+  const availability = herdrStatusToAvailability(status?.status || null);
+  const error = status?.error || null;
+  
+  // For remote machines, we DON'T know OS/arch/resources unless we probe through Herdr
+  // For now, we report them as unknown
+  // The only things we know from Herdr are: id, label, target, session, enabled, selected, status
+  
+  // Detect if this might be local based on target matching known local patterns
+  // This is a best-effort detection, not a guarantee
+  const localTargets = ["device-windows", "device-wsl", "device-macos"];
+  const isLocal = localTargets.includes(profile.target);
+  
+  // For local machines, we can probe directly
+  let os: MachineOS | null = null;
+  let archValue: string | null = null;
+  let resources: MachineResources | null = null;
+  let capabilities: MachineCapabilities | null = null;
+  let physicalHostGroup: PhysicalHostGroup | null = null;
+  let instanceIdHash: string | null = null;
+  
+  if (isLocal) {
+    // For local machines, we can probe directly
+    os = getLocalOS();
+    archValue = arch();
+    resources = probeResources(os);
+    capabilities = probeCapabilities(os, resources);
+    
+    const localInstanceHash = getLocalInstanceIdHash();
+    if (localInstanceHash) {
+      instanceIdHash = localInstanceHash;
+      physicalHostGroup = hashIdentifier(`local-${localInstanceHash}`);
+    }
+  } else {
+    // For remote machines, we DON'T probe or guess
+    // OS/arch/resources remain unknown unless we have a way to probe through Herdr
+    os = null;
+    archValue = null;
+    resources = null;
+    capabilities = null;
+    instanceIdHash = null;
+    physicalHostGroup = null;
+  }
+
+  return {
+    id: profile.id,
+    label: profile.label,
+    os,
+    arch: archValue,
+    physicalHostGroup,
+    instanceIdHash,
+    target: profile.target,
+    session: profile.session,
+    isLocal,
+    resources,
+    capabilities,
+    availability,
+    error,
+    herdrProfile: profile,
+    herdrStatus: status,
+  };
+}
+
+/**
+ * Get all machines from Herdr profiles
+ */
+export function getMachinesFromHerdr(): Machine[] | InventoryError {
+  const inventory = getHerdrInventory();
+  
+  if (inventory.profiles === null || inventory.profiles.type === "inventory-error") {
+    return inventory.profiles as InventoryError;
+  }
+  if (inventory.statuses === null || inventory.statuses.type === "inventory-error") {
+    return inventory.statuses as InventoryError;
+  }
+
+  const profiles = inventory.profiles as HerdrMachineProfile[];
+  const statuses = inventory.statuses as HerdrMachineStatus[];
+  
+  const statusMap = new Map<string, HerdrMachineStatus>();
+  for (const status of statuses) {
+    statusMap.set(status.id, status);
+  }
+
+  const machines: Machine[] = [];
+  
+  for (const profile of profiles) {
+    const status = statusMap.get(profile.id) || null;
+    const machine = herdrProfileToMachine(profile, status);
+    machines.push(machine);
+  }
+
+  return machines;
+}
+
+/**
+ * Get the local machine
+ */
+export function getLocalMachine(): Machine {
+  const os = getLocalOS();
+  const instanceIdHash = getLocalInstanceIdHash();
+  const physicalHostGroup = instanceIdHash ? hashIdentifier(`local-${instanceIdHash}`) : null;
+  
+  const resources = probeResources(os);
+  const capabilities = probeCapabilities(os, resources);
+
+  return {
+    id: `local-${platform()}`,
+    label: `Local (${platform()})`,
+    os,
+    arch: arch(),
+    physicalHostGroup,
+    instanceIdHash,
+    target: null,
+    session: null,
+    isLocal: true,
+    resources,
+    capabilities,
+    availability: "online",
+    error: null,
+    herdrProfile: null,
+    herdrStatus: null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Resource Probing (Local only - NEVER for remote machines)
+// ---------------------------------------------------------------------------
+
+/**
+ * Probe CPU information (local only)
  */
 function probeCpu(os: MachineOS): { cores: number; model: string } {
   const numCpus = cpus().length;
 
   if (os === "windows") {
-    // On Windows, would use wmic or PowerShell
     return { cores: numCpus, model: "unknown" };
   } else if (os === "macos") {
     try {
@@ -319,15 +554,14 @@ function probeCpu(os: MachineOS): { cores: number; model: string } {
 }
 
 /**
- * Probe RAM information
+ * Probe RAM information (local only)
  */
 function probeRam(os: MachineOS): number {
-  // totalmem() returns total memory in bytes
   return totalmem();
 }
 
 /**
- * Probe GPU information
+ * Probe GPU information (local only)
  */
 function probeGpus(os: MachineOS): GPUInfo[] {
   const gpus: GPUInfo[] = [];
@@ -340,7 +574,6 @@ function probeGpus(os: MachineOS): GPUInfo[] {
       );
       const output = result.stdout.toString();
       
-      // Parse GPU info from system_profiler output
       const chipsetMatch = output.match(/Chipset Model: (.+)/);
       const vramMatch = output.match(/Total VRAM: (.+)/);
       
@@ -350,7 +583,6 @@ function probeGpus(os: MachineOS): GPUInfo[] {
         
         if (vramMatch) {
           const vramStr = vramMatch[1].trim();
-          // Parse VRAM string like "8 GB" or "16 MB"
           const vramMatch2 = vramStr.match(/^([\d.]+)\s*([GMK]?B)$/i);
           if (vramMatch2) {
             const value = parseFloat(vramMatch2[1]);
@@ -367,16 +599,12 @@ function probeGpus(os: MachineOS): GPUInfo[] {
           vramBytes,
         });
       }
-    } catch {
-      // No GPU info available
-    }
+    } catch {}
   } else if (os === "linux") {
     try {
-      // Try lspci for GPU info
       const result = Bun.spawnSync(["lspci"], { stdout: "pipe" });
       const output = result.stdout.toString();
       
-      // Look for VGA or 3D controller lines
       const gpuLines = output
         .split("\n")
         .filter((line) => 
@@ -394,23 +622,18 @@ function probeGpus(os: MachineOS): GPUInfo[] {
           gpus.push({
             vendor: model.split(" ")[0] || "Unknown",
             model,
-            vramBytes: null, // VRAM not easily available via lspci
+            vramBytes: null,
           });
         }
       }
-    } catch {
-      // No lspci available
-    }
-  } else if (os === "windows") {
-    // Would use PowerShell or wmic on Windows
-    // For now, return empty
+    } catch {}
   }
 
   return gpus;
 }
 
 /**
- * Probe disk information
+ * Probe disk information (local only)
  */
 function probeDisks(os: MachineOS): DiskInfo[] {
   const disks: DiskInfo[] = [];
@@ -422,7 +645,6 @@ function probeDisks(os: MachineOS): DiskInfo[] {
       });
       const output = result.stdout.toString();
       
-      // Parse df output (skip header line)
       const lines = output.split("\n").slice(1);
       for (const line of lines) {
         if (!line.trim()) continue;
@@ -441,18 +663,13 @@ function probeDisks(os: MachineOS): DiskInfo[] {
           }
         }
       }
-    } catch {
-      // df not available or failed
-    }
-  } else if (os === "windows") {
-    // Would use PowerShell on Windows
+    } catch {}
   }
 
-  // Always include at least the root filesystem
   if (disks.length === 0) {
     disks.push({
       mount: "/",
-      totalBytes: 100 * BYTES_PER_GB, // Default fallback
+      totalBytes: 100 * BYTES_PER_GB,
       availableBytes: 50 * BYTES_PER_GB,
     });
   }
@@ -461,22 +678,21 @@ function probeDisks(os: MachineOS): DiskInfo[] {
 }
 
 /**
- * Probe GUI capability
+ * Probe GUI capability (local only)
  */
 function probeGui(os: MachineOS): boolean {
   if (os === "windows") {
-    return true; // Windows typically has GUI
+    return true;
   } else if (os === "macos") {
-    return true; // macOS typically has GUI
+    return true;
   } else if (os === "linux") {
-    // Check for DISPLAY or WAYLAND_DISPLAY
     return !!process.env.DISPLAY || !!process.env.WAYLAND_DISPLAY;
   }
   return false;
 }
 
 /**
- * Probe machine resources
+ * Probe machine resources (local only)
  */
 export function probeResources(os: MachineOS): MachineResources {
   return {
@@ -488,7 +704,7 @@ export function probeResources(os: MachineOS): MachineResources {
 }
 
 /**
- * Probe machine capabilities
+ * Probe machine capabilities (local only)
  */
 export function probeCapabilities(
   os: MachineOS,
@@ -502,263 +718,33 @@ export function probeCapabilities(
 }
 
 // ---------------------------------------------------------------------------
-// Herdr Integration
-// ---------------------------------------------------------------------------
-
-/**
- * Get Herdr machine profiles from `herdr machine list --json`
- */
-export function getHerdrProfiles(): HerdrMachineProfile[] {
-  try {
-    const result = Bun.spawnSync(
-      ["herdr", "machine", "list", "--json"],
-      { stdout: "pipe", stderr: "pipe" }
-    );
-    
-    if (result.exitCode !== 0) {
-      const stderr = result.stderr.toString();
-      if (stderr.includes("No machines") || stderr.includes("no machines")) {
-        return [];
-      }
-      throw new Error(`herdr machine list failed: ${stderr}`);
-    }
-    
-    const output = result.stdout.toString();
-    return JSON.parse(output) as HerdrMachineProfile[];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Get Herdr machine statuses from `herdr machine status --json`
- */
-export function getHerdrStatuses(): HerdrMachineStatus[] {
-  try {
-    const result = Bun.spawnSync(
-      ["herdr", "machine", "status", "--json"],
-      { stdout: "pipe", stderr: "pipe" }
-    );
-    
-    if (result.exitCode !== 0) {
-      const stderr = result.stderr.toString();
-      if (stderr.includes("No machines") || stderr.includes("no machines")) {
-        return [];
-      }
-      throw new Error(`herdr machine status failed: ${stderr}`);
-    }
-    
-    const output = result.stdout.toString();
-    return JSON.parse(output) as HerdrMachineStatus[];
-  } catch {
-    return [];
-  }
-}
-
-/**
- * Map Herdr status to our availability enum
- */
-function herdrStatusToAvailability(status: string | null): MachineAvailability {
-  if (!status) return "unknown";
-  
-  const lower = status.toLowerCase();
-  if (lower === "reachable") return "online";
-  if (lower === "disabled") return "offline";
-  if (lower === "error") return "error";
-  return "unknown";
-}
-
-// ---------------------------------------------------------------------------
-// Machine Inventory
-// ---------------------------------------------------------------------------
-
-/**
- * Get all machines from Herdr profiles
- */
-export function getMachinesFromHerdr(): Machine[] {
-  const profiles = getHerdrProfiles();
-  const statuses = getHerdrStatuses();
-  
-  const statusMap = new Map<string, HerdrMachineStatus>();
-  for (const status of statuses) {
-    statusMap.set(status.id, status);
-  }
-
-  const machines: Machine[] = [];
-  
-  for (const profile of profiles) {
-    const status = statusMap.get(profile.id) || null;
-    const machine = herdrProfileToMachine(profile, status);
-    machines.push(machine);
-  }
-
-  return machines;
-}
-
-/**
- * Convert Herdr profile to Machine
- */
-export function herdrProfileToMachine(
-  profile: HerdrMachineProfile,
-  status: HerdrMachineStatus | null
-): Machine {
-  // Parse target to extract OS and other info
-  // Target format: "device-{id}" or custom SSH target
-  const target = profile.target;
-  
-  // Try to determine OS from target or label
-  let os: MachineOS = "linux"; // default
-  let instanceId: string | null = null;
-  
-  // Check if target matches device-{id} pattern from devices.ts
-  const deviceMatch = target.match(/^device-([a-z][a-z0-9-]{0,47})$/);
-  if (deviceMatch) {
-    // This is a managed device from devices.ts
-    // We can't get the full device info here without calling devices.ts
-    // For now, infer OS from label or use default
-    const labelLower = profile.label.toLowerCase();
-    if (labelLower.includes("windows") || labelLower.includes("win")) {
-      os = "windows";
-    } else if (labelLower.includes("macos") || labelLower.includes("mac")) {
-      os = "macos";
-    } else {
-      os = "linux";
-    }
-  } else {
-    // Custom target - infer from label
-    const labelLower = profile.label.toLowerCase();
-    if (labelLower.includes("windows") || labelLower.includes("win")) {
-      os = "windows";
-    } else if (labelLower.includes("macos") || labelLower.includes("mac")) {
-      os = "macos";
-    }
-  }
-
-  // For local machine detection
-  const isLocal = isLocalMachine(target, os);
-  
-  // Generate instance ID for physical host group detection
-  if (isLocal) {
-    instanceId = localInstanceId(os);
-  }
-  
-  const physicalHostGroup = detectPhysicalHostGroup(os, instanceId);
-
-  // Determine availability
-  let availability: MachineAvailability = "unknown";
-  let error: string | null = null;
-  
-  if (status) {
-    availability = herdrStatusToAvailability(status.status);
-    error = status.error;
-  } else {
-    // No status info - assume unknown
-    availability = "unknown";
-  }
-
-  // For now, resources and capabilities are null for remote machines
-  // They would need to be probed via SSH, which is out of scope for read-only
-  const resources: MachineResources | null = isLocal ? probeResources(os) : null;
-  const capabilities: MachineCapabilities | null = resources ? probeCapabilities(os, resources) : null;
-
-  return {
-    id: profile.id,
-    label: profile.label,
-    os,
-    arch: arch(), // This is local arch - may not match remote
-    physicalHostGroup,
-    instanceId,
-    target: profile.target,
-    session: profile.session,
-    isLocal,
-    resources,
-    capabilities,
-    availability,
-    error,
-    herdrProfile: profile,
-    herdrStatus: status,
-  };
-}
-
-/**
- * Check if a target refers to the local machine
- */
-function isLocalMachine(target: string, os: MachineOS): boolean {
-  // Check against known local device targets
-  const localTargets = ["device-windows", "device-wsl", "device-macos"];
-  
-  if (localTargets.includes(target)) {
-    return true;
-  }
-
-  // Also check if target matches current platform
-  const localOsMap: Record<string, MachineOS> = {
-    win32: "windows",
-    darwin: "macos",
-    linux: "linux",
-  };
-  const currentOs = localOsMap[platform()] || "linux";
-  
-  // If the OS matches and it's a device-* target, it might be local
-  if (target.startsWith("device-") && os === currentOs) {
-    return true;
-  }
-
-  return false;
-}
-
-/**
- * Get the local machine
- */
-export function getLocalMachine(): Machine {
-  const osMap: Record<string, MachineOS> = {
-    win32: "windows",
-    darwin: "macos",
-    linux: "linux",
-  };
-  const os = osMap[platform()] || "linux";
-  const instanceId = localInstanceId(os);
-  const physicalHostGroup = detectPhysicalHostGroup(os, instanceId);
-  
-  const resources = probeResources(os);
-  const capabilities = probeCapabilities(os, resources);
-
-  return {
-    id: `local-${platform()}`,
-    label: `Local (${platform()})`,
-    os,
-    arch: arch(),
-    physicalHostGroup,
-    instanceId,
-    target: null,
-    session: null,
-    isLocal: true,
-    resources,
-    capabilities,
-    availability: "online",
-    error: null,
-    herdrProfile: null,
-    herdrStatus: null,
-  };
-}
-
-// ---------------------------------------------------------------------------
 // Windows + WSL Shared Host Detection
 // ---------------------------------------------------------------------------
 
 /**
  * Detect if Windows and WSL are on the same physical host.
- * Returns a map of physical host groups to their machines.
+ * Uses evidence from instanceIdHash, not guessed from labels.
+ * Returns conservative grouping: if we can't prove they're separate, treat as potentially shared.
  */
 export function detectSharedHosts(machines: Machine[]): Map<PhysicalHostGroup, Machine[]> {
   const hostGroups = new Map<PhysicalHostGroup, Machine[]>();
   
   for (const machine of machines) {
     const group = machine.physicalHostGroup;
-    if (!hostGroups.has(group)) {
-      hostGroups.set(group, []);
+    if (!group) {
+      // If we don't know the host group, treat conservatively as potentially shared
+      // Use a fallback group for unknown machines
+      const fallbackGroup = hashIdentifier("unknown-host");
+      if (!hostGroups.has(fallbackGroup)) {
+        hostGroups.set(fallbackGroup, []);
+      }
+      hostGroups.get(fallbackGroup)!.push(machine);
+    } else {
+      if (!hostGroups.has(group)) {
+        hostGroups.set(group, []);
+      }
+      hostGroups.get(group)!.push(machine);
     }
-    hostGroups.get(group)!.push(machine);
   }
 
   return hostGroups;
@@ -767,31 +753,27 @@ export function detectSharedHosts(machines: Machine[]): Map<PhysicalHostGroup, M
 /**
  * Get combined resources for a physical host group.
  * Windows + WSL on same host should NOT double-count CPU/RAM.
+ * Conservative: if we can't prove they're on different hosts, don't combine.
  */
 export function getCombinedResources(
   machines: Machine[]
-): Map<PhysicalHostGroup, MachineResources> {
+): Map<PhysicalHostGroup, MachineResources | null> {
   const hostGroups = detectSharedHosts(machines);
-  const combined = new Map<PhysicalHostGroup, MachineResources>();
+  const combined = new Map<PhysicalHostGroup, MachineResources | null>();
 
   for (const [group, groupMachines] of hostGroups) {
-    // Find the primary machine (prefer non-WSL, or first one)
-    let primary = groupMachines.find((m) => m.os !== "linux" || !isWsl(m));
-    if (!primary && groupMachines.length > 0) {
-      primary = groupMachines[0];
-    }
-
-    if (primary && primary.resources) {
-      // Use the primary machine's resources for the group
-      combined.set(group, primary.resources);
+    // Only combine if we have evidence they're on the same host
+    // For now, only combine if all machines in the group have the same physicalHostGroup
+    // and at least one has resources
+    
+    const machinesWithResources = groupMachines.filter((m) => m.resources !== null);
+    
+    if (machinesWithResources.length > 0) {
+      // Use the first machine with resources as the representative
+      // In the future, we might sum resources if we can prove they're truly separate
+      combined.set(group, machinesWithResources[0].resources);
     } else {
-      // Fallback: create empty resources
-      combined.set(group, {
-        cpu: { cores: 0, model: "unknown" },
-        ramBytes: 0,
-        gpus: [],
-        disks: [],
-      });
+      combined.set(group, null);
     }
   }
 
@@ -799,23 +781,12 @@ export function getCombinedResources(
 }
 
 /**
- * Check if a machine is WSL
+ * Check if a machine is WSL based on evidence
  */
 export function isWsl(machine: Machine): boolean {
   if (machine.os !== "linux") return false;
   
-  // Check label for WSL indicators
-  const labelLower = machine.label.toLowerCase();
-  if (labelLower.includes("wsl") || labelLower.includes("windows subsystem")) {
-    return true;
-  }
-
-  // Check target
-  if (machine.target && machine.target.toLowerCase().includes("wsl")) {
-    return true;
-  }
-
-  // For local machine, check /proc/version
+  // Check if we have evidence from /proc/version (only for local machines)
   if (machine.isLocal) {
     try {
       const version = readFileSync("/proc/version", "utf8");
@@ -824,7 +795,9 @@ export function isWsl(machine: Machine): boolean {
       return false;
     }
   }
-
+  
+  // For remote machines, we can't know for sure without probing through Herdr
+  // So we return false (conservative)
   return false;
 }
 
@@ -834,6 +807,7 @@ export function isWsl(machine: Machine): boolean {
 
 /**
  * Evaluate placement suitability for a machine against constraints
+ * Availability is fail-closed: error/offline/unknown are NOT suitable by default
  */
 export function evaluateSuitability(
   machine: Machine,
@@ -842,13 +816,16 @@ export function evaluateSuitability(
   const hardViolations: string[] = [];
   const softViolations: string[] = [];
   const reasoning: string[] = [];
-  let score = 1.0; // Start with perfect score
+  let score = 1.0;
 
   // Check hard constraints
   
   // OS constraint
   if (constraints.hard.os && constraints.hard.os.length > 0) {
-    if (!constraints.hard.os.includes(machine.os)) {
+    if (machine.os === null) {
+      hardViolations.push(`OS unknown, cannot verify against required: ${constraints.hard.os.join(", ")}`);
+      score -= 0.5;
+    } else if (!constraints.hard.os.includes(machine.os)) {
       hardViolations.push(`OS ${machine.os} not in required OS list: ${constraints.hard.os.join(", ")}`);
       score -= 0.5;
     } else {
@@ -858,7 +835,10 @@ export function evaluateSuitability(
 
   // Architecture constraint
   if (constraints.hard.arch && constraints.hard.arch.length > 0) {
-    if (!constraints.hard.arch.includes(machine.arch)) {
+    if (machine.arch === null) {
+      hardViolations.push(`Architecture unknown, cannot verify against required: ${constraints.hard.arch.join(", ")}`);
+      score -= 0.5;
+    } else if (!constraints.hard.arch.includes(machine.arch)) {
       hardViolations.push(`Architecture ${machine.arch} not in required arch list: ${constraints.hard.arch.join(", ")}`);
       score -= 0.5;
     } else {
@@ -868,8 +848,8 @@ export function evaluateSuitability(
 
   // CPU cores constraint
   if (constraints.hard.minCpuCores !== undefined) {
-    if (!machine.resources) {
-      hardViolations.push(`CPU cores unknown (no resources)`);
+    if (machine.resources === null) {
+      hardViolations.push(`CPU cores unknown (no resources), cannot verify minimum ${constraints.hard.minCpuCores}`);
       score -= 0.3;
     } else if (machine.resources.cpu.cores < constraints.hard.minCpuCores) {
       hardViolations.push(`CPU cores ${machine.resources.cpu.cores} < minimum ${constraints.hard.minCpuCores}`);
@@ -881,11 +861,11 @@ export function evaluateSuitability(
 
   // RAM constraint
   if (constraints.hard.minRamBytes !== undefined) {
-    if (!machine.resources) {
-      hardViolations.push(`RAM unknown (no resources)`);
+    if (machine.resources === null) {
+      hardViolations.push(`RAM unknown (no resources), cannot verify minimum ${formatBytes(constraints.hard.minRamBytes)}`);
       score -= 0.3;
     } else if (machine.resources.ramBytes < constraints.hard.minRamBytes) {
-      hardViolations.push(`RAM ${machine.resources.ramBytes} bytes < minimum ${constraints.hard.minRamBytes}`);
+      hardViolations.push(`RAM ${formatBytes(machine.resources.ramBytes)} < minimum ${formatBytes(constraints.hard.minRamBytes)}`);
       score -= 0.3;
     } else {
       reasoning.push(`RAM ${formatBytes(machine.resources.ramBytes)} >= minimum ${formatBytes(constraints.hard.minRamBytes)}`);
@@ -894,8 +874,8 @@ export function evaluateSuitability(
 
   // GPU VRAM constraint
   if (constraints.hard.minGpuVramBytes !== undefined) {
-    if (!machine.resources) {
-      hardViolations.push(`GPU VRAM unknown (no resources)`);
+    if (machine.resources === null) {
+      hardViolations.push(`GPU VRAM unknown (no resources), cannot verify minimum ${formatBytes(constraints.hard.minGpuVramBytes)}`);
       score -= 0.3;
     } else {
       const totalGpuVram = machine.resources.gpus.reduce(
@@ -903,7 +883,7 @@ export function evaluateSuitability(
         0
       );
       if (totalGpuVram < constraints.hard.minGpuVramBytes) {
-        hardViolations.push(`Total GPU VRAM ${totalGpuVram} bytes < minimum ${constraints.hard.minGpuVramBytes}`);
+        hardViolations.push(`Total GPU VRAM ${formatBytes(totalGpuVram)} < minimum ${formatBytes(constraints.hard.minGpuVramBytes)}`);
         score -= 0.3;
       } else {
         reasoning.push(`Total GPU VRAM ${formatBytes(totalGpuVram)} >= minimum ${formatBytes(constraints.hard.minGpuVramBytes)}`);
@@ -913,8 +893,8 @@ export function evaluateSuitability(
 
   // GPU required constraint
   if (constraints.hard.gpuRequired) {
-    if (!machine.capabilities) {
-      hardViolations.push("GPU capability unknown (no capabilities)");
+    if (machine.capabilities === null) {
+      hardViolations.push(`GPU capability unknown (no capabilities), cannot verify gpuRequired`);
       score -= 0.4;
     } else if (!machine.capabilities.gpu) {
       hardViolations.push("GPU required but machine has no GPU");
@@ -926,8 +906,8 @@ export function evaluateSuitability(
 
   // GUI required constraint
   if (constraints.hard.guiRequired) {
-    if (!machine.capabilities) {
-      hardViolations.push("GUI capability unknown (no capabilities)");
+    if (machine.capabilities === null) {
+      hardViolations.push(`GUI capability unknown (no capabilities), cannot verify guiRequired`);
       score -= 0.4;
     } else if (!machine.capabilities.gui) {
       hardViolations.push("GUI required but machine has no GUI");
@@ -937,7 +917,7 @@ export function evaluateSuitability(
     }
   }
 
-  // Availability constraint
+  // Availability constraint - fail-closed by default
   if (constraints.hard.availability && constraints.hard.availability.length > 0) {
     if (!constraints.hard.availability.includes(machine.availability)) {
       hardViolations.push(`Availability ${machine.availability} not in required availability list: ${constraints.hard.availability.join(", ")}`);
@@ -945,13 +925,22 @@ export function evaluateSuitability(
     } else {
       reasoning.push(`Availability ${machine.availability} matches required availability constraint`);
     }
+  } else {
+    // Default: error/offline/unknown are NOT suitable
+    if (machine.availability !== "online") {
+      hardViolations.push(`Machine availability is ${machine.availability}, not suitable by default (fail-closed)`);
+      score -= 0.5;
+    }
   }
 
   // Check soft constraints
   
   // Preferred OS
   if (constraints.soft.preferredOs && constraints.soft.preferredOs.length > 0) {
-    if (!constraints.soft.preferredOs.includes(machine.os)) {
+    if (machine.os === null) {
+      softViolations.push(`OS unknown, cannot verify against preferred: ${constraints.soft.preferredOs.join(", ")}`);
+      score -= 0.1;
+    } else if (!constraints.soft.preferredOs.includes(machine.os)) {
       softViolations.push(`OS ${machine.os} not in preferred OS list: ${constraints.soft.preferredOs.join(", ")}`);
       score -= 0.1;
     } else {
@@ -961,7 +950,10 @@ export function evaluateSuitability(
 
   // Preferred architecture
   if (constraints.soft.preferredArch && constraints.soft.preferredArch.length > 0) {
-    if (!constraints.soft.preferredArch.includes(machine.arch)) {
+    if (machine.arch === null) {
+      softViolations.push(`Architecture unknown, cannot verify against preferred: ${constraints.soft.preferredArch.join(", ")}`);
+      score -= 0.1;
+    } else if (!constraints.soft.preferredArch.includes(machine.arch)) {
       softViolations.push(`Architecture ${machine.arch} not in preferred arch list: ${constraints.soft.preferredArch.join(", ")}`);
       score -= 0.1;
     } else {
@@ -970,8 +962,11 @@ export function evaluateSuitability(
   }
 
   // Preferred CPU cores
-  if (constraints.soft.minPreferredCpuCores !== undefined && machine.resources) {
-    if (machine.resources.cpu.cores < constraints.soft.minPreferredCpuCores) {
+  if (constraints.soft.minPreferredCpuCores !== undefined) {
+    if (machine.resources === null) {
+      softViolations.push(`CPU cores unknown (no resources), cannot verify preferred minimum ${constraints.soft.minPreferredCpuCores}`);
+      score -= 0.1;
+    } else if (machine.resources.cpu.cores < constraints.soft.minPreferredCpuCores) {
       softViolations.push(`CPU cores ${machine.resources.cpu.cores} < preferred minimum ${constraints.soft.minPreferredCpuCores}`);
       score -= 0.1;
     } else {
@@ -980,9 +975,12 @@ export function evaluateSuitability(
   }
 
   // Preferred RAM
-  if (constraints.soft.minPreferredRamBytes !== undefined && machine.resources) {
-    if (machine.resources.ramBytes < constraints.soft.minPreferredRamBytes) {
-      softViolations.push(`RAM ${machine.resources.ramBytes} bytes < preferred minimum ${constraints.soft.minPreferredRamBytes}`);
+  if (constraints.soft.minPreferredRamBytes !== undefined) {
+    if (machine.resources === null) {
+      softViolations.push(`RAM unknown (no resources), cannot verify preferred minimum ${formatBytes(constraints.soft.minPreferredRamBytes)}`);
+      score -= 0.1;
+    } else if (machine.resources.ramBytes < constraints.soft.minPreferredRamBytes) {
+      softViolations.push(`RAM ${formatBytes(machine.resources.ramBytes)} < preferred minimum ${formatBytes(constraints.soft.minPreferredRamBytes)}`);
       score -= 0.1;
     } else {
       reasoning.push(`RAM ${formatBytes(machine.resources.ramBytes)} >= preferred minimum ${formatBytes(constraints.soft.minPreferredRamBytes)}`);
@@ -1004,6 +1002,7 @@ export function evaluateSuitability(
 
 /**
  * Find suitable machines for given constraints
+ * Filters to only machines that satisfy hard constraints
  */
 export function findSuitableMachines(
   machines: Machine[],
@@ -1052,8 +1051,11 @@ export function attestMachine(
   } else if (machine.herdrStatus) {
     // Remote machine via Herdr
     if (machine.herdrStatus.status === "reachable") {
-      status = "verified-live";
-      provenance = "measured";
+      // For remote machines, we can only attest as verified-live if we have resources
+      // For now, without a way to probe through Herdr, we can't get resources
+      // So we treat as configured
+      status = "configured";
+      provenance = "estimated";
     } else {
       status = "configured";
       provenance = "estimated";
@@ -1070,7 +1072,7 @@ export function attestMachine(
     finalEvidence = {
       at: new Date().toISOString(),
       source: "probe",
-      note: `Machine inventory ${machine.isLocal ? "probe (local)" : "via Herdr"}`,
+      note: `Machine inventory probe (local)`,
     };
   } else if (!finalEvidence && status === "restricted") {
     finalEvidence = {
@@ -1105,13 +1107,15 @@ export function attestMachines(machines: Machine[]): AttestedMachine[] {
   return machines.map((machine) => {
     // Only provide live evidence for machines that can be verified-live
     let evidence: Evidence | null = null;
-    if (machine.isLocal || (machine.herdrStatus && machine.herdrStatus.status === "reachable")) {
+    if (machine.isLocal) {
       evidence = {
         at: now,
         source: "probe",
-        note: `Machine inventory probe${machine.isLocal ? " (local)" : " (remote via Herdr)"}`,
+        note: "Machine inventory probe (local)",
       };
     }
+    // For remote machines, we don't have a way to probe through Herdr yet
+    // So we leave evidence as null
     return attestMachine(machine, evidence);
   });
 }
@@ -1137,8 +1141,14 @@ export function formatBytes(bytes: number): string {
 /**
  * Get all machines (Herdr + local)
  */
-export function getAllMachines(): Machine[] {
-  const herdrMachines = getMachinesFromHerdr();
+export function getAllMachines(): Machine[] | InventoryError {
+  const herdrResult = getMachinesFromHerdr();
+  
+  if (herdrResult === null || herdrResult.type === "inventory-error") {
+    return herdrResult as InventoryError;
+  }
+  
+  const herdrMachines = herdrResult as Machine[];
   const localMachine = getLocalMachine();
   
   // Check if local machine is already in Herdr list
@@ -1156,7 +1166,12 @@ export function getAllMachines(): Machine[] {
  */
 export function getMachineById(id: string): Machine | null {
   const machines = getAllMachines();
-  return machines.find((m) => m.id === id) || null;
+  
+  if (machines === null || machines.type === "inventory-error") {
+    return null;
+  }
+  
+  return (machines as Machine[]).find((m) => m.id === id) || null;
 }
 
 // ---------------------------------------------------------------------------
@@ -1186,17 +1201,26 @@ Commands:
   }
 
   try {
+    const machinesResult = getAllMachines();
+    
+    if (machinesResult === null || machinesResult.type === "inventory-error") {
+      console.error(`Inventory error: ${machinesResult.error}`);
+      process.exitCode = 1;
+      return;
+    }
+    
+    const machines = machinesResult as Machine[];
+    const json = rest.includes("--json");
+
     if (cmd === "list") {
-      const machines = getAllMachines();
-      const json = rest.includes("--json");
-      
       if (json) {
         console.log(toJson(machines));
       } else {
         console.log(`Machines (${machines.length}):`);
         for (const m of machines) {
-          console.log(`  ${m.id}: ${m.label} (${m.os}/${m.arch})`);
-          console.log(`    Host Group: ${m.physicalHostGroup}`);
+          console.log(`  ${m.id}: ${m.label}`);
+          console.log(`    OS: ${m.os || "unknown"}, Arch: ${m.arch || "unknown"}`);
+          console.log(`    Host Group: ${m.physicalHostGroup || "unknown"}`);
           console.log(`    Local: ${m.isLocal}`);
           console.log(`    Availability: ${m.availability}`);
           if (m.resources) {
@@ -1205,9 +1229,13 @@ Commands:
             if (m.resources.gpus.length > 0) {
               console.log(`    GPUs: ${m.resources.gpus.map((g) => g.model).join(", ")}`);
             }
+          } else {
+            console.log(`    Resources: unknown`);
           }
           if (m.capabilities) {
             console.log(`    Capabilities: GUI=${m.capabilities.gui}, GPU=${m.capabilities.gpu}`);
+          } else {
+            console.log(`    Capabilities: unknown`);
           }
         }
       }
@@ -1217,32 +1245,26 @@ Commands:
       if (!machine) throw new Error(`Machine ${rest[0]} not found`);
       console.log(toJson(machine));
     } else if (cmd === "probe") {
-      const osMap: Record<string, MachineOS> = {
-        win32: "windows",
-        darwin: "macos",
-        linux: "linux",
-      };
-      const os = osMap[platform()] || "linux";
+      const os = getLocalOS();
       const resources = probeResources(os);
       const capabilities = probeCapabilities(os, resources);
       console.log(toJson({ resources, capabilities }));
     } else if (cmd === "shared-hosts") {
-      const machines = getAllMachines();
       const hostGroups = detectSharedHosts(machines);
       console.log(`Shared Host Groups (${hostGroups.size}):`);
       for (const [group, groupMachines] of hostGroups) {
         console.log(`  ${group}:`);
         for (const m of groupMachines) {
-          console.log(`    - ${m.id}: ${m.label} (${m.os})`);
+          console.log(`    - ${m.id}: ${m.label} (${m.os || "unknown"})`);
         }
       }
     } else if (cmd === "suitability") {
-      const machines = getAllMachines();
       const constraints: PlacementConstraints = {
         hard: {
           os: ["macos", "linux"],
           minCpuCores: 4,
           minRamBytes: 8 * BYTES_PER_GB,
+          availability: ["online"], // Explicitly require online
         },
         soft: {
           preferredOs: ["macos"],
