@@ -1,0 +1,15 @@
+{
+  "contract_version": "1.0.0",
+  "route": "claude.opencode-go",
+  "capability": {
+    "value": { "tool_call": true },
+    "status": "verified-live",
+    "provenance": "measured",
+    "evidence": {
+      "at": "2026-11-01T00:00:00Z",
+      "source": "live-e2e",
+      "sha": "9b9fff9aaa4c619d97f0f10ea3b510dd422c44fd",
+      "note": "real response + tool call, claude 2.1.314"
+    }
+  }
+}
