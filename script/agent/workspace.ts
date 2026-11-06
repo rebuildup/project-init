@@ -495,6 +495,12 @@ export interface HostProbe {
   procVersion: string | null;
   /** `wt --version` output, or null when Worktrunk is absent/unusable. */
   worktrunkVersion: string | null;
+  /**
+   * Why Worktrunk is unavailable (spawn failure ENOENT/EACCES, non-zero
+   * exit), or null when it answered. Never guessed away: an external
+   * command that cannot run is an explicit "unavailable" fact.
+   */
+  worktrunkError: string | null;
   /** Measured GUI availability; null = unknown (SSH session, headless…). */
   gui: boolean | null;
   /** True only when a verified sandbox mechanism was measured on this host. */
@@ -513,7 +519,7 @@ export function capabilitiesFromProbe(probe: unknown): WorkspaceCapabilities {
   }
   expectFields(
     probe,
-    ["platform", "procVersion", "worktrunkVersion", "gui", "sandboxVerified"],
+    ["platform", "procVersion", "worktrunkVersion", "worktrunkError", "gui", "sandboxVerified"],
     "probe",
   );
   const platform = requireStr(probe, "platform", "probe.platform");
@@ -525,6 +531,11 @@ export function capabilitiesFromProbe(probe: unknown): WorkspaceCapabilities {
   const wsl = os === "linux" && probe["procVersion"] !== null && detectWsl(String(probe["procVersion"]));
   const worktrunkAvailable =
     typeof probe["worktrunkVersion"] === "string" && probe["worktrunkVersion"].length > 0;
+  const worktrunkErrorRaw = probe["worktrunkError"];
+  const worktrunkError =
+    worktrunkErrorRaw === null || worktrunkErrorRaw === undefined
+      ? null
+      : capText(String(worktrunkErrorRaw));
   const guiRaw = probe["gui"];
   const gui = guiRaw === null ? null : requireBool(probe, "gui", "probe.gui");
   const sandboxVerified = requireBool(probe, "sandboxVerified", "probe.sandboxVerified");
@@ -546,6 +557,9 @@ export function capabilitiesFromProbe(probe: unknown): WorkspaceCapabilities {
       `${os}: Worktrunk behavior is UNVERIFIED on this OS; native git worktree is the only claimed backend`,
     );
   }
+  if (!worktrunkAvailable && worktrunkError !== null) {
+    notes.push(`worktrunk unavailable: ${worktrunkError}`);
+  }
   if (!sandboxVerified) {
     notes.push("sandbox: no verified isolation mechanism recorded; sandbox=false");
   }
@@ -565,12 +579,25 @@ export function localProbe(run: Runner): HostProbe {
       procVersion = null;
     }
   }
-  const wt = run(["wt", "--version"]);
-  const worktrunkVersion = wt.exitCode === 0 ? wt.stdout.toString().trim() || null : null;
+  // An external command that cannot run (ENOENT, EACCES, …) is an explicit
+  // "unavailable" fact with its reason — never a throw, never a guess.
+  let worktrunkVersion: string | null = null;
+  let worktrunkError: string | null = null;
+  try {
+    const wt = run(["wt", "--version"]);
+    if (wt.exitCode === 0) {
+      worktrunkVersion = wt.stdout.toString().trim() || null;
+    } else {
+      worktrunkError = `wt exited ${wt.exitCode}: ${capText(wt.stderr.toString())}`;
+    }
+  } catch (error) {
+    worktrunkError = String(error);
+  }
   return {
     platform: process.platform,
     procVersion,
     worktrunkVersion,
+    worktrunkError,
     gui: null, // console/GUI session detection is machines.ts (#97)'s measured fact; not re-guessed here
     sandboxVerified: false, // no sandbox mechanism is verified by this module
   };

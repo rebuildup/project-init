@@ -575,7 +575,7 @@ try {
     writeFileSync(workerPath, workerSource, "utf8");
     const procs = await Promise.all(
       [0, 1].map(() => {
-        const proc = Bun.spawn(["bun", workerPath, root], { stdout: "pipe", stderr: "pipe" });
+        const proc = Bun.spawn([process.execPath, workerPath, root], { stdout: "pipe", stderr: "pipe" });
         return proc.exited.then((code) => code);
       }),
     );
@@ -609,7 +609,7 @@ try {
     writeFileSync(workerPath, workerSource, "utf8");
     const results = await Promise.all(
       [0, 1, 2, 3].map(() => {
-        const proc = Bun.spawn(["bun", workerPath, root], { stdout: "pipe", stderr: "pipe" });
+        const proc = Bun.spawn([process.execPath, workerPath, root], { stdout: "pipe", stderr: "pipe" });
         return Promise.all([proc.exited, new Response(proc.stderr).text()]).then(([code, stderr]) => ({
           code,
           stderr,
@@ -703,24 +703,75 @@ describe("REAL: workspace creation against a real git repository", () => {
 });
 
 // ---------------------------------------------------------------------------
-// REAL: this host (Linux/WSL2) — capability probe against the real machine
+// HERMETIC: spawn-failure handling (runs on ANY host, no host assumptions)
 // ---------------------------------------------------------------------------
 
-describe("REAL: local host capability probe (Linux/WSL2 verification host)", () => {
-  test("probe reports this host's real OS; sandbox is never claimed; no guessing", () => {
+describe("HERMETIC: external-command probes fail closed, never throw", () => {
+  test("a runner that throws (ENOENT-style) reports worktrunk unavailable with the reason", () => {
+    const probe = localProbe(() => {
+      throw new Error('Executable not found in $PATH: "wt"');
+    });
+    expect(probe.worktrunkVersion).toBeNull();
+    expect(probe.worktrunkError).toMatch(/Executable not found/);
+    // The capability derivation must fall back to git-worktree, never guess
+    // worktrunk availability, and surface the reason.
+    const c = capabilitiesFromProbe({ ...probe, platform: "linux", procVersion: "Linux version 6.6.0" });
+    expect(c.backend).toBe("git-worktree");
+    expect(c.notes.some((n) => n.startsWith("worktrunk unavailable:") && n.includes("Executable not found"))).toBe(
+      true,
+    );
+  });
+
+  test("a probe with an EMPTY PATH cannot run wt: unavailable with reason, no throw", () => {
+    const emptyDir = mkdtempSync(join(tmpdir(), "agent-workspace-nopath-"));
+    const probe = localProbe((cmd) => {
+      const r = Bun.spawnSync(cmd, {
+        stdout: "pipe",
+        stderr: "pipe",
+        env: { ...process.env, PATH: emptyDir },
+      });
+      return {
+        exitCode: r.exitCode ?? 1,
+        stdout: r.stdout?.toString() ?? "",
+        stderr: r.stderr?.toString() ?? "",
+      };
+    });
+    expect(probe.worktrunkVersion).toBeNull();
+    expect(probe.worktrunkError).not.toBeNull();
+    rmSync(emptyDir, { recursive: true, force: true });
+  });
+
+  test("a non-zero wt exit is also unavailable-with-reason, never treated as available", () => {
+    const probe = localProbe(() => ({ exitCode: 127, stdout: "", stderr: "wt: not usable" }));
+    expect(probe.worktrunkVersion).toBeNull();
+    expect(probe.worktrunkError).toMatch(/exited 127/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// REAL: this host's capability probe (host-independent assertions)
+// ---------------------------------------------------------------------------
+
+describe("REAL: local host capability probe", () => {
+  test("reports the real host OS; sandbox never claimed; worktrunk state consistent", () => {
     const probe = localProbe((cmd) => {
       const r = Bun.spawnSync(cmd, { stdout: "pipe", stderr: "pipe" });
       return { exitCode: r.exitCode ?? 1, stdout: r.stdout?.toString() ?? "", stderr: r.stderr?.toString() ?? "" };
     });
     expect(probe.platform).toBe(platform());
-    const c = capabilitiesFromProbe(probe);
-    if (process.platform === "linux") {
-      expect(c.os).toBe("linux");
-      // WSL2 verification host: /proc/version is real, detection is real.
-      expect(typeof c.wsl).toBe("boolean");
+    // The probe result must be internally consistent: wt answered XOR an
+    // error reason is recorded. Both outcomes are acceptable on any host.
+    if (probe.worktrunkVersion === null) {
+      expect(probe.worktrunkError).not.toBeNull();
+    } else {
+      expect(probe.worktrunkError).toBeNull();
     }
-    // Cross-OS invariants that hold on every host: no sandbox claim, and
-    // the backend is one of the two known values.
+    const c = capabilitiesFromProbe(probe);
+    // OS mapping must match the actual host platform, whatever it is.
+    const expectedOs = { linux: "linux", darwin: "macos", win32: "windows" }[platform()] as string;
+    expect(c.os).toBe(expectedOs);
+    expect(typeof c.wsl).toBe("boolean");
+    // Cross-OS invariants that hold on every host.
     expect(c.sandbox).toBe(false);
     expect(["worktrunk", "git-worktree"]).toContain(c.backend);
     expect(c.notes.length).toBeGreaterThan(0);
