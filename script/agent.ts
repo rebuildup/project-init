@@ -51,6 +51,16 @@ import {
   writeFileSync,
 } from "node:fs";
 import { constants as osConstants, homedir } from "node:os";
+import {
+  buildGuideData,
+  buildHelpData,
+  buildRoutesData,
+  renderGuideText,
+  renderRoutesText,
+  UnknownGuideTopicError,
+} from "./agent/help";
+import { loadCatalog } from "./agent/catalog";
+import { ContractError, redactJson } from "./agent/contract";
 
 const PROGRAM = "agent";
 const EXIT_USAGE = 2;
@@ -85,6 +95,8 @@ usage:
   agent models <provider>
   agent shortcuts [list|check|create|remove]
   agent check
+  agent guide [topic]
+  agent routes [--json]
   agent help
 
 subcommands:
@@ -102,6 +114,12 @@ subcommands:
   agent shortcuts remove     remove only the entries that point at this
                              launcher; other files are left untouched
   agent check                validate config/agents.toml (used by CI)
+  agent guide [topic]        progressive disclosure: routes, status, limits,
+                             distributed, recovery, quality, misfire
+  agent routes               route table with catalog facts (quota scopes,
+                             rate limits, restrictions, e2e evidence);
+                             --json emits the same data as redacted JSON
+  agent help --json          machine-readable help (quotes this text)
 
 shortcut form:
   Invoking <harness>-<provider> (e.g. opencode-zen) is resolved by exact
@@ -1071,7 +1089,7 @@ function checkPassthru(passthru: string[], harness: Harness): void {
 }
 
 type Action =
-  | ["help"]
+  | ["help", boolean]
   | ["version"]
   | ["list"]
   | ["check"]
@@ -1084,10 +1102,16 @@ function parseArgs(argv: string[]): Action {
   // Parse argv without touching the config.
   const head = argv[0];
   if (head === "help" || head === "--help" || head === "-h") {
+    // Only the explicit subcommand spelling takes --json; `--help` after a
+    // route keeps printing the plain usage (the harness gets its own help
+    // via `-- --help`).
+    if (head === "help" && argv.length === 2 && argv[1] === "--json") {
+      return ["help", true];
+    }
     if (argv.length > 1) {
       throw new AgentError(`unexpected arguments for 'help': ${argv.slice(1).join(" ")}`);
     }
-    return ["help"];
+    return ["help", false];
   }
   if (head === "--version" || head === "-V") {
     return ["version"];
@@ -1130,7 +1154,7 @@ function parseArgs(argv: string[]): Action {
     return ["native", harnessKey, []];
   }
   if (argv[1] === "--help" || argv[1] === "-h" || argv[1] === "help") {
-    return ["help"];
+    return ["help", false];
   }
   if (argv[1] === "--model" || argv[1] === "-m") {
     throw new AgentError(
@@ -1166,7 +1190,7 @@ function parseArgs(argv: string[]): Action {
       continue;
     }
     if (token === "--help" || token === "-h") {
-      return ["help"];
+      return ["help", false];
     }
     throw new AgentError(
       `unexpected argument '${token}'; pass harness arguments after '--' ` +
@@ -2387,6 +2411,64 @@ function cmdCheck(config: Config): number {
   return 0;
 }
 
+// ---------------------------------------------------------------------------
+// Progressive disclosure (issue #88): help --json / guide / routes
+// ---------------------------------------------------------------------------
+
+/** `agent help --json`: the usage text plus its subcommand index as JSON. */
+function cmdHelpJson(config: Config): number {
+  console.log(redactJson(buildHelpData(usageText())));
+  return 0;
+}
+
+/**
+ * `agent guide [topic] [--json]`: progressive disclosure. The overview lists
+ * the topics; each topic is read on demand — no giant always-on prompt.
+ */
+function cmdGuide(argv: string[]): number {
+  const json = argv.includes("--json");
+  const rest = argv.filter((token) => token !== "--json");
+  if (rest.length > 1) {
+    throw new AgentError("usage: agent guide [topic] [--json]");
+  }
+  const topic = rest[0] ?? null;
+  let data;
+  try {
+    data = buildGuideData(topic);
+  } catch (error) {
+    if (error instanceof UnknownGuideTopicError) {
+      throw new AgentError(error.message);
+    }
+    throw error;
+  }
+  console.log(json ? redactJson(data) : renderGuideText(data));
+  return 0;
+}
+
+/**
+ * `agent routes [--json]`: every configured route with its catalog facts
+ * (quota scope, rate limits, restrictions, e2e evidence). Unknown stays
+ * unknown; readiness/usage/reset/recommendation are marked not-yet-available
+ * (issues #90/#91/#94). A malformed [catalog.*] table fails closed (exit 1).
+ */
+function cmdRoutes(config: Config, argv: string[]): number {
+  if (argv.filter((token) => token !== "--json").length > 0) {
+    throw new AgentError("usage: agent routes [--json]");
+  }
+  let catalog;
+  try {
+    catalog = loadCatalog(config.path);
+  } catch (error) {
+    if (error instanceof ContractError) {
+      throw new AgentError(error.message, EXIT_RUNTIME);
+    }
+    throw error;
+  }
+  const data = buildRoutesData(config, catalog);
+  console.log(argv.includes("--json") ? redactJson(data) : renderRoutesText(data));
+  return 0;
+}
+
 async function main(argv: string[]): Promise<number> {
   if (argv.length > 0 && argv[0] === "__exec") {
     return cmdExec(argv.slice(1));
@@ -2428,8 +2510,21 @@ async function main(argv: string[]): Promise<number> {
     return cmdRunShortcut(config, first, argv.slice(1));
   }
 
+  // Progressive-disclosure subcommands (issue #88). A configured harness
+  // named `guide`/`routes` always wins, keeping its native launch path.
+  if ((first === "guide" || first === "routes") && !(first in config.harnesses)) {
+    if (first === "guide") {
+      return cmdGuide(argv.slice(1));
+    }
+    return cmdRoutes(config, argv.slice(1));
+  }
+
   const action = parseArgs(argv);
   if (action[0] === "help") {
+    const [, json] = action;
+    if (json) {
+      return cmdHelpJson(config);
+    }
     console.log(usageText());
     return 0;
   }
