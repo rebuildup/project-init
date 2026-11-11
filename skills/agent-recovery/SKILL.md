@@ -276,6 +276,10 @@ agentはcontext不足になる前に:
 
 長い会話要約やprivate reasoningを保存するのではなく、fresh agentが再実行可能なoperational stateへ圧縮する。
 
+checkpointにはcanonical requirement（Issue / Spec / ADR等）のrefと必要なrevision、未反映の重要な要求・決定を識別できる形で残す。要求の正本がない長期taskでは、compaction前に必要な内容を適切なdurable artifactへ選別して保存する。checkpointの要約を新たな仕様の正本にしない。
+
+復旧後のagentは正本を直接再読し、目的・制約・受入基準をcheckpointと照合する。原文へアクセスできない場合は出典・版が明確なimmutableな抜粋を使い、重要な差異や欠落を推測で補わず解決する。実行状態の復元だけで要求の保持を確認済みにしない。
+
 ## 12. Recovery test
 
 recovery policyはdocumentだけで終わらせない。
