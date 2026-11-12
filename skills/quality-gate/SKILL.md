@@ -137,6 +137,8 @@ UI/UX、native platform、hardware integration等でautomationが十分でない
 
 manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
 
+UIやnative appの変更で人間のレビューが必要な場合は、[visual/native review handoff](references/visual-review-handoff.md) に従い、対象SHA・デザイン正本・実機証拠・不一致・未確認・残る判断を差分中心にまとめる。非視覚taskへ一律適用しない。
+
 ### Cross-device verification placement
 
 Where the target can run on multiple OS environments, apply [execution placement](../../organization/execution-placement.md) before selecting a verifier. Prefer the actual native target for OS-specific claims; Windows native and WSL/Linux are not interchangeable. For resource-heavy and singleton GUI/device checks, consider real physical-host contention and lease/serialization. Herdr/SSH connectivity and green cross-OS CI do not prove real-user GUI E2E. Record candidate SHA, host/OS identity and evidence provenance.
