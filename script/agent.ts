@@ -60,6 +60,12 @@ import {
   UnknownGuideTopicError,
 } from "./agent/help";
 import { loadCatalog } from "./agent/catalog";
+import {
+  parseFallbackProfile,
+  resolveFallbackProfile,
+  renderFallbackResolution,
+} from "./agent/fallback";
+import { agentStateDir } from "./agent/contract";
 import { ContractError, redactJson } from "./agent/contract";
 
 const PROGRAM = "agent";
@@ -1096,8 +1102,8 @@ type Action =
   | ["models", string]
   | ["shortcuts", string | null]
   | ["native", string, string[]]
-  | ["run", string, string, string | null, string[]];
-
+  | ["run", string, string, string | null, string[]]
+  | ["fallback", string, boolean];  // profile-id, json
 function parseArgs(argv: string[]): Action {
   // Parse argv without touching the config.
   const head = argv[0];
@@ -1146,8 +1152,24 @@ function parseArgs(argv: string[]): Action {
         "usage: agent shortcuts [list|check|create|remove]"
     );
   }
+  if (head === "fallback") {
+    if (argv.length < 2) {
+      throw new AgentError("usage: agent fallback <profile-id> [--json]");
+    }
+    const profileId = argv[1];
+    let json = false;
+    for (let i = 2; i < argv.length; i++) {
+      if (argv[i] === "--json") {
+        json = true;
+      } else {
+        throw new AgentError(`unexpected argument '${argv[i]}'; usage: agent fallback <profile-id> [--json]`);
+      }
+    }
+    return ["fallback", profileId, json];
+  }
 
-  const harnessKey = head;
+
+   const harnessKey = head;
   if (argv.length < 2) {
     // Provider omitted: native mode — run the harness untouched (no
     // endpoint/model/credential injection; its own subscription/account).
@@ -2469,6 +2491,111 @@ function cmdRoutes(config: Config, argv: string[]): number {
   return 0;
 }
 
+/**
+ * `agent fallback <profile-id> [--json]`: resolve and display an opt-in
+ * continuity profile (issue #136). Shows usable candidates, rejected candidates
+ * with reasons, and overall status. Does not execute any fallback — only
+ * validates the profile against current catalog and attestation state.
+ */
+function cmdFallback(config: Config, profileId: string, json: boolean): number {
+  // Parse profile from config using Bun's native TOML parser
+  const tomlText = readFileSync(config.path, "utf-8");
+  const parsedToml = Bun.TOML.parse(tomlText) as Record<string, unknown>;
+
+  const profile = parseFallbackProfile(parsedToml, profileId);
+  if (!profile) {
+    throw new AgentError(`fallback profile not found: ${profileId}`);
+  }
+
+  // Build CatalogLike from config (includes all routes, not just those with catalog metadata)
+  const catalogLike = buildCatalogLike(config);
+
+  // Load attestations from local catalog state
+  const attestationMap = loadAttestations();
+
+  // Get primary quota scope for cross-candidate validation
+  const primaryQuotaScope = getPrimaryQuotaScope(config, profile.primaryRoute);
+
+  // Resolve profile
+  const resolution = resolveFallbackProfile(profile, catalogLike, attestationMap, primaryQuotaScope);
+
+  if (json) {
+    console.log(JSON.stringify(resolution, null, 2));
+  } else {
+    console.log(renderFallbackResolution(resolution));
+  }
+  return 0;
+}
+
+function buildCatalogLike(config: Config): {
+  routes: Record<string, { provider: string; models?: string[]; require_model?: boolean; default_model?: string }>;
+  providers: Record<string, { models: string[]; require_model?: boolean; default_model?: string; require_infisical?: boolean }>;
+  harnesses: Record<string, { adapter: string }>;
+} {
+  const routes: Record<string, { provider: string; models?: string[]; require_model?: boolean; default_model?: string }> = {};
+  for (const [key, route] of Object.entries(config.routes)) {
+    routes[key] = {
+      provider: route.provider,
+      models: route.models ?? undefined,
+      require_model: route.require_model,
+      default_model: route.default_model ?? undefined,
+    };
+  }
+
+  const providers: Record<string, { models: string[]; require_model?: boolean; default_model?: string; require_infisical?: boolean }> = {};
+  for (const [key, provider] of Object.entries(config.providers)) {
+    providers[key] = {
+      models: provider.models,
+      require_model: provider.require_model,
+      default_model: provider.default_model ?? undefined,
+      require_infisical: provider.require_infisical,
+    };
+  }
+
+  const harnesses: Record<string, { adapter: string }> = {};
+  for (const [key, harness] of Object.entries(config.harnesses)) {
+    harnesses[key] = { adapter: harness.adapter };
+  }
+
+  return { routes, providers, harnesses };
+}
+
+
+
+ 
+function loadAttestations(): Map<string, any> {
+  const map = new Map<string, any>();
+  const stateDir = join(agentStateDir(), "catalog");
+  if (!existsSync(stateDir)) return map;
+
+  for (const file of readdirSync(stateDir)) {
+    if (!file.endsWith(".json")) continue;
+    try {
+      const content = readFileSync(join(stateDir, file), "utf-8");
+      const data = JSON.parse(content);
+      // Catalog state stores attestations by route#model key
+      if (data.attestations && typeof data.attestations === "object") {
+        for (const [key, value] of Object.entries(data.attestations)) {
+          map.set(key, value);
+        }
+      }
+    } catch {
+      // ignore malformed files
+    }
+  }
+  return map;
+}
+
+function getPrimaryQuotaScope(config: Config, primaryRoute: string): string | null {
+  const route = config.routes[primaryRoute];
+  if (!route) return null;
+  const provider = config.providers[route.provider];
+  if (!provider) return null;
+  // Use the quota scope from catalog if available, otherwise construct from provider
+  // This is a simplified version; real implementation would use catalog quota scope
+  return `${provider.secret}:${provider.env}`;
+}
+
 async function main(argv: string[]): Promise<number> {
   if (argv.length > 0 && argv[0] === "__exec") {
     return cmdExec(argv.slice(1));
@@ -2543,6 +2670,10 @@ async function main(argv: string[]): Promise<number> {
   }
   if (action[0] === "shortcuts") {
     return cmdShortcuts(config, action[1]);
+  }
+  if (action[0] === "fallback") {
+    const [, profileId, json] = action;
+    return cmdFallback(config, profileId, json);
   }
   if (action[0] === "native") {
     const [, harnessKey, nativePassthru] = action;

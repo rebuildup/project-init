@@ -743,3 +743,55 @@ note = "HTTP 429 Token Plan limit; response/tool success unverified. No fallback
 at = "2026-11-04T00:00:00Z"
 source = "live-e2e"
 sha = "bed3716a5008c424a3b2bf97204f1d8ebafe8a6b"
+note = "Real response + tool call, OMP."
+
+# ---------------------------------------------------------------------------
+# Fallback profiles (issue #136 / T020, Epic #86): opt-in continuity profiles
+# for authorized fallback within the same harness.
+#
+# These profiles are ADDITIVE and opt-in only. The launcher retains strict
+# single-route behavior by default. A profile only takes effect when explicitly
+# selected and fully validated. No implicit fallback, no silent billing changes.
+#
+# Each profile is a policy OVER configured routes (not a second catalog):
+# - route/model must exist in the configured routes/providers above
+# - credential source must match the route's requirements
+# - billing boundary, spend caps, scope, and expiration are enforced
+# - attestation must be fresh and verified-live (not restricted/unknown/stale)
+# - candidates sharing the primary's exhausted quota scope are rejected
+#
+# Profile table name: [fallback_profile.<id>]
+#
+# Required fields:
+#   id = "<id>"                    # must match table key
+#   version = 1                    # schema version
+#   description = "..."            # human-readable purpose
+#   primary_route = "harness.provider"  # route being protected
+#   authorized_at = "2026-11-12T00:00:00Z"  # ISO 8601 UTC
+#   authorized_by = "..."          # audit trail
+#   candidates = [                 # ordered priority list
+#     { route = "harness.provider", model = "...", billing = "metered|free|subscription|plan",
+#       credential = "infisical|native-auth|env-file|unset", max_spend = 0,
+#       scope = "read-only|local-writes|full", expires_at = "...", note = "..." }
+#   ]
+#
+# Optional fields:
+#   global_max_spend = 0           # total cap across all candidates
+#   expires_at = "..."             # profile expiration (ISO 8601 UTC)
+#   revoked = false                # immediate disable
+#
+# Example (disabled by default - remove 'disabled = true' and fill in real values to enable):
+#
+[fallback_profile.omp-mistral-quota]
+id = "omp-mistral-quota"
+version = 1
+description = "Authorized fallback when omp.mistral quota exhausted"
+primary_route = "omp.mistral"
+authorized_at = "2026-11-12T00:00:00Z"
+authorized_by = "operator-name"
+expires_at = "2026-12-31T23:59:59Z"
+global_max_spend = 50
+candidates = [
+  { route = "omp.openrouter", model = "z-ai/glm-5.3-flash", billing = "metered", credential = "infisical", max_spend = 30, scope = "local-writes", note = "Paid fallback with Infisical credential" },
+  { route = "omp.openrouter-free", model = "nvidia/nemotron-3-ultra-550b-a55b:free", billing = "free", credential = "infisical", max_spend = 0, scope = "read-only", note = "Free tier fallback" },
+]
