@@ -103,8 +103,8 @@ usage:
   agent check
   agent guide [topic]
   agent routes [--json]
+  agent fallback <profile-id> [--json]
   agent help
-
 subcommands:
   agent help                 show this help
   agent list                 show every configured harness/provider route
@@ -125,6 +125,9 @@ subcommands:
   agent routes               route table with catalog facts (quota scopes,
                              rate limits, restrictions, e2e evidence);
                              --json emits the same data as redacted JSON
+  agent fallback <profile-id> [--json]  resolve and display an opt-in
+                             continuity profile for authorized same-harness
+                             fallback (issue #136); does not execute fallback
   agent help --json          machine-readable help (quotes this text)
 
 shortcut form:
