@@ -4,7 +4,7 @@
  *
  * Implements authorized provider/model switching within the same harness
  * when the primary route becomes unusable. Uses the validated fallback
- * profile from #136 and error classification from #92.
+ * profile from #136 and error classification compatible with #92 (limits.ts).
  *
  * Does NOT implement cross-harness or cross-host migration (those belong to #101).
  */
@@ -36,176 +36,267 @@ import { readFileSync, existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 // ---------------------------------------------------------------------------
-// Error classification (integrates with #92 limits.ts)
+// Error classification (compatible with #92 limits.ts)
 // ---------------------------------------------------------------------------
 
-export type ProviderErrorClass =
-  | "rate-limited"      // 429 with retry-after
-  | "quota-exhausted"   // 402/429 account/plan limit
-  | "auth-failed"       // 401/403 authentication/authorization
-  | "payment-required"  // 402 billing/payment
-  | "upstream-error"    // 5xx provider errors
-  | "network-error"     // timeout, connection failure
-  | "context-overflow"  // context length exceeded
-  | "model-invalid"     // model not found/supported
-  | "unknown";          // unclassified
+/**
+ * Failure categories matching limits.ts taxonomy.
+ * When limits.ts (#119) is merged, this module should import from there.
+ */
+export type LimitCategory =
+  | "rate-limit"       // 429 with retry-after; transient, reset possible
+  | "quota-exhausted"  // 429 with observed depleted allowance (remaining 0)
+  | "concurrency"      // parallelism limit; transient, no reset
+  | "billing"          // 402 payment required; NOT transient, NO reset
+  | "auth"             // 401/403; NOT transient, NO reset
+  | "network"          // timeout/dns/unreachable/5xx; transient
+  | "context"          // context length exceeded; deterministic
+  | "model-invalid"    // unknown/mismatched model id; config error
+  | "unknown";         // fail closed
 
+export const LIMIT_CATEGORIES: readonly LimitCategory[] = [
+  "rate-limit",
+  "quota-exhausted",
+  "concurrency",
+  "billing",
+  "auth",
+  "network",
+  "context",
+  "model-invalid",
+  "unknown",
+];
+
+/** Policy facts per category — single authority for decisions. */
+export interface CategoryFacts {
+  transient: boolean;
+  resetPossible: boolean;
+  scopeBlock: boolean;
+  checkpointRecovery: boolean;
+}
+
+export const CATEGORY_FACTS: Record<LimitCategory, CategoryFacts> = {
+  "rate-limit": { transient: true, resetPossible: true, scopeBlock: true, checkpointRecovery: true },
+  "quota-exhausted": { transient: true, resetPossible: true, scopeBlock: true, checkpointRecovery: true },
+  concurrency: { transient: true, resetPossible: false, scopeBlock: true, checkpointRecovery: true },
+  billing: { transient: false, resetPossible: false, scopeBlock: true, checkpointRecovery: false },
+  auth: { transient: false, resetPossible: false, scopeBlock: true, checkpointRecovery: false },
+  network: { transient: true, resetPossible: false, scopeBlock: false, checkpointRecovery: true },
+  context: { transient: false, resetPossible: false, scopeBlock: false, checkpointRecovery: false },
+  "model-invalid": { transient: false, resetPossible: false, scopeBlock: false, checkpointRecovery: false },
+  unknown: { transient: false, resetPossible: false, scopeBlock: false, checkpointRecovery: false },
+};
+
+/** Severity for admission block merging: lower = more severe. */
+export const CATEGORY_SEVERITY: Record<LimitCategory, number> = {
+  billing: 0,
+  auth: 0,
+  "quota-exhausted": 1,
+  "rate-limit": 2,
+  concurrency: 3,
+  network: 4,
+  context: 5,
+  "model-invalid": 5,
+  unknown: 6,
+};
+
+/** Classification result with structured evidence (no message scraping). */
 export interface ClassifiedError {
-  class: ProviderErrorClass;
+  category: LimitCategory;
+  observedAt: string;
+  resetAt: string | null;
   retryAfterMs: number | null;
+  exhausted: boolean;
+  reason: string;
   quotaScopeKey: string | null;
-  isRetryable: boolean;
-  isTerminal: boolean;
-  evidence: {
-    httpStatus?: number;
-    errorCode?: string;
-    message?: string;
-    timestamp: string;
-  };
+}
+
+const REASON_BY_CATEGORY: Record<LimitCategory, string> = {
+  "rate-limit": "HTTP 429: rate limited",
+  "quota-exhausted": "HTTP 429: allowance depleted (remaining 0 observed)",
+  concurrency: "concurrency limit observed",
+  billing: "HTTP 402: payment required; no provider reset time exists",
+  auth: "credential or authorization failure; not transient",
+  network: "transport or provider unavailable",
+  context: "request exceeds the model context window",
+  "model-invalid": "model id unknown or mismatched",
+  unknown: "unrecognized failure; failing closed",
+};
+
+const ERROR_KIND_CATEGORY: Record<string, LimitCategory> = {
+  context_length_exceeded: "context",
+  model_not_found: "model-invalid",
+  invalid_api_key: "auth",
+  insufficient_quota: "billing",
+  overloaded_error: "network",
+};
+
+const MIRRORED_EXIT_CODES: Record<number, LimitCategory> = {
+  401: "auth",
+  402: "billing",
+  403: "auth",
+  429: "rate-limit",
+};
+
+const PROBE_FAILURE_CATEGORY: Record<string, LimitCategory> = {
+  config: "unknown",
+  "model-mismatch": "model-invalid",
+  "credential-missing": "auth",
+  "not-launchable": "unknown",
+  dns: "network",
+  network: "network",
+  timeout: "network",
+  auth: "auth",
+  payment: "billing",
+  forbidden: "auth",
+  "rate-limit": "rate-limit",
+  "rate-limit-cooldown": "rate-limit",
+  restricted: "auth",
+  "no-tool-call": "unknown",
+  "unsupported-wire": "unknown",
+  http: "unknown",
+};
+
+const MAX_RETRY_AFTER_MS = 60 * 60 * 1000;
+const MAX_RESET_HORIZON_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+interface FailureSignal {
+  httpStatus?: number | null;
+  failureKind?: string | null;
+  exitCode?: number | null;
+  retryAfterMs?: number | null;
+  resetAt?: string | null;
+  usage?: Array<{ metric: string; remaining: number }> | null;
+  errorKind?: string | null;
+  quotaScopeKey?: string | null;
+}
+
+function requireIsoTime(ts: string, where: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/.test(ts)) {
+    throw new ContractError("schema", `${where}: not a valid ISO 8601 UTC timestamp`);
+  }
+  return ts;
+}
+
+function optionalNumber(raw: unknown, where: string, min: number, max: number): number | null {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "number" || !Number.isFinite(raw) || !Number.isInteger(raw)) {
+    throw new ContractError("schema", `${where}: must be a finite integer`);
+  }
+  if (raw < min || raw > max) {
+    throw new ContractError("schema", `${where}: out of range`);
+  }
+  return raw;
+}
+
+function checkSignal(signal: FailureSignal, observedMs: number): {
+  httpStatus: number | null;
+  failureKind: string | null;
+  exitCode: number | null;
+  retryAfterMs: number | null;
+  resetAt: string | null;
+  usage: Array<{ metric: string; remaining: number }>;
+  errorKind: string | null;
+} {
+  if (!signal || typeof signal !== "object") {
+    throw new ContractError("schema", "signal object expected");
+  }
+  
+  const httpStatus = optionalNumber(signal.httpStatus, "httpStatus", 100, 599);
+  if (httpStatus !== null && httpStatus < 400) {
+    throw new ContractError("schema", `httpStatus ${httpStatus} is not a failure`);
+  }
+  
+  let failureKind: string | null = null;
+  if (signal.failureKind !== undefined && signal.failureKind !== null) {
+    if (typeof signal.failureKind !== "string" || !PROBE_FAILURE_CATEGORY[signal.failureKind]) {
+      throw new ContractError("schema", `unknown failureKind`);
+    }
+    failureKind = signal.failureKind;
+  }
+  
+  const exitCode = optionalNumber(signal.exitCode, "exitCode", 0, 4_294_967_295);
+  const retryAfterMs = optionalNumber(signal.retryAfterMs, "retryAfterMs", 0, MAX_RETRY_AFTER_MS);
+  
+  let resetAt: string | null = null;
+  if (signal.resetAt !== undefined && signal.resetAt !== null) {
+    const parsed = requireIsoTime(signal.resetAt, "resetAt");
+    if (Date.parse(parsed) - observedMs <= MAX_RESET_HORIZON_MS) resetAt = parsed;
+  }
+  
+  let usage: Array<{ metric: string; remaining: number }> = [];
+  if (signal.usage !== undefined && signal.usage !== null) {
+    if (!Array.isArray(signal.usage)) {
+      throw new ContractError("schema", "usage must be an array");
+    }
+    usage = signal.usage;
+  }
+  
+  let errorKind: string | null = null;
+  if (signal.errorKind !== undefined && signal.errorKind !== null) {
+    if (typeof signal.errorKind !== "string" || !/^[A-Za-z0-9_.-]{1,100}$/.test(signal.errorKind)) {
+      throw new ContractError("schema", "malformed errorKind");
+    }
+    errorKind = signal.errorKind;
+  }
+  
+  return { httpStatus, failureKind, exitCode, retryAfterMs, resetAt, usage, errorKind };
 }
 
 /**
- * Classify a provider error from structured evidence.
- * Mirrors the classification logic from #92 limits.ts.
+ * Classify a failure from structured evidence ONLY.
+ * Mirrors limits.ts logic: HTTP status -> probe failureKind -> exit code -> unknown.
+ * Message text is NEVER scraped; unknown fails closed.
  */
-export function classifyProviderError(evidence: {
-  httpStatus?: number;
-  errorCode?: string;
-  message?: string;
-  quotaScopeKey?: string;
-}): ClassifiedError {
-  const timestamp = new Date().toISOString();
-  const httpStatus = evidence.httpStatus;
-  const errorCode = evidence.errorCode?.toLowerCase();
-  const message = evidence.message?.toLowerCase() ?? "";
-  const originalMessage = evidence.message ?? "";
-  const quotaScopeKey = evidence.quotaScopeKey ?? null;
-
-  // Payment required (402 with billing/payment terms) - most specific first
-  if (httpStatus === 402 && (errorCode === "payment_required" || message.includes("payment") || message.includes("billing") || message.includes("insufficient"))) {
-    return {
-      class: "payment-required",
-      retryAfterMs: null,
-      quotaScopeKey,
-      isRetryable: false,
-      isTerminal: true,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Authentication failure
-  if (httpStatus === 401 || httpStatus === 403 || errorCode === "unauthorized" || errorCode === "forbidden" || message.includes("auth") || message.includes("unauthorized") || message.includes("forbidden")) {
-    return {
-      class: "auth-failed",
-      retryAfterMs: null,
-      quotaScopeKey,
-      isRetryable: false,
-      isTerminal: true, // Auth issues don't self-resolve
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Quota exhausted (402 without billing terms, OR 429 with quota/exhausted/limit context but not rate limit)
-  if (httpStatus === 402 || (httpStatus === 429 && (message.includes("quota") || message.includes("exhausted") || (message.includes("limit") && !message.includes("rate limit"))))) {
-    return {
-      class: "quota-exhausted",
-      retryAfterMs: null, // No automatic reset time known
-      quotaScopeKey,
-      isRetryable: false, // Requires fallback profile
-      isTerminal: false,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Rate limiting with retry-after
-  if (httpStatus === 429 || errorCode === "rate_limit" || errorCode === "ratelimit" || message.includes("rate limit")) {
-    const retryAfterMs = extractRetryAfterMs(originalMessage);
-    return {
-      class: "rate-limited",
-      retryAfterMs,
-      quotaScopeKey,
-      isRetryable: true,
-      isTerminal: false,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Upstream/provider errors (5xx)
-  if (httpStatus && httpStatus >= 500 && httpStatus < 600) {
-    return {
-      class: "upstream-error",
-      retryAfterMs: 30000, // Default 30s backoff
-      quotaScopeKey,
-      isRetryable: true,
-      isTerminal: false,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Network errors
-  if (errorCode === "timeout" || errorCode === "econnrefused" || errorCode === "enetunreach" || message.includes("timeout") || message.includes("connection") || message.includes("network")) {
-    return {
-      class: "network-error",
-      retryAfterMs: 5000,
-      quotaScopeKey,
-      isRetryable: true,
-      isTerminal: false,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Context overflow
-  if (errorCode === "context_length_exceeded" || message.includes("context length") || message.includes("max tokens") || message.includes("token limit")) {
-    return {
-      class: "context-overflow",
-      retryAfterMs: null,
-      quotaScopeKey,
-      isRetryable: false,
-      isTerminal: true,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Model invalid
-  if (httpStatus === 404 || errorCode === "model_not_found" || message.includes("model") && (message.includes("not found") || message.includes("invalid") || message.includes("unsupported"))) {
-    return {
-      class: "model-invalid",
-      retryAfterMs: null,
-      quotaScopeKey,
-      isRetryable: false,
-      isTerminal: true,
-      evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-    };
-  }
-
-  // Unknown
-  return {
-    class: "unknown",
-    retryAfterMs: null,
-    quotaScopeKey,
-    isRetryable: false,
-    isTerminal: true,
-    evidence: { httpStatus, errorCode, message: evidence.message, timestamp },
-  };
-}
-
-function extractRetryAfterMs(message: string): number | null {
-  // Look for retry-after patterns: "retry after 60s", "retry-after: 60", "wait 30 seconds"
-  // Note: no 'g' flag because String.match() with 'g' doesn't return capture groups
-  const patterns = [
-    /retry.after[:\s]+(\d+)\s*s/i,
-    /retry.after[:\s]+(\d+)\s*seconds?/i,
-    /retry.after[:\s]+(\d+)/i,
-    /wait\s+(\d+)\s*seconds?/i,
-  ];
-  for (const pattern of patterns) {
-    const match = message.match(pattern);
-    if (match && match[1]) {
-      const seconds = parseInt(match[1], 10);
-      if (!isNaN(seconds) && seconds > 0) return seconds * 1000;
+export function classifyFailure(signal: FailureSignal, observedAt: string): ClassifiedError {
+  requireIsoTime(observedAt, "observedAt");
+  const observedMs = Date.parse(observedAt);
+  const checked = checkSignal(signal, observedMs);
+  
+  let category: LimitCategory = "unknown";
+  
+  if (checked.httpStatus !== null) {
+    const status = checked.httpStatus;
+    if (status === 401 || status === 403) {
+      category = "auth";
+    } else if (status === 402) {
+      category = "billing";
+    } else if (status === 429) {
+      if (checked.errorKind && ERROR_KIND_CATEGORY[checked.errorKind]) {
+        category = ERROR_KIND_CATEGORY[checked.errorKind];
+      } else if (checked.usage.some((u) => u.metric === "concurrency")) {
+        category = "concurrency";
+      } else if (checked.usage.some((u) => u.remaining === 0)) {
+        category = "quota-exhausted";
+      } else {
+        category = "rate-limit";
+      }
+    } else if (status === 413) {
+      category = "context";
+    } else if (status === 400 || status === 404) {
+      category = checked.errorKind && ERROR_KIND_CATEGORY[checked.errorKind]
+        ? ERROR_KIND_CATEGORY[checked.errorKind]
+        : "unknown";
+    } else if (status >= 500) {
+      category = "network";
     }
+  } else if (checked.failureKind) {
+    category = PROBE_FAILURE_CATEGORY[checked.failureKind];
+  } else if (checked.exitCode !== null) {
+    category = MIRRORED_EXIT_CODES[checked.exitCode] ?? "unknown";
   }
-  return null;
+  
+  const facts = CATEGORY_FACTS[category];
+  const exhausted = checked.usage.some((u) => u.remaining === 0);
+  
+  return {
+    category,
+    observedAt,
+    resetAt: facts.resetPossible ? checked.resetAt : null,
+    retryAfterMs: facts.transient ? checked.retryAfterMs : null,
+    exhausted,
+    reason: REASON_BY_CATEGORY[category],
+    quotaScopeKey: signal.quotaScopeKey ?? null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -226,14 +317,10 @@ export interface FallbackExecutionState {
   circuitBreakerOpenedAt: number | null;
 }
 
-export const FALLBACK_CIRCUIT_BREAKER_THRESHOLD = 3; // Open after 3 failures
-export const FALLBACK_CIRCUIT_BREAKER_RESET_MS = 60000; // Reset after 60s
+export const FALLBACK_CIRCUIT_BREAKER_THRESHOLD = 3;
+export const FALLBACK_CIRCUIT_BREAKER_RESET_MS = 60000;
 export const FALLBACK_MAX_RETRIES_PER_CANDIDATE = 2;
 export const FALLBACK_MAX_TOTAL_RETRIES = 5;
-
-// ---------------------------------------------------------------------------
-// Execution logic
-// ---------------------------------------------------------------------------
 
 /**
  * Execute a task with same-harness fallback support.
@@ -242,7 +329,7 @@ export const FALLBACK_MAX_TOTAL_RETRIES = 5;
 export async function executeWithFallback(
   config: Config,
   profileId: string,
-  taskFn: (route: RouteRef, model: string, candidate: FallbackCandidate) => Promise<{ success: boolean; error?: any; result?: any }>
+  taskFn: (route: RouteRef, model: string, candidate: FallbackCandidate) => Promise<{ success: boolean; error?: FailureSignal; result?: any }>
 ): Promise<{ route: RouteRef; model: string; candidate: FallbackCandidate; result: any }> {
   // Load and validate profile
   const tomlText = readFileSync(config.path, "utf-8");
@@ -271,7 +358,7 @@ export async function executeWithFallback(
   let state: FallbackExecutionState = {
     profileId,
     primaryRoute: primaryRouteRef,
-    primaryModel: "", // Will be set from task context
+    primaryModel: "",
     currentCandidateIndex: 0,
     usableCandidates: resolution.usable,
     attemptStartTime: Date.now(),
@@ -309,55 +396,35 @@ export async function executeWithFallback(
           return { route: routeRef, model, candidate: candidate.candidate, result: result.result };
         }
 
-        // Task failed - classify error
-        const classified = classifyProviderError(result.error ?? {});
+        // Task failed - classify error from structured evidence
+        const classified = classifyFailure(result.error ?? {}, new Date().toISOString());
         state.lastError = classified;
 
-        // Handle based on error class
-        switch (classified.class) {
-          case "rate-limited":
-            if (classified.retryAfterMs) {
-              await sleep(Math.min(classified.retryAfterMs, 60000));
-              candidateRetries++;
-              state.retryCount++;
-              continue;
-            }
-            break;
-
-          case "quota-exhausted":
-          case "payment-required":
-          case "auth-failed":
-            // Terminal for this candidate - move to next
-            candidateRetries = FALLBACK_MAX_RETRIES_PER_CANDIDATE + 1;
-            break;
-
-          case "upstream-error":
-          case "network-error":
-            await sleep(classified.retryAfterMs ?? 5000);
-            candidateRetries++;
-            state.retryCount++;
-            continue;
-
-          case "context-overflow":
-          case "model-invalid":
-          case "unknown":
-          default:
-            // Terminal - move to next candidate
-            candidateRetries = FALLBACK_MAX_RETRIES_PER_CANDIDATE + 1;
-            break;
+        // Handle based on category
+        const facts = CATEGORY_FACTS[classified.category];
+        
+        if (facts.transient && classified.retryAfterMs) {
+          // Rate limit with explicit retry-after: wait and retry
+          await sleep(Math.min(classified.retryAfterMs, 60000));
+          candidateRetries++;
+          state.retryCount++;
+          continue;
         }
+
+        // Non-transient or no retry-after: move to next candidate
+        // Quota/billing/auth never auto-retry on same or another paid route
+        candidateRetries = FALLBACK_MAX_RETRIES_PER_CANDIDATE + 1;
+        
       } catch (error) {
-        // Unexpected error - treat as unknown
+        // Unexpected error - treat as unknown (fail closed)
         const classified: ClassifiedError = {
-          class: "unknown",
+          category: "unknown",
+          observedAt: new Date().toISOString(),
+          resetAt: null,
           retryAfterMs: null,
+          exhausted: false,
+          reason: "unexpected error during task execution",
           quotaScopeKey: null,
-          isRetryable: false,
-          isTerminal: true,
-          evidence: {
-            message: error instanceof Error ? error.message : String(error),
-            timestamp: new Date().toISOString(),
-          },
         };
         state.lastError = classified;
         candidateRetries = FALLBACK_MAX_RETRIES_PER_CANDIDATE + 1;
@@ -373,7 +440,7 @@ export async function executeWithFallback(
   }
 
   // All candidates exhausted
-  throw new ContractError("state", `All fallback candidates exhausted for profile ${profileId}. Last error: ${state.lastError?.class ?? "unknown"}`);
+  throw new ContractError("state", `All fallback candidates exhausted for profile ${profileId}. Last error: ${state.lastError?.category ?? "unknown"}`);
 }
 
 function sleep(ms: number): Promise<void> {
