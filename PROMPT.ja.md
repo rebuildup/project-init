@@ -21,6 +21,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 
 - agent関連の設定: root instructions、既存のAgent Skills、plugin / MCP設定
 - 技術stack: language / framework / runtime / SDKの実version、manifest / lockfile、workspace構成
+- Web該当性: HTML/CSS・DOM・ブラウザ側JavaScript / Web UIの有無と対象ブラウザ範囲（該当する場合は `skill-selection` の `web-platform` 初期候補を確認）
 - 開発環境: devcontainer / Containerfile / Nix / `mise.toml`、host（macOS / WSL / Linux）差の扱い
 - 品質: test / lint / type / build、smoke・integration・E2Eの基盤、CI（GitHub Actions）
 - security: dependency / secret scanning、secret providerの設定、env schemaとexample
@@ -78,7 +79,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 
 導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
 
-- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。
+- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。Web UI/ブラウザ側実装を含むprojectでは `web-platform` の候補を初回に優先評価します。
 - 候補を `catalog/candidates.tsv` と外部の探索から集めて評価し、能力ごとに担当を決めます。
 - 外部packの入口（router）は入れず、個別のSkillだけを入れます。
 - project-localに `--copy` で導入し、Skillのfileと `skills-lock.json` をcommitします。
