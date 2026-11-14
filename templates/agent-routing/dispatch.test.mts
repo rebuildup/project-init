@@ -9,7 +9,7 @@ import { resolveRoute, parseArgs, discoverProjectRoot } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
-  assert.deepEqual(resolveRoute(config,'review'),{role:'review',supervisor:'herdr',harness:'pi',provider:'openrouter-free',fallback:'none',nativeSubagents:'deny'});
+  assert.deepEqual(resolveRoute(config,'review'),{role:'review',supervisor:'herdr',harness:'omp',provider:'openrouter-free',fallback:'none',nativeSubagents:'deny'});
 });
 test('implementation uses separately configured route',()=>{
   assert.equal(resolveRoute(config,'implementation').provider,'minimax');
