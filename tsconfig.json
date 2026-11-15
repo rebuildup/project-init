@@ -17,6 +17,7 @@
     "templates/quality/**/*.mts",
     "evals/**/*.mts",
     "scripts/**/*.mts",
-    "templates/agent-routing/**/*.mts"
+    "templates/agent-routing/**/*.mts",
+    "templates/supervisor-boundary/**/*.mts"
   ]
 }

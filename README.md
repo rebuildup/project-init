@@ -184,6 +184,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`ADR-0025`](./docs/adr/ADR-0025.md) — adaptive fan-out / fan-in、native subagentとtop-level Workerのrouting、Herdrによるagent-driven Supervisor loopを定義する方針。
 - [`ADR-0026`](./docs/adr/ADR-0026.md) — Cloudflare利用projectで `cf` をprimary CLI、Wranglerを明示的compatibility fallbackとするPractice。
 - [`ADR-0019`](./docs/adr/ADR-0019.md) — Worker / Supervisorをlogical roleとして定義し、execution attemptをobservational / mutable / durableへ段階化する判断。
+- [`ADR-0035`](./docs/adr/ADR-0035.md) — dedicated non-authoring SupervisorとWorkerの実権限分離、hookとOS/remote Broker境界の区別。
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
@@ -195,6 +196,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `sandbox-runtime` — isolated runtime と cross-platform portability
 - `github-delivery` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle。release planning / health / portfolio control planeはLinearに統一
 - `herdr-runtime` — Herdrをoptional Supervisor/session Practiceとして使う時のagent lifecycle mapping / agent-driven fan-out / recovery boundary
+- `supervisor-boundary` — dedicated Supervisorの直接実装を防ぐ権限契約。`templates/supervisor-boundary/` にClaude Code用deny-by-default参考hookを用意（OS/credential/Broker境界の実機検証は別途必須）
 - `templates/agent-routing/` — role別のtop-level委譲先をHerdr + dotfilesの統一`agent` launcherへ固定する参照CLI。run/evalは環境別に検証が必要
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
