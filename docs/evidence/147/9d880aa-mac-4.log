@@ -1,0 +1,5 @@
+$ bun evals/interaction-discipline/controls.mts
+  ok   negative control                   -> EVAL FAIL
+  ok   regression control                 -> EVAL FAIL
+  ok   positive control                   -> EVAL PASS
+controls OK: grader discriminates

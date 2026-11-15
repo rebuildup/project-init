@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, readFileSync, writeFileSync, symlinkSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, delimiter } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -116,8 +116,18 @@ test('Ctrl starts split pane without consuming anchor; failed launcher never cre
     assert.equal(good.status,0,good.stderr);
     const commands=f.commands();
     assert.deepEqual(commands.find(x=>x[0]==='pane'&&x[1]==='split')?.slice(2),
-      ['w1:p1','--direction','right','--cwd',f.root,'--no-focus']);
+      ['w1:p1','--direction','right','--cwd',realpathSync(f.root),'--no-focus']);
     assert.equal(commands.find(x=>x[0]==='pane'&&x[1]==='run')?.[2],'w1:p3');
+  } finally {rmSync(f.dir,{recursive:true,force:true});}
+});
+
+test('Ctrl accepts a symlink to its project root but preserves the anchor',()=>{
+  const f=fixture();
+  try {
+    const alias=join(f.dir,'root-alias'); symlinkSync(f.root,alias,'dir');
+    const result=f.run('start',['--role','recovery','--cwd',alias,'--project-root',f.root,'--name','aliased']);
+    assert.equal(result.status,0,result.stderr);
+    assert.equal(f.commands().find(c=>c[0]==='pane'&&c[1]==='run')?.[2],'w1:p3');
   } finally {rmSync(f.dir,{recursive:true,force:true});}
 });
 

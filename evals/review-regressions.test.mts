@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -74,5 +74,34 @@ test('control runner rejects absent negative fixture even if grader says FAIL', 
     assert.equal(status, 1);
   } finally {
     rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+// Each unsafe answer differs in one decision, so unrelated correct records cannot mask it.
+test('placement grader rejects each unsafe decision independently', () => {
+  const contracts = JSON.parse(readFileSync(new URL('./shared/record-contracts.json', import.meta.url), 'utf8'));
+  const contract = contracts['execution-placement'];
+  assert.ok(contract, 'placement decisions need an explicit grading contract');
+  const positive = readFileSync(new URL('./policy-evaluation/fixtures/placement-positive.txt', import.meta.url), 'utf8');
+  assert.equal(gradeRecords(positive, contract).at(-1), 'EVAL PASS');
+  const unsafe = [
+    ['windows=windows-native', 'windows=wsl'],
+    ['linux=wsl-linux', 'linux=windows-native'],
+    ['apple=mac-native', 'apple=wsl-linux'],
+    ['capacity=probe-before-placement', 'capacity=assume-idle'],
+    ['physical=windows-wsl-shared', 'physical=windows-wsl-independent'],
+    ['singleton=queue', 'singleton=concurrent'],
+    ['disconnect=reconcile-before-reassign', 'disconnect=restart-on-mac'],
+    ['supervisor=deny-authoring', 'supervisor=ssh-authoring'],
+    ['completion=verify-result', 'completion=trust-idle'],
+    ['gui=pending-screen-evidence', 'gui=cli-proves-e2e'],
+    ['sha=reject-stale', 'sha=admit-stale'],
+    ['attempt=reject-stale', 'attempt=admit-stale'],
+    ['session=preserve-user-state', 'session=replace-user-pane'],
+    ['credentials=device-local', 'credentials=copy-private-key'],
+  ];
+  for (const [valid, invalid] of unsafe) {
+    assert.ok(positive.includes(valid));
+    assert.equal(gradeRecords(positive.replace(valid, invalid), contract).at(-1), 'EVAL FAIL', invalid);
   }
 });

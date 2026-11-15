@@ -1,0 +1,13 @@
+✔ canonical alias overrides and inconsistent later lane inventory (1.691625ms)
+✔ atomic reservation stops duplicate start; prompt/read require bound role and active agent (2056.31825ms)
+✔ Ctrl starts split pane without consuming anchor; failed launcher never creates a pane (1280.413041ms)
+✔ Ctrl accepts a symlink to its project root but preserves the anchor (1426.764542ms)
+✔ non-repository Git errors fail closed instead of creating a second workspace (347.15225ms)
+ℹ tests 5
+ℹ suites 0
+ℹ pass 5
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5165.7935

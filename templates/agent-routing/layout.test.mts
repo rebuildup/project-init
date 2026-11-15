@@ -1,9 +1,10 @@
 import { strict as assert } from 'node:assert';
 import { test } from 'node:test';
+import { resolve } from 'node:path';
 import { normalizeSnapshot, resolveLayout, planPlacement } from './layout.mts';
 
-const root='/work/project';
-const worker='/work/project-wt/134';
+const root=resolve('/work/project');
+const worker=resolve('/work/project-wt/134');
 const opts={functionName:'implementation',cwd:worker,projectRoot:root,name:'impl134',layout:{}};
 const empty={result:{workspaces:[] as {workspace_id:string; label?:string}[],tabs:[],panes:[],agents:[]}};
 const active={result:{

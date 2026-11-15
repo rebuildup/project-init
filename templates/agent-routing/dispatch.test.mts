@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -9,7 +9,7 @@ import { resolveRoute, parseArgs, discoverProjectRoot } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
-  assert.deepEqual(resolveRoute(config,'review'),{role:'review',supervisor:'herdr',harness:'pi',provider:'openrouter-free',fallback:'none',nativeSubagents:'deny'});
+  assert.deepEqual(resolveRoute(config,'review'),{role:'review',supervisor:'herdr',harness:'omp',provider:'openrouter-free',fallback:'none',nativeSubagents:'deny'});
 });
 test('implementation uses separately configured route',()=>{
   assert.equal(resolveRoute(config,'implementation').provider,'minimax');
@@ -58,8 +58,8 @@ test('linked Git worktrees identify the common project root automatically',()=>{
     assert.equal(commit.status,0,commit.stderr);
     const create=run(['-C',root,'worktree','add','-qb','layout-check',wt]);
     assert.equal(create.status,0,create.stderr);
-    assert.equal(discoverProjectRoot(wt),resolve(root));
-    assert.equal(discoverProjectRoot(root),resolve(root));
+    assert.equal(discoverProjectRoot(wt),realpathSync(root));
+    assert.equal(discoverProjectRoot(root),realpathSync(root));
   } finally {
     spawnSync('git',['-C',root,'worktree','remove','--force',wt]);
     rmSync(wt,{recursive:true,force:true});
