@@ -15,3 +15,7 @@ spawn inputには正本のrefと必要なrevision/snapshotを明示する。子�
 fan-inではchildのsummary/完了宣言ではなく、正本の要求とcurrent artifact・validationを照合する。新たなscope/decisionをhandoff中に暗黙に確定させない。
 
 A fresh agent must verify the original scope, negative constraints, acceptance criteria and resulting artifact; it must not treat a private summary/checkpoint or an inaccessible partial excerpt as authoritative. This rule does not force new Issues for small short-lived work.
+
+## Recovery lifecycle
+
+GitHub上のIssue/PR/branch metadataはdurable recovery evidenceであり、active durable ticket branchにpublished remote head + PRがない状態を正常状態として扱わない。PRが存在する場合もactive/incompleteならDraft、readiness条件を満たしていればReady for reviewであることをreconcileする。Ready ticket PRの未landing、land済みopen Issue、merged/landed後のstale ticket branchもdriftとしてrepairする。zero-diff release branchはDraft release PR invariantの例外だが、first meaningful integrated difference後はDraft release PRを必須とし、release PRをautonomous ticket landingへ含めない。
