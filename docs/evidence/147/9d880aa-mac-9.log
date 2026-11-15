@@ -1,0 +1,10 @@
+✔ new project: one workspace and Ctrl anchor, new Work tab without focus steal (1571.4405ms)
+✔ existing project: a new split, never a new workspace/tab or overwritten live pane (1366.432458ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 2987.995916

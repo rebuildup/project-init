@@ -1,0 +1,86 @@
+[
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run typecheck",
+    "exit": 0,
+    "seconds": 0.42
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run test:adaptive",
+    "exit": 0,
+    "seconds": 4.61
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run test:eval-regressions",
+    "exit": 0,
+    "seconds": 0.09
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run test:release-batching",
+    "exit": 0,
+    "seconds": 0.09
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run test:interaction",
+    "exit": 0,
+    "seconds": 0.03
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun run test:linear",
+    "exit": 0,
+    "seconds": 0.03
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun evals/policy-evaluation/comparative-controls.mts",
+    "exit": 0,
+    "seconds": 0.03
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "node --test templates/agent-routing/dispatch.test.mts",
+    "exit": 0,
+    "seconds": 0.33
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "node --test templates/agent-routing/layout.test.mts",
+    "exit": 0,
+    "seconds": 0.09
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "node --test templates/agent-routing/dispatch.integration.test.mts",
+    "exit": 0,
+    "seconds": 3.02
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "node --test templates/agent-routing/routing-regressions.test.mts",
+    "exit": 0,
+    "seconds": 5.19
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "node --test templates/agent-routing/materialize.test.mts",
+    "exit": 0,
+    "seconds": 0.09
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bun evals/policy-evaluation/controls.mts",
+    "exit": 0,
+    "seconds": 0.33
+  },
+  {
+    "sha": "9d880aa25919a22e982a7cbd2d1d4ee874938dc3",
+    "command": "bash evals/skills-cli-materialization/controls.sh",
+    "exit": 0,
+    "seconds": 0.42
+  }
+]

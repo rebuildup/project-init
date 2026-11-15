@@ -198,5 +198,68 @@
       ]
     ],
     "order": false
+  },
+  "execution-placement": {
+    "heading": "Execution placement decisions",
+    "required": [
+      [
+        "windows",
+        "windows=windows-native"
+      ],
+      [
+        "linux",
+        "linux=wsl-linux"
+      ],
+      [
+        "apple",
+        "apple=mac-native"
+      ],
+      [
+        "capacity",
+        "capacity=probe-before-placement"
+      ],
+      [
+        "physical",
+        "physical=windows-wsl-shared"
+      ],
+      [
+        "singleton",
+        "singleton=queue"
+      ],
+      [
+        "disconnect",
+        "disconnect=reconcile-before-reassign"
+      ],
+      [
+        "supervisor",
+        "supervisor=deny-authoring"
+      ],
+      [
+        "completion",
+        "completion=verify-result"
+      ],
+      [
+        "gui",
+        "gui=pending-screen-evidence"
+      ],
+      [
+        "sha",
+        "sha=reject-stale"
+      ],
+      [
+        "attempt",
+        "attempt=reject-stale"
+      ],
+      [
+        "session",
+        "session=preserve-user-state"
+      ],
+      [
+        "credentials",
+        "credentials=device-local"
+      ]
+    ],
+    "forbid": [],
+    "order": false
   }
 }

@@ -1,0 +1,25 @@
+  ok   negative control                   -> EVAL FAIL
+  ok   regression control                 -> EVAL FAIL
+  ok   positive control                   -> EVAL PASS
+controls OK: grader discriminates
+  ok   merge auth negative                -> EVAL FAIL
+  ok   merge auth regression              -> EVAL FAIL
+  ok   merge auth stack scope             -> EVAL FAIL
+  ok   merge auth positive                -> EVAL PASS
+controls OK: grader discriminates
+  ok   placement negative                 -> EVAL FAIL
+  ok   placement stale-SHA regression     -> EVAL FAIL
+  ok   placement positive                 -> EVAL PASS
+controls OK: grader discriminates
+  ok   constitutional contract            -> PASS
+  ok   merge method contract              -> PASS
+  ok   mise toolchain contract            -> PASS
+  ok   Cloudflare CLI contract            -> PASS
+  ok   worktree lifecycle contract        -> PASS
+  ok   vendored skills contract           -> PASS
+  ok   skill catalog contract             -> PASS
+  ok   context budget regression          -> PASS
+  ok   placement routing contract         -> PASS
+  ok   Herdr orchestration contract       -> PASS
+  ok   constitutional refinement controls -> PASS
+controls OK: grader discriminates

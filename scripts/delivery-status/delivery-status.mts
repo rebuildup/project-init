@@ -86,7 +86,7 @@ query($owner: String!, $name: String!, $after: String) {
     pullRequests(states: OPEN, first: 50, after: $after, orderBy: {field: UPDATED_AT, direction: DESC}) {
       pageInfo { hasNextPage endCursor }
       nodes {
-        number title isDraft baseRefName headRefName headRefOid updatedAt
+        number title isDraft isCrossRepository baseRefName headRefName headRefOid updatedAt
         mergeable mergeStateStatus
         statusCheckRollup {
           state
@@ -158,6 +158,7 @@ interface RawPr {
   number: number;
   title: string;
   isDraft: boolean;
+  isCrossRepository: boolean;
   baseRefName: string;
   headRefName: string;
   headRefOid: string;
@@ -194,7 +195,7 @@ export function failingCheckNames(contexts: readonly RawContext[]): string[] {
 }
 
 // `gh api repos/o/n/compare/<default>...<branch>` -> commits `branch` has beyond default.
-// Returns null only for a 404 (branch missing); any other failure is rethrown.
+// Any API comparison failure is unknown, never a green/stale conclusion.
 function aheadOfDefault(owner: string, name: string, defaultBranch: string, branch: string): number | null {
   try {
     const cmp = ghJson<{ ahead_by: number }>([
@@ -203,7 +204,7 @@ function aheadOfDefault(owner: string, name: string, defaultBranch: string, bran
     ]);
     return cmp.ahead_by;
   } catch (error) {
-    if (error instanceof GhError && /HTTP 404/.test(error.stderr)) return null;
+    if (error instanceof GhError) return null;
     throw error;
   }
 }
@@ -222,6 +223,10 @@ function mergedPrCount(owner: string, name: string, branch: string): number {
     `head=${branch}`,
   ]);
   return data.data.repository.pullRequests.totalCount;
+}
+
+export function matchesReleasePr(pr: Pick<RawPr, 'headRefName' | 'baseRefName' | 'isCrossRepository'>, branch: string, defaultBranch: string): boolean {
+  return !pr.isCrossRepository && pr.headRefName === branch && pr.baseRefName === defaultBranch;
 }
 
 export function collectRepo(repo: string, now: Date): RepoReport {
@@ -262,7 +267,7 @@ export function collectRepo(repo: string, now: Date): RepoReport {
     .filter((branch) => branch.startsWith(RELEASE_BRANCH_PREFIX))
     .sort()
     .map((branch) => {
-      const openReleasePr = rawPrs.find((pr) => pr.headRefName === branch && pr.baseRefName === main);
+      const openReleasePr = rawPrs.find((pr) => matchesReleasePr(pr, branch, main));
       const facts: ReleaseBranchFacts = {
         name: branch,
         aheadOfDefault: aheadCached(branch),
@@ -312,7 +317,7 @@ export function renderText(report: Report): string {
     out.push('', `Release branches (${repo.releaseBranches.length})`);
     out.push(
       renderTable(
-        ['BRANCH', 'AHEAD_OF_MAIN', 'OPEN_RELEASE_PR', 'MERGED_PRS', 'FLAGS'],
+        ['BRANCH', 'AHEAD_OF_DEFAULT', 'OPEN_RELEASE_PR', 'MERGED_PRS', 'FLAGS'],
         repo.releaseBranches.map((b) => [
           b.name,
           b.aheadOfDefault === null ? 'unknown' : String(b.aheadOfDefault),
@@ -353,7 +358,7 @@ export function parseArgs(argv: readonly string[]): Args {
     else if (arg === '--help' || arg === '-h') args.help = true;
     else if (arg === '--repo') {
       const value = argv[++i];
-      if (value === undefined) throw new Error('--repo requires owner/name');
+      if (value === undefined || value.startsWith('-')) throw new Error('--repo requires owner/name');
       args.repos.push(value);
     } else throw new Error(`unknown argument: ${arg}`);
   }
@@ -393,7 +398,7 @@ function main(argv: readonly string[]): number {
   }
 
   const report: Report = { generatedAt: now.toISOString(), repos, errors };
-  process.stdout.write(args.json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report)}\n`);
+  process.stdout.write(redact(args.json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report)}\n`));
   return errors.length > 0 ? 1 : 0;
 }
 

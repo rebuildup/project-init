@@ -1,0 +1,20 @@
+Execution placement decisions:
+  hit   windows
+  hit   linux
+  hit   apple
+  hit   capacity
+  hit   physical
+  hit   singleton
+  hit   disconnect
+  hit   supervisor
+  hit   completion
+  hit   gui
+  hit   sha
+  hit   attempt
+  hit   session
+  hit   credentials
+must-nots:
+schema:
+
+hits: 14   misses: 0   violations: 0   lines: 14   invalid: 0   duplicates: 0
+EVAL PASS

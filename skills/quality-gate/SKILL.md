@@ -137,6 +137,10 @@ UI/UX、native platform、hardware integration等でautomationが十分でない
 
 manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
 
+UI/native変更で人間レビューが必要な場合は [visual/native review handoff](references/visual-review-handoff.md) に従う。非視覚taskへ一律適用しない。
+
+複数OSで動作する対象は [execution placement](../../organization/execution-placement.md) を適用し、実OS/deviceで検証する。WSL/Windows/macOSは互換ではない。
+
 ### Verification Executor / native environment
 
 verificationはimplementation workerと同じworkspace topologyを必須にしない。ADR-0020に従い、検証対象をimmutable candidate identityへpinし、environment identityとevidence provenanceを記録する。

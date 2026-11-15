@@ -37,7 +37,7 @@ node scripts/delivery-status/delivery-status.mts --json               # JSON 出
 ## 安全性と権限
 
 - 読み取り専用。merge・comment・label・branch 削除などの変更操作は一切行わない。GitHub API へは GraphQL の query と REST の GET のみを発行する。
-- 認証は `gh` に委譲し、token を読み取らず表示もしない。出力に現れうる token 形式の文字列は `[REDACTED]` に置換する。出力は Issue に貼り付けても安全な内容に限定している。
+- 認証は `gh` に委譲し、token を読み取らず表示もしない。出力に現れうる token 形式の文字列は `[REDACTED]` に置換する。出力のトークン形式はマスクするが、PRタイトルなど任意の機密文字列を含む可能性があるため、Issue等へ貼る前に人間が確認する。
 - merge 権限・review 承認は現状のまま。本レポートは検出と可視化のみを行い、github-delivery Skill の authorization boundary を変更しない。
 
 ## 定期実行
