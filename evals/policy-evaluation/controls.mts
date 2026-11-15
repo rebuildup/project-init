@@ -25,6 +25,12 @@ if (runControls(dir, '../shared/record-grader.mts', [
   ['placement positive', 'fixtures/placement-positive.txt', 'PASS'],
 ], 'EVAL', ['execution-placement']) !== 0) failed = true;
 
+if (runControls(dir, '../shared/record-grader.mts', [
+  ['handoff summary-loss negative', 'fixtures/requirement-handoff-negative.txt', 'FAIL'],
+  ['handoff partial-excerpt regression', 'fixtures/requirement-handoff-regression.txt', 'FAIL'],
+  ['handoff canonical-recovery positive', 'fixtures/requirement-handoff-positive.txt', 'PASS'],
+], 'EVAL', ['requirement-handoff']) !== 0) failed = true;
+
 const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash', path: string, args: string[]]> = [
   ['constitutional contract', 'bun', 'text-contracts.mts', ['constitutional-contract']],
   ['merge method contract', 'bun', 'text-contracts.mts', ['merge-method-contract']],
