@@ -1,0 +1,21 @@
+$ node --test evals/adaptive-tests/scheduler.test.mts
+✔ success interval increases, deferred is not a passed test, and force executes (420.513875ms)
+✔ input changes cause execution, failures reset, and corrupt state fails open (632.946292ms)
+✔ CI and integration bypass deferral; opt-out executes every time (764.763625ms)
+✔ missing inputs cannot be cached (230.238292ms)
+✔ adaptive workers must specify isolated state ownership (147.480042ms)
+✔ partial pathspec matches never permit deferral (333.725ms)
+✔ deleted and ignored required inputs cannot be deferred (751.378375ms)
+✔ existing directory and glob inputs are resolved per pathspec (322.506375ms)
+✔ required checks reject deferral even in worker context (62.837625ms)
+✔ array-shaped saved checks are discarded rather than reused (208.352209ms)
+✔ a failed forced check invalidates earlier deferred-success history (376.024458ms)
+✔ out-of-range state cannot indefinitely postpone verification (273.0465ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4577.044458

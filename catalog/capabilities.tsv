@@ -22,6 +22,7 @@ interaction-style	single	always	userとのやりとり、質問の絞り方、bl
 policy-evaluation	single	Skillやpolicyを変更する	policyの評価、context budget
 skill-authoring	single	repositoryでSkillを書く	Skillの書き方
 visual-design	single	UIや視覚的な成果物を作る	実例を観察し、構造を抽出し、翻訳して作り、出来上がりで確かめる
+web-platform	single	HTML/CSS・DOM・ブラウザ上のWeb UI/client-side JavaScriptを実装・更新する	ブラウザ標準API、Baseline互換性、フォールバック、性能・アクセシビリティの実装指針
 motion-design	multi	animationやmotion graphicsを作る	motionの設計と検証
 platform-cloudflare	multi	Cloudflareを使う	Cloudflareのproductとtool
 platform-vercel	multi	Vercelを使う	Vercelへのdeployと最適化

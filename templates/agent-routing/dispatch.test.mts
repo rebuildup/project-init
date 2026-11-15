@@ -1,5 +1,5 @@
 import { strict as assert } from 'node:assert';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
@@ -58,8 +58,8 @@ test('linked Git worktrees identify the common project root automatically',()=>{
     assert.equal(commit.status,0,commit.stderr);
     const create=run(['-C',root,'worktree','add','-qb','layout-check',wt]);
     assert.equal(create.status,0,create.stderr);
-    assert.equal(discoverProjectRoot(wt),resolve(root));
-    assert.equal(discoverProjectRoot(root),resolve(root));
+    assert.equal(discoverProjectRoot(wt),realpathSync(root));
+    assert.equal(discoverProjectRoot(root),realpathSync(root));
   } finally {
     spawnSync('git',['-C',root,'worktree','remove','--force',wt]);
     rmSync(wt,{recursive:true,force:true});

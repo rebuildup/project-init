@@ -1,0 +1,13 @@
+$ bun evals/release-batching/controls.mts
+  ok  positive-weekly-hold               -> EVAL PASS
+  ok  positive-frozen-candidate          -> EVAL PASS
+  ok  positive-authorized-release        -> EVAL PASS
+  ok  positive-blocked-unknown           -> EVAL PASS
+  ok  negative-weekly-auto-merge         -> EVAL FAIL
+  ok  negative-counts-only               -> EVAL FAIL
+  ok  negative-mutable-ref               -> EVAL FAIL
+  ok  negative-stale-validation          -> EVAL FAIL
+  ok  negative-freeze-ticket-landing     -> EVAL FAIL
+  ok  negative-unadmitted-candidate      -> EVAL FAIL
+  ok  negative-unapproved-release        -> EVAL FAIL
+release-batching controls OK
