@@ -41,14 +41,16 @@ jobs:
         run: bun run test:adaptive
       - name: Test review regressions
         run: bun run test:eval-regressions
-      - name: Test canonical requirement handoff grader
-        run: node --test evals/policy-evaluation/requirement-handoff.test.mts
       - name: Test TypeScript release batching controls
         run: bun run test:release-batching
       - name: Test TypeScript interaction and Linear controls
         run: |
           bun run test:interaction
           bun run test:linear
+      - name: Test canonical requirement handoff grader
+        run: node --test evals/policy-evaluation/requirement-handoff.test.mts
+      - name: Test delivery-status classification and CLI safety
+        run: bun run test:delivery-status
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
