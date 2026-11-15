@@ -2,7 +2,7 @@
   "roles": {
     "implementation": {
       "supervisor": "herdr",
-      "harness": "pi",
+      "harness": "omp",
       "provider": "minimax",
       "fallback": "none",
       "nativeSubagents": "deny",
@@ -10,7 +10,7 @@
     },
     "review": {
       "supervisor": "herdr",
-      "harness": "pi",
+      "harness": "omp",
       "provider": "openrouter-free",
       "fallback": "none",
       "nativeSubagents": "deny",

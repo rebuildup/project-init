@@ -211,6 +211,8 @@ native session restoreが利用できても、それだけをcanonical recovery 
 
 pane/workspaceを閉じる前に:
 
+- inventory at spawn/settle (`workspace list`, `agent list`, `api snapshot`); avoid workspace sprawl
+- close settled surfaces (`pane/tab/workspace close`); keep uncollected results, uncommitted work, unresolved blocks, and surfaces owned by others
 - required immutable resultが回収済み
 - validation/evidence identityが記録済み
 - consequential side effectがreconcile済み

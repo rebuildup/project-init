@@ -22,6 +22,7 @@ natural-japanese	rebuildup/writing-skills	skills/natural-japanese/SKILL.md	prose
 writing-discipline	rebuildup/writing-skills	skills/writing-discipline/SKILL.md	prose-artifact	default	auto	MIT	read	a11bb3b	2026-10-17	writing-skillsが正本。どのprojectでも必要になる
 skill-authoring	rebuildup/writing-skills	skills/skill-authoring/SKILL.md	skill-authoring	default	auto	MIT	skimmed	7ba09d1	2026-10-17	Skillをprose artifactとして書くための指針
 design-intent	rebuildup/design-skills	skills/design-intent/SKILL.md	visual-design	default	auto	MIT	read	342d709	2026-10-17	visual directionを実装前に固めるbrief。design-skills内で最も単独で機能する
+modern-web-guidance	GoogleChrome/modern-web-guidance	skills/modern-web-guidance/SKILL.md	web-platform	default	auto	Apache-2.0+CC-BY-4.0	read	4dd9683	2026-11-13	Chrome/Edge/Firefox/MDN参加のWeb標準ガイド。検索・取得で必要な知識だけを参照できる。Web UI・HTML/CSS・ブラウザ側JS向けに優先評価し、backend/infra-onlyには導入しない。上流の広いMANDATORY triggerを組織共通routerに転用しない
 *	rebuildup/design-skills	skills	visual-design	watch	auto	MIT	skimmed	342d709	2026-10-17	82 Skillの網羅型で、descriptionから正しいSkillを選べるか未検証。Inspect→Extract→Translate→Implement→Verifyの核へ再編予定
 motion-system	rebuildup/design-skills	skills/motion-system/SKILL.md	motion-design	default	auto	MIT	skimmed	342d709	2026-10-17	motionの設計語彙と検証観点
 diagnosing-bugs	mattpocock/skills	skills/engineering/diagnosing-bugs/SKILL.md	debugging	default	auto	MIT	read	49dd158	2026-10-17	再現できるfeedback loopを先に作る構成が明快で、環境依存がない

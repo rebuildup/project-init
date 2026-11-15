@@ -158,9 +158,9 @@ dependency / durable GitHub deliveryを使わない短命taskでは該当しな�
 
 ### Requirement provenance
 
-複数agentへ委譲する前に、継続して守るべきscope・constraints・acceptance criteria・重要な決定をGitHub Issue / Spec / ADR等の適切な正本へ選別して反映する（`writing-discipline`）。会話全体や長文promptをそのまま永続化しない。
+複数agentへ委譲する前に、継続して守るべきscope・constraints・acceptance criteria・重要な決定をGitHub Issue / Spec / ADR等の適切な正本へ選別して反映する（`writing-discipline`）。派生Issueには元の要求の出典refと必要なrevisionを引き継ぎ、上流の重要な制約を追跡できるようにする。会話全体や長文promptをそのまま永続化しない。
 
-spawn inputには正本のrefと必要なrevision/snapshotを明示する。子は親の要約だけで仕様を確定せず、正本を直接読む。アクセス不可なら出典・版を識別できるimmutableな原文抜粋を渡す。どちらも無ければ推測で要求を補わない。短命taskで独立Issueを要しない場合も、親が確定した元のtask contractへの追跡性を維持する。
+spawn inputには正本のrefと必要なrevision/snapshotを明示する。子は親の要約だけで仕様を確定せず、正本を直接読む。アクセス不可なら出典・版を識別できるimmutableな原文抜粋を渡し、送信側が委譲scope内の重要な要求・否定条件・受入基準をすべて含むことを照合する。網羅性を確認できない場合、子は推測で補わず、そのscopeの実装を停止して正本へのアクセスまたは正確な引き継ぎを要求する。短命taskで独立Issueを要しない場合も、親が確定した元のtask contractへの追跡性を維持する。
 
 fan-inではchildのsummary/完了宣言ではなく、正本の要求とcurrent artifact・validationを照合する。新たなscope/decisionをhandoff中に暗黙に確定させない。
 
