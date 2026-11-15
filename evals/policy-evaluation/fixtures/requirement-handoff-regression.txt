@@ -1,0 +1,7 @@
+persist=canonical-with-origin-revision
+handoff=direct-canonical-read
+excerpt=partial-proceed
+compaction=checkpoint-not-spec
+authority=canonical-wins
+fanin=trust-child-report
+constraints=preserve-negative-conditions

@@ -53,6 +53,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | 中長期の見積もり | `agent-delivery-estimation` |
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
+| 監督専用セッションの直接実装を権限分離で禁止する場合 | `supervisor-boundary`、`templates/supervisor-boundary/` |
 | Mac / Windows native / WSL の実行先選択、検証のOS適合、物理リソース分散と禁止事項 | `organization/execution-placement.md`、`herdr-runtime`、`quality-gate` |
 | top-level委譲時のharness/provider経路選択と強制 | `parallel-orchestration`、`herdr-runtime`、`templates/agent-routing/` |
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |

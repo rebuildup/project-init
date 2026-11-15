@@ -20,6 +20,8 @@ Responsibilities may include:
 
 Supervisor is a logical role. It may be implemented by a native agent runtime, an external control plane, Herdr, a project-local adapter, or another mechanism that provides equivalent guarantees.
 
+A **dedicated non-authoring Supervisor execution profile** is a separate authority choice (ADR-0035 / `supervisor-boundary`). When enabled, that actor may reason, dispatch, observe, and decide admission, but cannot directly author source, run arbitrary shell, or use privileged service connectors. Solo/mechanical execution is still performed by a Worker. This restriction must be enforced by runtime capabilities and distinct identities, not inferred from a role prompt. A combined actor topology remains valid only when dedicated separation was not selected.
+
 ### Worker
 
 Executes a delegated work unit under a bounded input/authority contract and returns result/evidence.

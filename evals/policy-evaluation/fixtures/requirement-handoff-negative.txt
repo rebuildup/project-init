@@ -1,0 +1,7 @@
+persist=canonical-with-origin-revision
+handoff=summary-only
+excerpt=complete-or-block
+compaction=checkpoint-not-spec
+authority=canonical-wins
+fanin=requirements-and-current-artifact
+constraints=drop-negatives

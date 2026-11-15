@@ -16,6 +16,8 @@
   "include": [
     "templates/quality/**/*.mts",
     "evals/**/*.mts",
-    "templates/agent-routing/**/*.mts"
+    "scripts/**/*.mts",
+    "templates/agent-routing/**/*.mts",
+    "templates/supervisor-boundary/**/*.mts"
   ]
 }

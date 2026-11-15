@@ -6,6 +6,7 @@ on:
       - 'docs/adr/**'
       - 'templates/quality/**'
       - 'templates/agent-routing/**'
+      - 'templates/supervisor-boundary/**'
       - 'skills/**'
       - 'organization/**'
       - 'catalog/**'
@@ -47,6 +48,10 @@ jobs:
         run: |
           bun run test:interaction
           bun run test:linear
+      - name: Test canonical requirement handoff grader
+        run: node --test evals/policy-evaluation/requirement-handoff.test.mts
+      - name: Test delivery-status classification and CLI safety
+        run: bun run test:delivery-status
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
@@ -59,6 +64,8 @@ jobs:
         run: node --test templates/agent-routing/routing-regressions.test.mts
       - name: Test project-local routing materialization
         run: node --test templates/agent-routing/materialize.test.mts
+      - name: Test dedicated Supervisor boundary
+        run: bun run test:supervisor-boundary
       - name: Run deterministic controls
         shell: bash
         run: |
