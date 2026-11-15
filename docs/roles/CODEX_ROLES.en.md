@@ -32,7 +32,7 @@ Important:
 - never re-resolve a mutable branch/ref name during integration; use the recorded immutable identity and reject ref movement.
 - do not place multiple implementation agents into one shared mutable working tree.
 
-Do not concentrate large amounts of mechanical implementation in Sol itself.
+Do not concentrate large amounts of mechanical implementation in Sol itself. When the dedicated non-authoring Supervisor execution profile is selected, Sol must not edit source at any task size; delegate implementation to a separate Worker, with this boundary enforced by execution capabilities rather than prompts (ADR-0035 / `supervisor-boundary`).
 
 ## Terra — independent reviewer role
 

@@ -32,7 +32,7 @@ logical Worker / Supervisor roleとexecution attempt classは `organization/exec
 - integration時にmutable branch/ref名を再解決せず、記録済みimmutable identityを使用し、ref移動を検出した場合は拒否してください。
 - shared mutable working treeへ複数agentを直接配置しないでください。
 
-機械的な大量実装をSol自身へ集中させないでください。
+機械的な大量実装をSol自身へ集中させないでください。dedicated non-authoring Supervisor profileを選択した実行環境では、作業規模を問わずSol自身によるsource変更を禁止し、実装は独立したWorkerへ委譲します（ADR-0035 / `supervisor-boundary`）。この禁止はpromptだけでなく実行権限で担保してください。
 
 ## Terra — independent reviewer role
 

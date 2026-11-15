@@ -27,7 +27,7 @@ A Worker may perform refactoring or verification; a Reviewer is a specialized Wo
 | cleanup | free completed session/workspace/branch resources | no unique uncommitted work, unreconciled side effects or uncollected evidence |
 | device, serve, logs | host-native applications, singleton GUI/device, background service and diagnostics | explicitly leased mutable service/device state where applicable |
 
-Project-specific functions may be added by extending this vocabulary and its operating contract. Do not let a UI lane or role string itself grant mutating capabilities.
+Project-specific functions may be added by extending this vocabulary and its operating contract. Do not let a UI lane or role string itself grant mutating capabilities. Under the dedicated non-authoring Supervisor profile (ADR-0035), `implement`/`fix`/`refactor` must be executed by a separate Worker or scoped deterministic executor, not by self-promoting the Supervisor's current session. Tool access must be enforced by runtime permissions, remote credentials, and a constrained broker.
 
 ## Composition and conflicts
 
