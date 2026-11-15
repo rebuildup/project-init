@@ -48,6 +48,8 @@ jobs:
         run: |
           bun run test:interaction
           bun run test:linear
+      - name: Test canonical requirement handoff grader
+        run: node --test evals/policy-evaluation/requirement-handoff.test.mts
       - name: Test delivery-status classification and CLI safety
         run: bun run test:delivery-status
       - name: Test TypeScript comparative controls

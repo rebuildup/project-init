@@ -261,5 +261,61 @@
     ],
     "forbid": [],
     "order": false
+  },
+  "requirement-handoff": {
+    "heading": "canonical requirement continuity across two handoffs / recovery",
+    "required": [
+      [
+        "persisted source identity",
+        "persist=canonical-with-origin-revision"
+      ],
+      [
+        "direct canonical source read",
+        "handoff=direct-canonical-read"
+      ],
+      [
+        "excerpts cover whole delegated scope",
+        "excerpt=complete-or-block"
+      ],
+      [
+        "compaction checkpoint not a specification",
+        "compaction=checkpoint-not-spec"
+      ],
+      [
+        "no summary override",
+        "authority=canonical-wins"
+      ],
+      [
+        "validate against current artifact",
+        "fanin=requirements-and-current-artifact"
+      ],
+      [
+        "negative constraints retained",
+        "constraints=preserve-negative-conditions"
+      ]
+    ],
+    "forbid": [
+      [
+        "no summary-based requirements",
+        "^handoff=(summary-only|parent-interpretation)$"
+      ],
+      [
+        "no guessed missing requirements",
+        "^excerpt=(partial-proceed|guess-gaps)$"
+      ],
+      [
+        "no checkpoint promoted to spec",
+        "^compaction=checkpoint-becomes-spec$"
+      ],
+      [
+        "no unreviewed scope shrink",
+        "^constraints=(drop-negatives|silently-shrink)$"
+      ],
+      [
+        "no self-reported success",
+        "^fanin=(trust-child-report|trust-checkpoint)$"
+      ]
+    ],
+    "order": true
   }
 }
