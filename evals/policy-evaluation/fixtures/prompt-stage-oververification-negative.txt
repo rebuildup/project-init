@@ -1,0 +1,10 @@
+shape=inline-spec-copy
+sources=stale-chat-summary
+user_scope=add-safer-looking-requirements
+ticket_validation=full-ci-native-every-ticket
+expensive_validation=release-push-every-time
+risk_exception=narrow-early-when-justified
+check_status=not-run-is-not-pass
+stale_config=override-by-prompt-alone
+ticket_landing=approval-for-every-pr
+release_landing=explicit-current-authorization

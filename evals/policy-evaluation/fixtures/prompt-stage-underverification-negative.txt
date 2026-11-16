@@ -1,0 +1,10 @@
+shape=short-canonical-routing
+sources=current-canonical-refs
+user_scope=preserve-original-scope
+ticket_validation=focused-risk-selected
+expensive_validation=frozen-candidate
+risk_exception=universally-defer-all
+check_status=skipped-equals-green
+stale_config=override-by-prompt-alone
+ticket_landing=autonomous-to-release
+release_landing=ticket-authority-is-release-authority
