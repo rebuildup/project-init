@@ -187,10 +187,10 @@ unexpectedなtracked source/config mutationが確認されたvalidationは、cur
 | user journey/navigation/auth | integration/contract + E2E |
 | external API adapter | unit + contract/integration + failure-path test |
 | build/package/container | build/package + smoke |
-| release branch | full applicable integration + critical E2E/smoke + release-specific checks |
+| frozen release candidate | full applicable integration + critical E2E/smoke + release-specific checks |
 | security fix | regression test + vulnerable-path verification + applicable integration/E2E + affected `security-audit` coverage revalidation when applicable |
 
-これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。
+これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。詳細: [stage placement](references/verification-stage-placement.md)（ADR-0036）。
 
 ## 4. Quality profileをproject-localにcompileする
 
@@ -360,7 +360,7 @@ expected CI usage ≈ trigger frequency × started jobs × billed duration × ru
 通常のdefault:
 
 - ticket/feature branch: `pull_request` でintegration gate
-- `main` / release trunk / tag: `push` でpost-mergeまたはrelease-specific gate
+- `main` / tag: post-merge確認。release trunk pushは軽量health、full release gateはfreeze後に実行
 - manual deep verification: `workflow_dispatch`
 - periodic verificationに実際の意味がある場合のみ `schedule`
 
@@ -380,7 +380,7 @@ Windows/macOS/native/device/browser matrix等のexpensive platform verification�
 
 - platform/native関連pathが変更された
 - platform-specific behavior / packaging / process invocationが変更された
-- release candidate / release trunk / tag
+- frozen release candidate / tag
 - explicit label / manual dispatchによるfull verification
 - required compatibility matrixを定期的に再確認する必要がある
 
@@ -496,8 +496,8 @@ PR topologyは固定しない:
 最低限:
 
 - acceptance criteriaに対応するverification
-- changed boundaryに必要なunit/smoke/integration/contract/E2E
-- formatter/lint/type/static/build等のapplicable checks
+- changed boundaryに必要なticket-applicable focused unit/contract/targeted integration
+- formatter/lint/type/static/必要なtargeted build等のapplicable checks
 - required CI checks
 - current head SHAまたはcurrent head SHA / snapshotにprovenanceで結び付いたimmutable artifact identityとvalidation evidenceの一致
 - immediate PR base / target release trunkとのstaleness確認
