@@ -31,6 +31,12 @@ if (runControls(dir, '../shared/record-grader.mts', [
   ['handoff canonical-recovery positive', 'fixtures/requirement-handoff-positive.txt', 'PASS'],
 ], 'EVAL', ['requirement-handoff']) !== 0) failed = true;
 
+if (runControls(dir, '../shared/record-grader.mts', [
+  ['prompt-stage oververification', 'fixtures/prompt-stage-oververification-negative.txt', 'FAIL'],
+  ['prompt-stage underverification', 'fixtures/prompt-stage-underverification-negative.txt', 'FAIL'],
+  ['prompt-stage positive', 'fixtures/prompt-stage-positive.txt', 'PASS'],
+], 'EVAL', ['prompt-stage-fidelity']) !== 0) failed = true;
+
 const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash', path: string, args: string[]]> = [
   ['constitutional contract', 'bun', 'text-contracts.mts', ['constitutional-contract']],
   ['merge method contract', 'bun', 'text-contracts.mts', ['merge-method-contract']],
