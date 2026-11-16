@@ -235,7 +235,7 @@ release authorizationはidentified release PR/actionへ限定し、別releaseや
 
 変更surface/riskから必要test levelを選択します。
 
-worker / ticket integration / release gateを分離し、repository-controlled canonical quality profileとlocal deterministic entry point / GitHub Actionsのsemanticsを揃えます。
+worker / ticket integration / frozen release candidate / human acceptance / publication gateを分離し、repository-controlled canonical quality profileとlocal deterministic entry point / GitHub Actionsのsemanticsを揃えます（ADR-0036）。GUI実機・full CI・build/deployをticketごとに一律要求せず、release branchの各pushでfull release gateを起動しません。ただし統合前防御が必要な高危険変更と既存のrequired checkは検証を省略せず、stageとtriggerを明示して再配置します。
 
 coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
 
