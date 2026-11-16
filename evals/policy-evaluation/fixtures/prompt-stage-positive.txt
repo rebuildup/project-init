@@ -1,0 +1,10 @@
+shape=short-canonical-routing
+sources=current-canonical-refs
+user_scope=preserve-original-scope
+ticket_validation=focused-risk-selected
+expensive_validation=frozen-candidate
+risk_exception=narrow-early-when-justified
+check_status=not-run-is-not-pass
+stale_config=migrate-canonical-and-ci
+ticket_landing=autonomous-to-release
+release_landing=explicit-current-authorization
