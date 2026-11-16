@@ -63,8 +63,7 @@ cp -R "$tmp/positive" "$tmp/My Projects"
 expect "positive: project path contains spaces" "$tmp/My Projects" PASS
 mkdir -p "$tmp/home"
 cp -R "$tmp/positive" "$tmp/home/project"
-HOME="$tmp/home" bash "$D/grade.sh" --check "$tmp/home/project" > "$tmp/home-check.txt" 2>&1
-if [ $? -eq 0 ] && [ "$(tail -n 1 "$tmp/home-check.txt")" = "PASS" ]; then
+if HOME="$tmp/home" bash "$D/grade.sh" --check "$tmp/home/project" > "$tmp/home-check.txt" 2>&1 && [ "$(tail -n 1 "$tmp/home-check.txt")" = "PASS" ]; then
   echo "  ok   positive: project under home directory"
 else
   echo "  FAIL positive: project under home directory"

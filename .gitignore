@@ -1,2 +1,3 @@
 .worktree.env
 .worktree.env.*
+node_modules/

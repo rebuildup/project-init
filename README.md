@@ -1,6 +1,6 @@
 # project-init — Adaptive AI Development Organization Framework
 
-人間とAIエージェントが参加するソフトウェア開発組織について、長寿命な不変条件と現在のOperating Model / Practiceをproject-localに初期化・維持するためのframeworkです。
+人間とAIエージェントが参加するソフトウェア開発について、要求を保存したシステム全体の改善と、その保証・受理を支える開発環境をproject-localに初期化・維持するframeworkです。組織の不変条件とOperating Model / Practiceに加え、コード・Skill・設定・検査を一体で扱います。
 
 特定のagent、provider、IDE、planning tool、worktree manager、branch topologyを「正しさ」そのものとして固定しません。最上位のConstitutionを満たす範囲で、現在の標準workflowを使いながら、より良いmechanismへのrefinement / deviationを許容します。
 
@@ -82,6 +82,12 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 
 開発中の任意・反復テストを変更状態と成功履歴から選択的に実行するPracticeは [quality-gate](./skills/quality-gate/SKILL.md) で定義します。フレームワーク非依存の参照実装、設定例、適用条件は [templates/quality](./templates/quality/README.md) を参照してください。必須のCI・統合・リリース検証は省略しません。
 
+## システム品質の検証
+
+`system-quality` は要求保存・全体構成の比較・既知アンチケース排除を結び付けます。ShellCheckが利用できる環境で、`bun run quality:structure` は自前fileの分類、設定構文、ShellCheck、TypeScript適用範囲・抑制、Markdown参照を検査します。`bun run quality:challenge` は実repoのコピーへ違反と正当変更を混入して検査の応答を確認します。`bun run test:system-quality` はexecutorと改善比較の回帰を実行します。
+
+`Trusted quality contract` workflowは信頼済みrevisionと候補SHAの契約変更を比較します。受理側でそのrevisionとstatusを強制する設定は別途必要です。これらの検査は意味上の完全性や最適性の証明ではありません。
+
 ## Delivery model
 
 標準deliveryはGitHub IssuesとPull Requestsを中心とし、**1週間のplanning checkpointと適応的なrelease batching** を組み合わせます。週次終了は自動リリースのtriggerではありません。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
@@ -130,7 +136,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 │  ├─ policy-overview.md
 │  ├─ policy-integrity.md
 │  ├─ adr/
-│  │  └─ ADR-0001.md ... ADR-0031.md
+│  │  └─ ADR-0001.md ... ADR-0037.md
 │  └─ roles/
 │     ├─ CODEX_ROLES.ja.md
 │     └─ CODEX_ROLES.en.md
@@ -155,6 +161,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
    ├─ secrets-management/
    ├─ security-audit/
    ├─ security-maintenance/
+   ├─ system-quality/
    ├─ skill-selection/
    └─ worktree-workflow/
 ```
@@ -188,6 +195,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - [`docs/roles/`](./docs/roles/) — 時点依存の Codex logical role policy。
 - [`CONTRIBUTING.md`](./CONTRIBUTING.md) — policy 更新時の整合性・review rules。
 
+- [ADR-0037](docs/adr/ADR-0037.md) — 要求保存・全体改善と実成果物の品質制約。
+
 ## Agent Skills
 
 通常 task では必要な Skill だけを読み込みます。ただし、README / documentation / ADR / Issue / Pull Request / commit message / code comment / review comment / release note等のpersistent reader-facing proseを作成・更新する場合、`writing-discipline` はpre-writeの必須routingとして扱います。
@@ -199,6 +208,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `supervisor-boundary` — dedicated Supervisorの直接実装を防ぐ権限契約。`templates/supervisor-boundary/` にClaude Code用deny-by-default参考hookを用意（OS/credential/Broker境界の実機検証は別途必須）
 - `templates/agent-routing/` — role別のtop-level委譲先をHerdr + dotfilesの統一`agent` launcherへ固定する参照CLI。run/evalは環境別に検証が必要
 - `agent-delivery-estimation` — Work Unit / dependency / observed throughput / human・CI・usage constraints による中長期delivery forecast
+- `system-quality` — 要求保存、全体再構成、既知アンチケース排除、改善関係と保証の分離。実成果物challengeを同梱
 - `quality-gate` — stack-aware quality profile、current-SHA revalidation、verification taxonomy、GitHub Actions resource efficiency
 - `engineering-decisions` — project 内の判断優先順位と escalation policy
 - `security-audit` — source codeの未知脆弱性をcoverage-ledに探索し、fresh verifierで反証してstructured findingへ確定

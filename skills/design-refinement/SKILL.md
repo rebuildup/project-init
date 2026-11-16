@@ -5,6 +5,10 @@ description: 非自明なfeature・architecture・product designを実装計画�
 
 # Design Refinement
 
+## 全体構成の比較
+
+要求変更や再構成では [system-quality](../system-quality/SKILL.md) を適用する。現状修正案と、要求・維持条件・外部制約から状態・責務・境界を構成する案を比較する。既存内部構造や変更量の小ささを前提にしない。比較のために要求を縮小せず、実証された改善は利用側移行と旧構造撤去まで実装へ渡す。
+
 非自明なtaskでは、質問を作る前にprojectを読む。
 目的はuserを大量の質問でinterviewすることではなく、**read relentlessly, ask minimally** を実行し、implementationが暗黙のassumptionに依存しない状態へすることである。
 
