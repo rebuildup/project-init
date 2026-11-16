@@ -137,7 +137,7 @@ UI/UX、native platform、hardware integration等でautomationが十分でない
 
 manual verificationを暗黙の「見た感じOK」にしない。手順・期待結果・artifactを残す。
 
-UI/native変更で人間レビューが必要な場合は [visual/native review handoff](references/visual-review-handoff.md) に従う。非視覚taskへ一律適用しない。
+UI/native変更で人間レビューが必要な場合は [visual/native review handoff](references/visual-review-handoff.md) に従う。非視覚taskへ一律適用しない。原則としてまとまったrelease candidateで実施し、ticket PRごとのGUI/実機起動・撮影・復元をimplicit Done条件にしない。変更自体が不可逆・危険な外部状態を扱う場合だけ、リスクを記録した早期実機gateを設ける。
 
 複数OSで動作する対象は [execution placement](../../organization/execution-placement.md) を適用し、実OS/deviceで検証する。WSL/Windows/macOSは互換ではない。
 
@@ -177,20 +177,20 @@ unexpectedなtracked source/config mutationが確認されたvalidationは、cur
 
 代表的なdefault:
 
-| Change | Minimum verification candidate |
-| --- | --- |
-| pure/domain logic | unit |
-| API/service behavior | unit + integration |
-| DB query/schema/migration | integration + migration/schema check + smoke |
-| runtime/env/DI/network wiring | smoke + relevant integration |
-| frontend component local behavior | unit/component |
-| user journey/navigation/auth | integration/contract + E2E |
-| external API adapter | unit + contract/integration + failure-path test |
-| build/package/container | build/package + smoke |
-| release branch | full applicable integration + critical E2E/smoke + release-specific checks |
-| security fix | regression test + vulnerable-path verification + applicable integration/E2E + affected `security-audit` coverage revalidation when applicable |
+| Change | Ticket / early integration evidence | Frozen release candidate evidence |
+| --- | --- | --- |
+| pure/domain logic | focused unit / property | affected integration where relevant |
+| API/service behavior | focused unit + changed contract; bounded integration if interface risk | complete applicable integration / critical E2E |
+| DB query/schema/migration | schema/contract + reversible isolated migration proof; earlier real integration if shared-state risk | migration rehearsal + integration + smoke |
+| runtime/env/DI/network wiring | deterministic configuration/contract + targeted smoke only if necessary for safe landing | production-like wiring smoke / integration |
+| frontend component local behavior | focused unit/component + static checks | critical user-visible E2E / visual where necessary |
+| user journey/navigation/auth | contract/component + high-risk security-path checks | critical user journey E2E and browser/native matrix as applicable |
+| external API adapter | unit + contract/failure-path check | sandbox/real-boundary integration as applicable |
+| build/package/container | targeted build metadata/static compatibility where feasible | clean build/package + artifact smoke |
+| release branch push | optional cheap integration-health signal; never automatically full release gate | not applicable until candidate freeze |
+| security fix | regression and vulnerable-path verification before integration when needed to prevent unsafe trunk state | affected broader integration/E2E/security-audit revalidation |
 
-これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。
+これはfixed universal matrixではない。framework official guidanceとproject architectureでcompileする。Ticketで何を検証するかと、releaseで何を検証するかは別の義務である（ADR-0036）。高危険度・不可逆な変更では早期のreal integration/実機が必要なことがある。その場合は具体的なfailure mode・実行費用・releaseまで待てない理由をquality profileへ記録し、最小十分なcheckだけを必須化する。
 
 ## 4. Quality profileをproject-localにcompileする
 
@@ -215,6 +215,8 @@ profileには最低限:
 - coverage policy when meaningful
 - browser/device/OS/architecture matrix
 - native/device/GUI verificationのcandidate materializationとenvironment ownership policy
+- stage-specific applicability (worker / ticket / release trunk health / frozen candidate / human acceptance / publication)、NOT_RUN/DEFERREDとPASSの区別、および各段階の起動条件・cost・例外
+- CI required statusのstage別対応表。release-only CIやmanual checkがticket mergeを不必要に止める設定・hookになっていないこと
 - CI trigger semantics (`pull_request` / `push` / schedule / dispatch / comment/review event)
 - runner policyとplatform matrixの起動条件
 - expensive/native/platform-specific gateの適用条件
@@ -360,7 +362,9 @@ expected CI usage ≈ trigger frequency × started jobs × billed duration × ru
 通常のdefault:
 
 - ticket/feature branch: `pull_request` でintegration gate
-- `main` / release trunk / tag: `push` でpost-mergeまたはrelease-specific gate
+- release trunkの通常`push`: 必要ならcheap integration healthのみ。release-wide CI・実機・deployの自動起動条件にしない
+- frozen release candidate: 明示的なcandidate/freeze triggerまたは同等のbounded workflowでfull applicable release gate
+- `main` / tag: release publicationやpost-merge整合性の検証（必要時）
 - manual deep verification: `workflow_dispatch`
 - periodic verificationに実際の意味がある場合のみ `schedule`
 
@@ -380,7 +384,7 @@ Windows/macOS/native/device/browser matrix等のexpensive platform verification�
 
 - platform/native関連pathが変更された
 - platform-specific behavior / packaging / process invocationが変更された
-- release candidate / release trunk / tag
+- frozen release candidate / publication tag（単なるrelease trunk pushではない）
 - explicit label / manual dispatchによるfull verification
 - required compatibility matrixを定期的に再確認する必要がある
 
@@ -448,7 +452,7 @@ storage削減とActions minutes削減を混同しない。現在のbottleneckを
 - required verificationをdisableしてusage問題を隠す
 - self-hosted runnerへ移せば安全性検討不要とみなす
 
-高コストverificationが必要なら、PR every-commitからrelease gate / change-sensitive gate / manual full gateへ移せないか評価する。
+高コストverificationが必要なら、PR every-commitからfrozen release candidate gate / risk-triggered bounded gate / explicit manual gateへ移す。既存のbranch protectionでrelease-only checkがticket PRのrequired statusになっていないか監査し、path filterでrequired checkがpendingになる場合とjob-level skipがsuccessと報告される場合の両方を避ける（ADR-0036）。
 
 self-hosted runnerを使う場合はActions minutesだけでなく、untrusted code execution、credential exposure、host persistence、availability、maintenance costを含めて判断する。
 
@@ -480,7 +484,7 @@ workerは担当scopeの高速feedbackを得る。
 
 canonical quality profileのworker entry pointと変更risk mappingからfocused test/checkを選択する。
 
-Worker gateはIntegration gateの代替ではない。
+Worker gateはIntegration gateの代替ではない。ただしworker中の毎変更に全体E2E、重いbuild、実機・GUI検証を課さない。テストを作ることと全suiteを毎回実行することを区別し、証明できる範囲だけを報告する。
 
 ## 10. Ticket integration gate
 
@@ -496,13 +500,13 @@ PR topologyは固定しない:
 最低限:
 
 - acceptance criteriaに対応するverification
-- changed boundaryに必要なunit/smoke/integration/contract/E2E
-- formatter/lint/type/static/build等のapplicable checks
+- changed boundaryを安全にrelease trunkへ統合するための最小十分なfocused unit/contract/staticと、リスクに応じたbounded integration/smoke。E2E・full build・native/deviceは原則release candidateへ配置し、early gate例外は理由を記録する
+- formatter/lint/type/staticと必要な場合のみtargeted build（通常のフルbuildは暗黙の必須gateにしない）
 - required CI checks
 - current head SHAまたはcurrent head SHA / snapshotにprovenanceで結び付いたimmutable artifact identityとvalidation evidenceの一致
 - immediate PR base / target release trunkとのstaleness確認
 
-「all unit tests green」だけをintegration completionにしない。
+「all unit tests green」だけをintegration completionにしない。一方、ticket integrationの完了はrelease全体の完成やnative/manual acceptanceを意味しない。未実施のrelease-only checkがあることを理由に、risk例外のないticketの自律landingを止めない。
 
 ## 11. Stack reconciliation gate
 
@@ -520,7 +524,7 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 ## 12. Release gate
 
-`release-x-y-z -> main` 前にcanonical release entry pointからticketより広いrelease-level verificationを行う。
+release候補のscopeとimmutable SHAを明示的にfreezeした後、`release-x-y-z -> main` 前にcanonical release entry pointからticketより広いrelease-level verificationを行う。release trunkの普段のpush・ticket landingごとにこのgateを要求しない。候補の失敗・未実施はPASSでなくcandidate blockerとなる。
 
 必要に応じて:
 
@@ -536,6 +540,8 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 - release-like environment smoke
 
 ## 13. PR readiness gate
+
+Ticket PRにはticket integration gateのみ、release PRにはfrozen release candidate gateを適用する。未実施のrelease-only/native/manual受入をticket PRのhidden required checkにしない。
 
 - Issue acceptance criteriaを満たす
 - required verification levelを満たす
