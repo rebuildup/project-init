@@ -87,7 +87,7 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 標準deliveryはGitHub IssuesとPull Requestsを中心とし、**1週間のplanning checkpointと適応的なrelease batching** を組み合わせます。週次終了は自動リリースのtriggerではありません。release planning / health / portfolio control plane は **Linear** に統一し、GitHub Projects は標準運用へ導入しません。GitHub Issues は implementation / dependency の durable SoT として維持します。
 
 - `main` = released/integrated source state
-- `release-x-y-z` = target version integration branch
+- `release-x-y-z` = target version integration branch（開発中は常時release-readyでなく、ticketを自律統合して集約。重いCI/実機受入は原則candidate freeze後）
 - version bumpはrelease intent・互換性・公開する変更の意味から決定する（通常のmajor/minor/patchを参考とし、sprint境界だけではbumpしない）
 - release train = target version + release branch。複数週次checkpointへの持ち越しや早期リリースを許容し、変更量・公開価値・滞留・release-onlyコストで候補化を判断する
 - 1 top-level Issue = 1 number-only ticket branch = 1 ticket PR
