@@ -158,7 +158,7 @@ Dependency execution上は必要に応じて `blocked` / `stack-ready` / `integr
 6. ticketごとにnumber-only branchを作る。
 7. 最初のmeaningful commitをremoteへpublishし、remote head SHA一致を確認した直後にPRを必ず作成し、metadataとstateを設定する。active/incompleteならDraft、readiness条件を満たしていればReady for reviewとする。
 8. isolated workerをdependency/WIP制約内で並行起動する。
-9. independent ticketまたはstacked ticketをreviewし、current landing candidateを検証する。
+9. independent ticketまたはstacked ticketをrisk-sensitiveにreviewし、current landing candidateをticket-level gateで検証する。独立レビューの人数/ラウンド数とnative/実機確認を各ticketへ一律強制しない。
 10. ticket/stackをReady + landing可能状態へ持っていく。
 11. ticket-class PRをdependency順にmerge commitで自律landingし、target release trunkへの到達を確認する。
 12. target release trunkへlandしたticketのlinked Issueを明示的にcloseし、dependent PRをreconcileしたうえでsafeならlanded ticket branchを削除する。
@@ -334,7 +334,7 @@ Draftは未完了作業の一時状態である。次の条件をすべて満た
 
 
 - Issue acceptance criteriaを実装済み
-- current SHAに対するticket-level integration quality gateを実行済み
+- current SHAに対するstage-specific ticket-level integration quality gateを実行済み（release-only/native/human acceptanceは含めない。早期に必要な危険変更は個別risk contractに従う）
 - blocking known issueが解消済み、または明示的にscope外
 - PR description / assignee / labels / reviewer metadataが現在の実装と一致
 - required reviewerをrequest済み。meaningful reviewer不在はreview/merge semanticsへ影響する場合だけreaderに必要な形で説明し、mutable stateとして恒常的にserializeしない
@@ -346,7 +346,7 @@ Draftは未完了作業の一時状態である。次の条件をすべて満た
 IssueのDone条件:
 
 - acceptance criteria satisfied
-- current landing candidateに対するapplicable project validationを実行済みで、既知の失敗を残していない
+- current landing candidateに対するapplicable **ticket-level** project validationを実行済みで、既知の失敗を残していない。frozen candidate / human acceptanceの未実施をticket Done blockerにしない
 - blocking review / conversation resolved
 - release/stack staleness handled
 - ticket changesがtarget release trunkへland済み
@@ -393,13 +393,13 @@ intended baseを安全に復元できない等、本当に解けない場合だ�
 
 ## Release integration
 
-release branchは複数ticketの統合結果を保持するrelease train integration lineであり、1週間のplanning windowと1:1ではない。
+release branchは複数ticketの統合結果を保持するrelease train integration lineであり、1週間のplanning windowと1:1ではない。**常時release-readyなbranchではない**ため、各ticket landing/branch pushでfull CI・E2E・GUI実機確認・全体build/deployを要求せず、candidate freeze後の対象SHAへterminal verificationを集約する（ADR-0036）。
 
 release branchはrelease train開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
 Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
 
-release候補を選択しscope/current SHAをfreezeした後、release branch上でfull applicable quality gateを実行する。freeze中の新規ticket landingは禁止し、修正でSHAが変わった場合はapplicable gateを再実行する（[candidate review](./references/adaptive-release-batching.md)）。
+release候補を選択しscope/current SHAをfreezeした後、release branch上でfull applicable quality gateを実行する。これを通常のrelease trunk pushに自動展開しない。未実施・失敗・期限切れのrelease-only checkは候補のblockerであって、過去のticket landingが失敗したことを意味しない。freeze中の新規ticket landingは禁止し、修正でSHAが変わった場合はapplicable gateを再実行する（[candidate review](./references/adaptive-release-batching.md)）。
 
 release PR:
 
