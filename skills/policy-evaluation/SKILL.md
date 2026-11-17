@@ -1,6 +1,8 @@
 ---
 name: policy-evaluation
 description: Constitution / Operating Model / Practice / Skillがorganizational outcomeとinvariantを維持するかを、formal model・deterministic checks・cold eval・grader controls・context budgetで検証する時に使用する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Policy Evaluation

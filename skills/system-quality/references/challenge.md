@@ -28,7 +28,7 @@ suite例:
 }
 ```
 
-`before: null`は存在しないfileの追加。置換は正確に一か所へ一致しなければ失敗する。caseは個別コピーで実行する。原本は変更しない。baselineが成功した場合だけcaseを実行する。rejectはexit 1と固有診断の完全一致行が必要。timeout、signal、別exit、無関係な例外はERROR。acceptはexit 0が必要。suite全体が成功した場合だけexit 0。sourceとsuiteのSHA-256、各caseの結果と出力をJSON Linesで返す。
+`before: null`は存在しないfileの追加。置換は正確に一か所へ一致しなければ失敗する。開始時にsourceを一度凍結し、そのdigestを確認したうえで、baselineと各caseをその凍結copyから作る。各copyのdigestも置換前に確認する。原本は変更しない。baselineが成功した場合だけcaseを実行する。rejectはexit 1と、stdoutまたはstderrのいずれかにある固有診断の完全一致行が必要。両streamを連結して診断を作らない。timeout、signal、別exit、無関係な例外はERROR。acceptはexit 0が必要。suite全体が成功した場合だけexit 0。sourceとsuiteのSHA-256、各caseの結果と出力をJSON Linesで返す。
 
 `.git`、`node_modules`、`.reference`、`.tmp`はコピーしない。依存は隔離環境に事前準備するか、信頼した外部executorの絶対pathをcommandに指定する。対象のsymlinkは拒否する。commandはshell文字列ではなくargv。suiteと検査器は評価対象の候補が勝手に変更できないrevisionから供給する。
 

@@ -101,10 +101,7 @@ function apply(root: string, patch: Patch): void {
   }
   const source = readFileSync(target, "utf8");
   const start = source.indexOf(patch.before);
-  if (
-    start < 0 ||
-    source.indexOf(patch.before, start + patch.before.length) >= 0
-  )
+  if (start < 0 || source.indexOf(patch.before, start + 1) >= 0)
     throw Error("patch must match exactly once: " + patch.path);
   writeFileSync(
     target,
@@ -167,16 +164,13 @@ function main(): number {
     }),
   );
   const scratch = mkdtempSync(join(tmpdir(), "quality-challenge-"));
+  const frozen = join(scratch, "source");
   const execute = (id: string, patches: Patch[]) => {
     const candidate = join(scratch, id);
     mkdirSync(candidate);
-    cpSync(source, candidate, {
-      recursive: true,
-      filter: (path) =>
-        !relative(source, path)
-          .split(/[\\/]/)
-          .some((p) => ignored.has(p)),
-    });
+    cpSync(frozen, candidate, { recursive: true });
+    if (snapshot(candidate) !== sourceHash)
+      throw Error("frozen source changed during challenge");
     for (const patch of patches) apply(candidate, patch);
     return spawnSync(suite.command[0], suite.command.slice(1), {
       cwd: candidate,
@@ -188,12 +182,23 @@ function main(): number {
     });
   };
   try {
+    cpSync(source, frozen, {
+      recursive: true,
+      filter: (path) =>
+        !relative(source, path)
+          .split(/[\\/]/)
+          .some((part) => ignored.has(part)),
+    });
+    if (snapshot(frozen) !== sourceHash)
+      throw Error("source changed while freezing challenge");
     const baseline = execute("baseline", []);
     if (baseline.error || baseline.signal || baseline.status !== 0) {
       console.log(
         JSON.stringify({
           status: "BASELINE_FAILED",
-          output: baseline.stdout + baseline.stderr,
+          stdout: baseline.stdout,
+          stderr: baseline.stderr,
+          signal: baseline.signal,
           error: baseline.error?.message,
         }),
       );
@@ -202,7 +207,6 @@ function main(): number {
     let failed = false;
     for (const [index, c] of suite.cases.entries()) {
       const result = execute(String(index), c.patches);
-      const output = result.stdout + result.stderr;
       const status =
         result.error || result.signal
           ? "ERROR"
@@ -213,7 +217,9 @@ function main(): number {
             : result.status === 0
               ? "SURVIVED"
               : result.status === 1 &&
-                  output.split(/\r?\n/).includes(c.diagnostic!)
+                  [result.stdout, result.stderr].some((stream) =>
+                    stream.split(/\r?\n/).includes(c.diagnostic!),
+                  )
                 ? "REJECTED"
                 : "ERROR";
       console.log(
@@ -221,7 +227,9 @@ function main(): number {
           id: c.id,
           status,
           exit: result.status,
-          output,
+          stdout: result.stdout,
+          stderr: result.stderr,
+          signal: result.signal,
           error: result.error?.message,
         }),
       );

@@ -1,6 +1,8 @@
 ---
 name: quality-gate
 description: project固有のstack・framework・runtimeに合わせてquality gateと動作確認レベルを設計・実行・更新する時に使用する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Quality Gate

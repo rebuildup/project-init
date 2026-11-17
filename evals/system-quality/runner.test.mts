@@ -197,3 +197,47 @@ test("source identity distinguishes file boundaries and empty directories", asyn
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+test("overlapping replacement matches are ambiguous", () => {
+  const root = fixture("", [{ path: "source.txt", before: "aba", after: "x" }]);
+  writeFileSync(join(root, "source.txt"), "ababa");
+  try {
+    const result = run(root);
+    assert.equal(result.status, 1);
+    assert.match(result.stderr, /exactly once/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("diagnostics are matched in separate output streams", () => {
+  for (const [stdout, stderr, expected] of [
+    ["progress", "INVALID_SOURCE\n", 0],
+    ["INVALID_", "SOURCE\n", 1],
+  ] as const) {
+    const root = fixture(
+      `import {readFileSync} from 'node:fs';if(readFileSync('source.txt','utf8')==='invalid'){process.stdout.write(${JSON.stringify(stdout)});process.stderr.write(${JSON.stringify(stderr)});process.exitCode=1;}`,
+    );
+    try {
+      const result = run(root);
+      assert.equal(result.status, expected, result.stdout + result.stderr);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  }
+});
+
+test("cases all use one frozen source despite transient writes to the original", () => {
+  const root = fixture("");
+  writeFileSync(
+    join(root, "check.mjs"),
+    `import {readFileSync,writeFileSync} from 'node:fs';const path=${JSON.stringify(join(root, "source.txt"))};if(readFileSync('source.txt','utf8')==='valid'){writeFileSync(path,'tainted');}else{writeFileSync(path,'valid');console.error('INVALID_SOURCE');process.exitCode=1;}`,
+  );
+  try {
+    const result = run(root);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+    assert.equal(readFileSync(join(root, "source.txt"), "utf8"), "valid");
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

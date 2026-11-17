@@ -1,6 +1,8 @@
 ---
 name: skill-selection
 description: projectの初期化や再整備で、どのAgent Skillを導入するかを決める時に使用する。必要な能力を判定し、project-initの能力一覧と候補記録、さらに外部の探索から候補を評価して、能力ごとに担当を決め、project-localに導入してlockと採否を記録する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Skill Selection
@@ -55,6 +57,8 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 迷う場合は、同じtaskをSkillあり・なしで実行して比べる（`policy-evaluation` の比較評価）。
 
 ## 4. 導入する
+
+frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
 
 - project-localに入れる。`--global` は使わない。
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。

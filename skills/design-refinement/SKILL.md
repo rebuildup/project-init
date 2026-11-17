@@ -1,6 +1,8 @@
 ---
 name: design-refinement
 description: 非自明なfeature・architecture・product designを実装計画へ渡す前に、repository evidenceからfactと未決定事項を整理し、本当に必要なuser decisionだけを質問する時に使用する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Design Refinement

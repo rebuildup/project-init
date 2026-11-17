@@ -1,6 +1,8 @@
 ---
 name: engineering-decisions
 description: 実装・設計・修正方針を自律的に決定する時に、project内の優先順位を確認し、不要なuser escalationを避けるために使用する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Engineering Decisions

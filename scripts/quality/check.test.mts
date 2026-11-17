@@ -100,3 +100,61 @@ test("native TypeScript JSONC syntax remains valid", () => {
     (root) => assert.deepEqual(inspect(root), []),
   );
 });
+
+test("suppression comments after interpolated templates are detected", () => {
+  project(
+    {
+      "tsconfig.json":
+        '{"compilerOptions":{"strict":true},"include":["**/*.mts"]}',
+      "a.mts":
+        'const label = `item${1}`;\n// @ts-ignore\nconst value: number = "bad";',
+    },
+    (root) =>
+      assert.ok(inspect(root).some((x) => x.code === "ANALYSIS_SUPPRESSION")),
+  );
+});
+
+test("suppression-looking text inside a template remains ordinary data", () => {
+  project(
+    {
+      "tsconfig.json":
+        '{"compilerOptions":{"strict":true},"include":["**/*.mts"]}',
+      "a.mts": "const label = `item${1} // @ts-ignore`;",
+    },
+    (root) => assert.deepEqual(inspect(root), []),
+  );
+});
+
+test("missing shell tools are execution errors, not invalid configuration", async () => {
+  const { spawnSync } = await import("node:child_process");
+  const { resolve } = await import("node:path");
+  project({ "run.sh": "#!/bin/bash\necho valid\n" }, (root) => {
+    const result = spawnSync(
+      process.execPath,
+      [resolve("scripts/quality/check.mts"), root],
+      { encoding: "utf8", env: { ...process.env, PATH: "" } },
+    );
+    assert.equal(result.status, 2, result.stdout + result.stderr);
+    assert.doesNotMatch(result.stderr, /INVALID_CONFIGURATION/);
+  });
+});
+
+test("a single-Skill install must include its declared dependency", () => {
+  project(
+    {
+      "skills/owner/SKILL.md":
+        "---\nname: owner\nmetadata:\n  requires-skills: system-quality\n---\nOwner",
+    },
+    (root) => {
+      assert.ok(
+        inspect(root).some((x) => x.code === "MISSING_SKILL_DEPENDENCY"),
+      );
+      mkdirSync(join(root, "skills/system-quality"), { recursive: true });
+      writeFileSync(
+        join(root, "skills/system-quality/SKILL.md"),
+        "---\nname: system-quality\n---\nQuality",
+      );
+      assert.deepEqual(inspect(root), []);
+    },
+  );
+});

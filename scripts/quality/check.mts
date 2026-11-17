@@ -8,6 +8,8 @@ import { parseDocument } from "yaml";
 import { parse as parseToml } from "smol-toml";
 import { spawnSync } from "node:child_process";
 
+class ToolExecutionError extends Error {}
+
 type Finding = { code: string; path: string; detail: string };
 const ignored = new Set([
   ".git",
@@ -98,17 +100,30 @@ export function inspect(root: string): Finding[] {
           timeout: 10000,
           killSignal: "SIGKILL",
         });
-        if (result.error || result.status !== 0)
-          throw Error(result.error?.message ?? result.stderr);
+        if (result.error || result.signal || result.status === null)
+          throw new ToolExecutionError(
+            result.error?.message ?? "bash terminated: " + result.signal,
+          );
+        if (result.status !== 0) throw Error(result.stderr);
         const lint = spawnSync("shellcheck", ["--shell=bash", path], {
           encoding: "utf8",
           timeout: 10000,
           killSignal: "SIGKILL",
         });
-        if (lint.error || lint.status !== 0)
-          throw Error(lint.error?.message ?? lint.stdout + lint.stderr);
+        if (
+          lint.error ||
+          lint.signal ||
+          lint.status === null ||
+          lint.status > 1
+        )
+          throw new ToolExecutionError(
+            lint.error?.message ??
+              "shellcheck failed: " + lint.status + " " + lint.signal,
+          );
+        if (lint.status !== 0) throw Error(lint.stdout + lint.stderr);
       }
     } catch (error) {
+      if (error instanceof ToolExecutionError) throw error;
       report("INVALID_CONFIGURATION", local, String(error));
     }
   }
@@ -173,21 +188,28 @@ export function inspect(root: string): Finding[] {
     }
   }
   for (const path of sources) {
-    const scanner = ts.createScanner(
+    const text = readFileSync(path, "utf8");
+    const source = ts.createSourceFile(
+      path,
+      text,
       ts.ScriptTarget.Latest,
-      false,
-      ts.LanguageVariant.Standard,
-      readFileSync(path, "utf8"),
+      true,
     );
-    for (
-      let token = scanner.scan();
-      token !== ts.SyntaxKind.EndOfFileToken;
-      token = scanner.scan()
-    ) {
+    const comments = new Map<number, ts.CommentRange>();
+    function visit(node: ts.Node): void {
+      for (const range of [
+        ...(ts.getLeadingCommentRanges(text, node.pos) ?? []),
+        ...(ts.getTrailingCommentRanges(text, node.end) ?? []),
+      ])
+        comments.set(range.pos, range);
+      for (const child of node.getChildren(source)) visit(child);
+    }
+    visit(source);
+    for (const range of comments.values()) {
       if (
-        (token === ts.SyntaxKind.SingleLineCommentTrivia ||
-          token === ts.SyntaxKind.MultiLineCommentTrivia) &&
-        /@ts-(?:nocheck|ignore|expect-error)\b/.test(scanner.getTokenText())
+        /@ts-(?:nocheck|ignore|expect-error)\b/.test(
+          text.slice(range.pos, range.end),
+        )
       ) {
         report(
           "ANALYSIS_SUPPRESSION",
@@ -203,6 +225,53 @@ export function inspect(root: string): Finding[] {
       "evals/skills-cli-materialization/fixtures/negative-missing-reference/.agents/skills/engineering-decisions/SKILL.md"
     )
       continue;
+    if (
+      basename(path) === "SKILL.md" &&
+      !relative(root, path)
+        .replaceAll("\\", "/")
+        .startsWith("evals/skills-cli-materialization/fixtures/")
+    ) {
+      const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---/.exec(
+        readFileSync(path, "utf8"),
+      );
+      if (frontmatter) {
+        const document = parseDocument(frontmatter[1]);
+        if (document.errors.length)
+          report(
+            "INVALID_SKILL_METADATA",
+            relative(root, path),
+            document.errors.map((error) => error.message).join("; "),
+          );
+        else {
+          const value = document.toJSON();
+          const dependencies = value?.metadata?.["requires-skills"];
+          if (dependencies !== undefined) {
+            if (
+              typeof dependencies !== "string" ||
+              !/^[a-z0-9-]+(?: [a-z0-9-]+)*$/.test(dependencies)
+            )
+              report(
+                "INVALID_SKILL_METADATA",
+                relative(root, path),
+                "requires-skills must contain space-separated skill names",
+              );
+            else
+              for (const dependency of dependencies.split(" ")) {
+                if (
+                  !existsSync(
+                    join(dirname(dirname(path)), dependency, "SKILL.md"),
+                  )
+                )
+                  report(
+                    "MISSING_SKILL_DEPENDENCY",
+                    relative(root, path),
+                    dependency,
+                  );
+              }
+          }
+        }
+      }
+    }
     type Node = { type: string; url?: string; children?: Node[] };
     function visit(node: Node) {
       if (node.url && ["link", "image", "definition"].includes(node.type)) {

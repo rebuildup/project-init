@@ -45,13 +45,15 @@ bunx skills add rebuildup/project-init
 npx skills add rebuildup/project-init
 ```
 
-特定の Skill だけを導入:
+特定のSkillと、その必須依存を導入:
 
 ```bash
-bunx skills add rebuildup/project-init --skill quality-gate
+bunx skills add rebuildup/project-init --skill quality-gate system-quality
 # or
 npx skills add rebuildup/project-init --skill quality-gate
 ```
+
+`metadata.requires-skills` に依存があるSkillは、その依存も同時に導入します。設計・判断・品質・評価・選定Skillの共有契約はsystem-qualityです。単独copyだけでは導入完了になりません。
 
 Codex を明示して導入:
 
