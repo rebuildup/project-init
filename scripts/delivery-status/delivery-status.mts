@@ -137,21 +137,40 @@ query($owner: String!, $name: String!, $head: String!) {
 }`;
 
 interface Page<T> {
-  readonly pageInfo: { hasNextPage: boolean; endCursor: string | null };
+  readonly pageInfo: { readonly hasNextPage: boolean; readonly endCursor: string | null };
   readonly nodes: readonly T[];
 }
 
-function graphqlPaged<T>(query: string, owner: string, name: string, select: (data: any) => Page<T>): T[] {
+// A partial result is never a completed inventory. Keep pagination progress
+// independent of the GitHub client so both acceptance and failure can be tested.
+export function paginate<T>(load: (after: string | null) => Page<T>): T[] {
   const out: T[] = [];
+  const visitedCursors = new Set<string>();
   let after: string | null = null;
   for (;;) {
+    const page = load(after);
+    if (!page || !Array.isArray(page.nodes) || !page.pageInfo ||
+        typeof page.pageInfo.hasNextPage !== 'boolean') {
+      throw new Error('invalid GraphQL pagination response');
+    }
+    out.push(...page.nodes);
+    if (!page.pageInfo.hasNextPage) return out;
+
+    const cursor = page.pageInfo.endCursor;
+    if (typeof cursor !== 'string' || cursor.length === 0 || visitedCursors.has(cursor)) {
+      throw new Error('incomplete GraphQL pagination: missing or repeated endCursor');
+    }
+    visitedCursors.add(cursor);
+    after = cursor;
+  }
+}
+
+function graphqlPaged<T>(query: string, owner: string, name: string, select: (data: any) => Page<T>): T[] {
+  return paginate((after) => {
     const args = ['api', 'graphql', '-f', `query=${query}`, '-f', `owner=${owner}`, '-f', `name=${name}`];
     if (after !== null) args.push('-f', `after=${after}`);
-    const page = select(ghJson<{ data: unknown }>(args).data);
-    out.push(...page.nodes);
-    if (!page.pageInfo.hasNextPage || page.pageInfo.endCursor === null) return out;
-    after = page.pageInfo.endCursor;
-  }
+    return select(ghJson<{ data: unknown }>(args).data);
+  });
 }
 
 interface RawPr {
