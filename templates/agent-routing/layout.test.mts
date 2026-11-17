@@ -80,3 +80,30 @@ test('explicit workspace selection does not infer other workspace authority from
   assert.equal(selected.function,'recover');
   assert.equal(selected.action,'split-pane'); // Ctrl has one anchored shell.
 });
+
+test('alias and canonical execution names resolve one lane, with or without duplicate equal overrides',()=>{
+  for(const [alias, canonical] of [
+    ['implementation','implement'],
+    ['recovery','recover'],
+    ['verification','verify'],
+  ]){
+    assert.equal(resolveLayout({functionTabs:{[alias]:'Custom'}},canonical).tabLabel,'Custom');
+    assert.equal(resolveLayout({functionTabs:{[alias]:'Custom'}},alias).tabLabel,'Custom');
+    const both={functionTabs:{[canonical]:'Custom',[alias]:'Custom'}};
+    assert.equal(resolveLayout(both,canonical).tabLabel,resolveLayout(both,alias).tabLabel);
+  }
+});
+test('conflicting canonical and alias overrides fail closed for every selected role',()=>{
+  const layout={functionTabs:{implement:'Work',implementation:'Other'}};
+  for(const name of ['implement','implementation','review'])
+    assert.throws(()=>resolveLayout(layout,name),/conflicting functionTabs aliases/);
+});
+test('unused invalid overrides cannot escape validation',()=>{
+  for(const invalid of [
+    {functionTabs:{verify:27}},
+    {functionTabs:{verify:'../../../'}},
+    {functionTabs:{unknown:'Work'}},
+  ]){
+    assert.throws(()=>resolveLayout(invalid,'implement'),/invalid tab label|unknown functionTabs key/);
+  }
+});

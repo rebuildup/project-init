@@ -64,16 +64,20 @@ export function resolveLayout(config: unknown = {}, functionName: string) {
   const overflow = config.overflow ?? 'queue';
   if (overflow !== 'queue' && overflow !== 'new-tab') fail('overflow must be queue or new-tab');
   const overrides = config.functionTabs ?? {};
-  if (!obj(overrides) || Object.keys(overrides).some(k => !Object.hasOwn(DEFAULT_TABS, ALIASES[k] ?? k))) fail('unknown functionTabs key');
-  const alias = Object.keys(ALIASES).find(key => ALIASES[key] === fn);
-  const tabLabel = overrides[functionName] ?? overrides[fn] ?? (alias ? overrides[alias] : undefined) ?? DEFAULT_TABS[fn];
-  if (typeof tabLabel !== 'string' || !LABEL.test(tabLabel)) fail('invalid tab label');
-  const effective=(name: string): unknown => {
-    const canonical=ALIASES[name] ?? name;
-    const alias=Object.keys(ALIASES).find(k => ALIASES[k] === canonical);
-    return overrides[name] ?? overrides[canonical] ?? (alias ? overrides[alias] : undefined) ?? DEFAULT_TABS[canonical];
-  };
-  const labels=[...Object.keys(DEFAULT_TABS),...Object.keys(ALIASES)].map(effective);
+  if (!obj(overrides)) fail('unknown functionTabs key');
+  // One lane per canonical execution function, regardless of input alias.
+  // Contradictory aliases must never split the same function across tabs.
+  const resolvedTabs = new Map<string, string>();
+  for (const [name, value] of Object.entries(overrides)) {
+    const canonical = ALIASES[name] ?? name;
+    if (!Object.hasOwn(DEFAULT_TABS, canonical)) fail('unknown functionTabs key');
+    if (typeof value !== 'string' || !LABEL.test(value)) fail('invalid tab label');
+    const previous = resolvedTabs.get(canonical);
+    if (previous !== undefined && previous !== value) fail('conflicting functionTabs aliases: ' + canonical);
+    resolvedTabs.set(canonical, value);
+  }
+  const tabLabel = resolvedTabs.get(fn) ?? DEFAULT_TABS[fn];
+  const labels = Object.keys(DEFAULT_TABS).map(name => resolvedTabs.get(name) ?? DEFAULT_TABS[name]);
   for(const a of labels) for(const b of labels) {
     if(typeof a==='string' && typeof b==='string' && a!==b &&
        b.startsWith(a) && /^[2-9]$/.test(b.slice(a.length)))
