@@ -50,7 +50,7 @@ npx skills add rebuildup/project-init
 ```bash
 bunx skills add rebuildup/project-init --skill quality-gate system-quality
 # or
-npx skills add rebuildup/project-init --skill quality-gate
+npx skills add rebuildup/project-init --skill quality-gate system-quality
 ```
 
 `metadata.requires-skills` に依存があるSkillは、その依存も同時に導入します。設計・判断・品質・評価・選定Skillの共有契約はsystem-qualityです。単独copyだけでは導入完了になりません。
