@@ -14,10 +14,14 @@
     "allowImportingTsExtensions": true
   },
   "include": [
-    "templates/quality/**/*.mts",
-    "evals/**/*.mts",
-    "scripts/**/*.mts",
-    "templates/agent-routing/**/*.mts",
-    "templates/supervisor-boundary/**/*.mts"
+    "**/*.mts",
+    "**/*.ts",
+    "**/*.tsx",
+    "**/*.cts"
+  ],
+  "exclude": [
+    "node_modules",
+    ".reference",
+    ".tmp"
   ]
 }

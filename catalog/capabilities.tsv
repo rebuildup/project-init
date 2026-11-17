@@ -36,3 +36,4 @@ skill-selection	single	always	導入するSkillを能力ごとに選び、lock�
 ideation	single	既存の延長ではない根本的に新しい発想を求められた	候補の順位づけではなく、一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する
 workspace-frontend	multi	worktreeやagent terminalをUIのfrontendで扱う	worktree一覧・agent terminal・diff review等のUI。lifecycleの正本にはしない
 supervisor-authority	single	専用Supervisorを実装Workerと権限分離する	監督の直接実装禁止、限定Broker・read-only/remote権限境界の検証
+system-quality	single	ソフトウェアの初期化・要求変更・全体再構成を行う	要求保存、アンチケース排除、代替構成と改善関係、保証範囲

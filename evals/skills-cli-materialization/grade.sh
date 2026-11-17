@@ -230,7 +230,7 @@ case "$mode" in
     # different location.
     work_root=${SKILLS_WORKDIR:-$D/.work}
     case "$work_root" in
-      '\\\\'*|*'\\'*) fail "SKILLS_WORKDIR resolves to a UNC path that the Node runtime cannot write to: $work_root" ;;
+      *\\\\*) fail "SKILLS_WORKDIR resolves to a UNC path that the Node runtime cannot write to: $work_root" ;;
     esac
     mkdir -p "$work_root" || fail "cannot create work root: $work_root"
     work=$(mktemp -d "$work_root/materialization.XXXXXX") || fail "cannot create temporary work directory"

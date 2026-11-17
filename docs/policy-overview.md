@@ -23,6 +23,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/sandbox-runtime/SKILL.md` — isolated runtimeとmacOS / WSL/Linux portability。
 - `skills/github-delivery/SKILL.md` — Issues / weekly planning + adaptive release batching / stacked PR / PR state lifecycle / release integration。release planning control planeはLinear。
 - `skills/agent-delivery-estimation/SKILL.md` — Work Unit / dependency /実測throughput / human・CI・usage constraintsによる中長期delivery forecast。
+- `skills/system-quality/SKILL.md` — 要求保存・全体再構成・アンチケース排除・改善比較と実成果物challenge。
 - `skills/quality-gate/SKILL.md` — stack-aware quality profile、test taxonomy、動作確認gate。
 - `skills/engineering-decisions/SKILL.md` — project内の判断優先順位とuser escalation policy。
 - `skills/security-audit/SKILL.md` — unknown vulnerabilityのreconnaissance / coverage-led hunting / independent verification / structured reporting。

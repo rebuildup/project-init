@@ -1,26 +1,6 @@
 name: eval-controls
 on:
   pull_request:
-    paths:
-      - 'evals/**'
-      - 'docs/adr/**'
-      - 'templates/quality/**'
-      - 'templates/agent-routing/**'
-      - 'templates/supervisor-boundary/**'
-      - 'skills/**'
-      - 'organization/**'
-      - 'catalog/**'
-      - '.claude/skills/**'
-      - 'skills-lock.json'
-      - 'PROMPT.ja.md'
-      - 'scripts/**'
-      - 'mise.toml'
-      - 'package.json'
-      - 'tsconfig.json'
-      - 'orca.yaml'
-      - '.config/**'
-      - '.gitattributes'
-      - '.github/workflows/eval-controls.yml'
   push:
     branches: [main, 'release-*']
 jobs:
@@ -35,9 +15,17 @@ jobs:
           node-version: '22'
       - uses: oven-sh/setup-bun@v2
       - name: Install TypeScript tooling
-        run: bun install --no-save
+        run: bun install --frozen-lockfile
       - name: Typecheck TypeScript scripts
         run: bun run typecheck
+      - name: Ensure shell analysis is available
+        run: shellcheck --version
+      - name: Check whole-repository analysis and references
+        run: bun run quality:structure
+      - name: Test quality checks and challenge executor
+        run: bun run test:system-quality
+      - name: Challenge actual repository checks
+        run: bun run quality:challenge
       - name: Test adaptive scheduler
         run: bun run test:adaptive
       - name: Test review regressions

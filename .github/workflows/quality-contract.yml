@@ -1,0 +1,34 @@
+name: Trusted quality contract
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: Immutable candidate commit to compare with the dispatched trusted revision
+        required: true
+        type: string
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require immutable candidate identity
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: '[[ "$CANDIDATE_SHA" =~ ^[0-9a-f]{40}$ ]]'
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: trusted
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          path: candidate
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare with trusted contract without executing candidate code
+        run: node trusted/skills/system-quality/scripts/verify-contract.mts trusted candidate

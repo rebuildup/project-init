@@ -25,6 +25,10 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 
 通常task向けSkillを変更する場合はfull prompt / README / ADRと意味が矛盾しないようにしてください。
 
+## 全体品質
+
+要求変更・設計再構成は `system-quality` を適用する。要求充足、既知欠陥排除、候補間改善、最適性の証拠を分離する。Skillと参照、実行コード、検査・配布・受理経路まで同一変更で整合させる。`bun run quality:structure`、`bun run test:system-quality`、`bun run quality:challenge` は実成果物に対する回帰を確認する。
+
 ## 変更時に確認すること
 
 - ConstitutionのIdentity / Authority / Evidence / Mutable Ownership / Organizational Continuity / Canonical Consistency / Progressを弱めていないか
@@ -40,7 +44,7 @@ non-constitutional ruleの追加時は、可能な範囲でre-evaluate/remove条
 - mechanical / localized taskへ不要なmulti-agent fan-outを強制していないか
 - judgment-heavy reviewへbuilderのprivate reasoningやnumeric self-ratingをquality evidenceとして持ち込んでいないか
 - root / always-loaded agent contextの肥大化を測らずprogressive disclosureを名目化していないか
-- `bash evals/policy-evaluation/context-budget.sh` がchecked-in baselineに対してroot/always-loaded contextと各conditional Skillの回帰を検出できるか
+- `bun evals/policy-evaluation/context-budget.mts` がchecked-in baselineに対してroot/always-loaded contextと各conditional Skillの回帰を検出できるか
 - unit / smoke / integration / contract / E2Eの責務が混同されていないか
 - change riskからrequired verification levelを決めるmodelが維持されているか
 - quality gateを固定bundleへ戻していないか
@@ -235,7 +239,7 @@ release authorizationはidentified release PR/actionへ限定し、別releaseや
 
 変更surface/riskから必要test levelを選択します。
 
-worker / ticket integration / release gateを分離し、repository-controlled canonical quality profileとlocal deterministic entry point / GitHub Actionsのsemanticsを揃えます。
+worker / ticket integration / frozen release candidate / human acceptance / publication gateを分離し、repository-controlled canonical quality profileとlocal deterministic entry point / GitHub Actionsのsemanticsを揃えます（ADR-0036）。GUI実機・full CI・build/deployをticketごとに一律要求せず、release branchの各pushでfull release gateを起動しません。ただし統合前防御が必要な高危険変更と既存のrequired checkは検証を省略せず、stageとtriggerを明示して再配置します。
 
 coverage等のmetricはproject-specific signalとして設計し、固定数値を盲目的に全projectへ適用しません。
 
