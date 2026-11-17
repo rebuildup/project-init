@@ -158,3 +158,23 @@ test("a single-Skill install must include its declared dependency", () => {
     },
   );
 });
+
+test("JSX text is not a suppression comment, but JSX expression comments are", () => {
+  const config =
+    '{"compilerOptions":{"strict":true,"jsx":"preserve"},"include":["**/*.tsx"]}';
+  project(
+    {
+      "tsconfig.json": config,
+      "view.tsx": "export const view = <div>/* @ts-ignore */</div>;",
+    },
+    (root) => assert.deepEqual(inspect(root), []),
+  );
+  project(
+    {
+      "tsconfig.json": config,
+      "view.tsx": "export const view = <div>{/* @ts-ignore */ 1}</div>;",
+    },
+    (root) =>
+      assert.ok(inspect(root).some((x) => x.code === "ANALYSIS_SUPPRESSION")),
+  );
+});

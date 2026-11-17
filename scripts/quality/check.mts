@@ -196,7 +196,10 @@ export function inspect(root: string): Finding[] {
       true,
     );
     const comments = new Map<number, ts.CommentRange>();
+    const jsxTextRanges: Array<{ start: number; end: number }> = [];
     function visit(node: ts.Node): void {
+      if (ts.isJsxText(node))
+        jsxTextRanges.push({ start: node.pos, end: node.end });
       for (const range of [
         ...(ts.getLeadingCommentRanges(text, node.pos) ?? []),
         ...(ts.getTrailingCommentRanges(text, node.end) ?? []),
@@ -206,6 +209,12 @@ export function inspect(root: string): Finding[] {
     }
     visit(source);
     for (const range of comments.values()) {
+      // JSX text can contain /* ... */ as ordinary text, not as a comment.
+      if (
+        jsxTextRanges.some(
+          ({ start, end }) => range.pos >= start && range.end <= end,
+        )
+      ) continue;
       if (
         /@ts-(?:nocheck|ignore|expect-error)\b/.test(
           text.slice(range.pos, range.end),
