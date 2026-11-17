@@ -9,7 +9,7 @@
 - 判断や手順の詳細: `skills/*/SKILL.md`
 - 決定の経緯: `docs/adr/`
 
-このpromptを読むのは、初回の初期化と、project-localのagent構成を組み直す時だけです。全文を `AGENTS.md` や `CLAUDE.md` へコピーしないでください。日常のtaskは、生成した短いroot contractと必要なSkillだけで回る状態がゴールです。
+このpromptを読むのは、初回の初期化と、project-localのagent構成を組み直す時だけです。全文を `AGENTS.md` や `CLAUDE.md` へコピーしないでください。日常のtaskでは短いroot contractから必要なSkillへ接続します。初期化の到達点は指示の配備ではなく、対象projectの要求保存・改善比較・品質制約がコードと検証経路で成立することです。
 
 profileはdefaultであって目的ではありません。Constitutionのguaranteeを同等以上に満たす、より良い方法があるなら、profileからdeviateして構いません（手続きはConstitutionの Deviation 節）。
 
@@ -29,9 +29,9 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 - docs: README / CONTRIBUTING / architecture / ADR
 - 現在のerror / warning、branch、remote、userの未commit変更
 
-## 2. 差分だけをreconcileする
+## 2. 必要な全体変更をreconcileする
 
-初期化は何度でも実行される前提で、理想状態との差分だけを変更してください。
+初期化は何度でも実行される前提で、要求から必要な状態を定め、既存構造に変更範囲を限定せず整合させてください。
 
 `missing → initialize` / `incomplete → repair` / `stale → update` / `correct → verify only`
 
@@ -59,6 +59,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
 | Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |
 | Orcaをfrontendとして併用する場合 | `orca-frontend` |
+| 要求保存・全体再構成・アンチケース排除・改善比較 | `system-quality` |
 | quality gate、verification level、CI | `quality-gate` |
 | 不変条件と最小十分な保証手段 | `correctness-assurance` |
 | 脆弱性情報の取り込みと優先度 | `security-maintenance` |
@@ -128,6 +129,7 @@ profileやSkillに正本がない、このorganization共通の約束です。�
 - secretがrepository・checkpoint・agent resultに入らない
 - 導入したSkillのfileと `skills-lock.json` がcommitされ、fresh cloneにSkillが揃っている
 - `single` の能力ごとに担当が1つで、外部packのrouterが入っていない
+- `system-quality`の要求保存・適用範囲・既存違反の処理・改善比較・再導入拒否を、実成果物と証拠で確認した。必須の未成立条件を説明で相殺しない
 - README / AGENTS / Skills / ADRの間に矛盾がない
 - `evals/` 等、policyを検査する仕組みがprojectにあれば通っている
 

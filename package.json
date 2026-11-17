@@ -10,10 +10,16 @@
     "test:linear": "bun evals/linear-release-control/controls.mts",
     "test:delivery-status": "node --test scripts/delivery-status/*.test.mts",
     "delivery-status": "node scripts/delivery-status/delivery-status.mts",
-    "test:supervisor-boundary": "node --test templates/supervisor-boundary/guard.test.mts"
+    "test:supervisor-boundary": "node --test templates/supervisor-boundary/guard.test.mts",
+    "quality:structure": "node scripts/quality/check.mts",
+    "test:system-quality": "node --test evals/system-quality/*.test.mts scripts/quality/*.test.mts",
+    "quality:challenge": "node evals/system-quality/challenge.mts"
   },
   "devDependencies": {
     "@types/node": "22.18.12",
-    "typescript": "5.9.3"
+    "mdast-util-from-markdown": "^2.1.0",
+    "smol-toml": "^1.9.1",
+    "typescript": "5.9.3",
+    "yaml": "^2.9.1"
   }
 }

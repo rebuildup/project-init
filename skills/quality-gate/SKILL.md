@@ -1,9 +1,17 @@
 ---
 name: quality-gate
 description: project固有のstack・framework・runtimeに合わせてquality gateと動作確認レベルを設計・実行・更新する時に使用する。
+metadata:
+  requires-skills: system-quality
 ---
 
 # Quality Gate
+
+## 全体品質との接続
+
+[system-quality](../system-quality/SKILL.md) が扱う要求保存、アンチケース排除、改善比較をproject-local gateへ接続する。必要解析と自前コード・script・設定・Skillの適用範囲を照合し、無分類・未実行を成功にしない。違反混入は固有診断による拒否を確認し、crashやtimeoutは検出成功にしない。検査・抑制・対象除外・期待値の変更は信頼された比較元と照合する。候補自身がgateを変更・迂回できるなら独立強制は未成立である。
+
+要求充足、既知違反の排除、実証された改善の取込みを区別する。必須の未成立条件や実証された劣位を残して完了にしない。検査合格は最適性の証明ではない。検査の実行段階は既存のstage契約に従い、早期検証とrelease検証を混同しない。
 
 quality gateは固定bundleではない。
 

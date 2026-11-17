@@ -1,0 +1,20 @@
+[
+  ".github/workflows",
+  "constitution",
+  "organization",
+  "skills",
+  "catalog",
+  "scripts/quality",
+  "evals",
+  "formal",
+  "PROMPT.ja.md",
+  "CONTRIBUTING.md",
+  "package.json",
+  "bun.lock",
+  "tsconfig.json",
+  "docs",
+  ".claude/skills",
+  "skills-lock.json",
+  ".config",
+  "README.md"
+]
