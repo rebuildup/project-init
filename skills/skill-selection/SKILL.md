@@ -64,7 +64,7 @@ frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認�
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
 - `--copy` で導入し、導入されたSkillのfileと `skills-lock.json` を両方commitする。`skills-lock.json` だけでは再現にならないためである。2026-10時点の `skills experimental_install` は、lockの `computedHash` と照合せずに配布元の現在の内容を取得し、導入先も `.agents/skills/` に固定される。
 - 更新は `bunx skills update` で行い、Skill fileのdiffをPRで確認してから取り込む。配布元の変更を、確認せずに取り込まないためである。
-- 導入した複製は直接編集しない。複製の内容は `computedHash`（各fileの相対pathと中身を、pathの大文字小文字を区別しない順に連結したsha256）と一致し続ける必要がある。project-initの `evals/policy-evaluation/vendored-skills-contract.mts` と同じ検査をprojectのquality gateに入れる。直したい点があれば、正本へPRを出す。
+- 導入した複製は直接編集しない。複製の内容は `computedHash` と一致し続ける必要がある。hash方式は `skills-lock.json` の `version` で決まる: version 1 は各fileの相対pathと中身をpathの大文字小文字を区別しない順に連結したsha256、version 2（skills CLI 1.9以降）はCLIの `hashSkillFiles` と同じ byte-wise path sort・`path NUL length NUL content` framing・CRLF正規化・`metadata.json`/cache dir 除外のsha256である。project-initの `evals/policy-evaluation/vendored-skills-contract.mts` と同じ検査をprojectのquality gateに入れる。直したい点があれば、正本へPRを出す。
 - 配布元がtagを付けているなら、`https://github.com/<owner>/<repo>/tree/<tag>` で導入してlockの `ref` をtagに固定する。commit SHAは `ref` に使えない。
 - licenseが再配布を禁じるSkillはcommitしない。`skills-lock.json` にだけ記録し、必要な環境で導入する。
 - `disable-model-invocation: true` のSkill（`candidates.tsv` の `invocation` が `manual`）は、agentが自動では起動しない。採用する場合は、root contractの能力表に「この場面ではこのpathを読む」と明記する。
