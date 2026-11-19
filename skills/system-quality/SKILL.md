@@ -1,6 +1,8 @@
 ---
 name: system-quality
 description: 新規実装・機能追加・要求変更・初期化・設計再構成でシステム全体の品質を扱う。最初から責務・階層を適切に設計し、追加ごとに影響する既存コードも整合させ、旧構造を撤去する。検査合格を最適性と扱わない。
+metadata:
+  requires-skills: code-naming
 ---
 
 # System Quality
