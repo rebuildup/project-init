@@ -60,7 +60,7 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 ## 4. 導入する
 
-frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
+frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality code-naming --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
 
 - project-localに入れる。`--global` は使わない。
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
