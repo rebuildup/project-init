@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
-const read = (path) => readFileSync(path, "utf8");
+const read = (path: string) => readFileSync(path, "utf8");
 
 test("initialization connects normal code edits to naming and system quality", () => {
   const init = read("PROMPT.ja.md");
