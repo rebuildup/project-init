@@ -24,6 +24,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 - Web該当性: HTML/CSS・DOM・ブラウザ側JavaScript / Web UIの有無と対象ブラウザ範囲（該当する場合は `skill-selection` の `web-platform` 初期候補を確認）
 - 開発環境: devcontainer / Containerfile / Nix / `mise.toml`、host（macOS / WSL / Linux）差の扱い
 - 品質: test / lint / type / build、smoke・integration・E2Eの基盤、CI（GitHub Actions）
+- コード構造: 変更先の兄弟entry、似た名前、責務の所有者、利用側の既存実装
 - security: dependency / secret scanning、secret providerの設定、env schemaとexample
 - delivery: repository visibility、`main` の保護設定、PR merge method設定、Issue / PR / release branchの運用状況
 - docs: README / CONTRIBUTING / architecture / ADR
@@ -59,7 +60,8 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | workerごとの独立runtime、host / provider差の吸収 | `sandbox-runtime` |
 | Worktrunk、Rust / Cargoのbuild cache、frontendに依存しないworktree lifecycle | `worktree-workflow` |
 | Orcaをfrontendとして併用する場合 | `orca-frontend` |
-| 要求保存・全体再構成・アンチケース排除・改善比較 | `system-quality` |
+| 要求保存・新規実装/追加時の全体整合・アンチケース排除・改善比較 | `system-quality` |
+| 新規実装・追加・変更時の責務・階層・識別子の命名 | `code-naming` |
 | quality gate、verification level、CI | `quality-gate` |
 | 不変条件と最小十分な保証手段 | `correctness-assurance` |
 | 脆弱性情報の取り込みと優先度 | `security-maintenance` |
@@ -81,7 +83,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 
 導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
 
-- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。Web UI/ブラウザ側実装を含むprojectでは `web-platform` の候補を初回に優先評価します。
+- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。コードがあるprojectでは単独のリネーム依頼がなくても `code-naming` を選定します。Web UI/ブラウザ側実装を含むprojectでは `web-platform` の候補を初回に優先評価します。
 - 候補を `catalog/candidates.tsv` と外部の探索から集めて評価し、能力ごとに担当を決めます。
 - 外部packの入口（router）は入れず、個別のSkillだけを入れます。
 - project-localに `--copy` で導入し、Skillのfileと `skills-lock.json` をcommitします。
@@ -100,6 +102,7 @@ root contractに書くもの:
 - 作業開始の約束: Issue番号だけのbranch → 最初のmeaningful commit → push → すぐPR、という流れ。詳細は `github-delivery` へのpointerにする
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
+- コードの初回実装・追加・変更では、既存の責務・階層を先に調べ、`code-naming` と `system-quality` に従い影響範囲を同じ変更で整合する、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
 - top-level agent委譲を行うprojectでは、`templates/agent-routing/` のroute契約と起動CLIをproject-localにmaterializeする。runtime / provider を同じroot contractへ直接hardcodeせず、task roleと設定ファイルへのpointerだけを記す。無断provider fallbackやnative subagent置換を禁止する境界も指す
 - worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。project-initの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
@@ -129,6 +132,7 @@ profileやSkillに正本がない、このorganization共通の約束です。�
 - secretがrepository・checkpoint・agent resultに入らない
 - 導入したSkillのfileと `skills-lock.json` がcommitされ、fresh cloneにSkillが揃っている
 - `single` の能力ごとに担当が1つで、外部packのrouterが入っていない
+- コード変更時、今回追加した部分と影響する既存部分の責務・名前・階層が整合し、今回生んだ負債を先送りしていない
 - `system-quality`の要求保存・適用範囲・既存違反の処理・改善比較・再導入拒否を、実成果物と証拠で確認した。必須の未成立条件を説明で相殺しない
 - README / AGENTS / Skills / ADRの間に矛盾がない
 - `evals/` 等、policyを検査する仕組みがprojectにあれば通っている

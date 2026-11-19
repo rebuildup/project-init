@@ -30,6 +30,8 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 一覧にない能力が必要なら、その能力を行として追加する候補にする（§6）。
 
+**コード品質の基本能力**: コードがある、またはコードを生成・変更するprojectでは、リネーム依頼がなくても `code-naming` を選定する。日常の実装開始・追加時にroot contractから参照できるようにする。`system-quality` と役割を分担し、Skill導入だけで品質成立と扱わず実コードで確認する。
+
 **Webの優先候補**: HTML/CSS・DOM・Web UI・client-side JSを扱うprojectは `web-platform` を初回判定し、`GoogleChrome/modern-web-guidance` を優先評価する。framework・デザイン・品質のSkillとは別担当。backend・infra・CLI専用には不要。
 
 ## 2. 候補を集める
@@ -71,7 +73,7 @@ frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認�
 
 ## 5. root contractへ反映する
 
-root contractのSkill一覧は、能力ごとの担当表として書く。採用したSkillの名前、使う場面、手動起動ならそのpathを並べる。外部Skillも自作Skillも同じ表に載せる。
+root contractのSkill一覧は、能力ごとの担当表として書く。コードがあるprojectでは、実装・追加・変更開始時に `code-naming` と `system-quality` へ辿れる短い導線を置く。詳細はrootへコピーしない。採用したSkillの名前、使う場面、手動起動ならそのpathを並べる。外部Skillも自作Skillも同じ表に載せる。
 
 見送った候補や除外したrouterは、root contractに書かない。理由はproject内の決定記録（ADR等）に残す。
 
