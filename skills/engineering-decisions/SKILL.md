@@ -123,7 +123,7 @@ significant decisionは必要に応じて:
 
 ## 7. Naming / responsibility
 
-filename / directory / function / class / component等の名前は、その対象が**所有する責務**を表す。
+filename / directory / function / class / component等の名前は、その対象が**所有する責務**を表す。実装・機能追加時にも [code-naming](../code-naming/SKILL.md) を適用し、既存の所有者・兄弟entry・参照箇所を読んでから新規配置を決める。
 
 ancestor path / namespace / ownerも名前の一部として評価し、上位階層ですでに表現されている意味をleafで無意味に繰り返さない。
 
@@ -137,7 +137,7 @@ ancestor path / namespace / ownerも名前の一部として評価し、上位�
 - `misc`
 - `manager`
 
-同一directory階層のparallel entryは**おおむね10以内**をheuristicとする。hard limitではないが大幅に超える場合は複数責務の混在を疑い、domain / feature / responsibility / lifecycle等の実質的境界で分割する。数合わせだけの中間directoryは作らない。
+同一directory階層でparallel entryが**おおむね10を超える**場合は構造を調べるheuristicとする。数は合否条件ではない。類似名の兄弟、責務の重複、親子の語の反復は少数でも問題になり得る。新しいentryが既存の構造を不整合にするなら、その既存側も同じ変更で統合・再配置する。数合わせの中間directoryは作らない。
 
 ## 8. Design-first lifecycle
 
