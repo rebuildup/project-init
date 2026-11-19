@@ -482,6 +482,12 @@ budgetはworkflow設計の代替ではない。
 
 quality profileに対象check、入力・環境の識別、最大間隔、強制実行入口、延期結果、測定・撤去条件を残す。状態はworkerごとに隔離し、他の環境へ流用しない。
 
+### 8.12 増分変更の構造品質
+
+新規実装・追加時はformatter・lint・型検査とは別に、[code-naming](../code-naming/SKILL.md) と [system-quality](../system-quality/SKILL.md) に基づき、影響範囲の新旧ファイル・兄弟entry・責務の所有者・import・利用側をコードで評価する。今回の変更が生んだ重複・曖昧な命名・階層不整合は、同じticketで解消する。後日のリファクタリングは受入の代わりにならない。
+
+機械判定可能な違反は低コストのproject-local検査で拒否する。ファイル数や共通prefixだけで意味の良否を決めず、残る意味判断は実コードの差分と周辺構造で確認する。自己申告を独立強制と呼ばず、通常ticketへrelease候補のGUI・full E2Eを追加しない。
+
 ## 9. Worker gate
 
 workerは担当scopeの高速feedbackを得る。

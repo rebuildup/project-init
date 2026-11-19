@@ -10,7 +10,7 @@ debugging	single	コードがある	再現できる失敗のloopを作り、原�
 tdd	single	test基盤がある	失敗するtestを先に書く進め方
 code-review	multi	コードがある	diffを基準や仕様と照らして確認する観点
 correctness	single	重要な不変条件を持つ処理がある	不変条件の抽出と最小十分な保証手段の設計
-code-naming	single	コードの命名・リネーム・命名レビューを行う	利用箇所での明確さ、意味の区別、冗長性、命名規約、外部契約を判断する
+code-naming	single	コードがある、または新規コードを生成・変更する	初回実装から責務・階層・名前を整え、追加ごとに既存側と整合する
 security-advisory	single	外部dependencyがある	脆弱性情報の取り込みと優先度
 security-audit	single	未知のsecurity defectを能動的に探すことを選んだ	coverageを明示した探索と独立検証
 secrets	single	application / serviceがsecretを使う	secret valueの保管、注入、権限
@@ -36,4 +36,4 @@ skill-selection	single	always	導入するSkillを能力ごとに選び、lock�
 ideation	single	既存の延長ではない根本的に新しい発想を求められた	候補の順位づけではなく、一つの考えを使って生まれる問いと成果で進め、後付けの正当化と区別する
 workspace-frontend	multi	worktreeやagent terminalをUIのfrontendで扱う	worktree一覧・agent terminal・diff review等のUI。lifecycleの正本にはしない
 supervisor-authority	single	専用Supervisorを実装Workerと権限分離する	監督の直接実装禁止、限定Broker・read-only/remote権限境界の検証
-system-quality	single	ソフトウェアの初期化・要求変更・全体再構成を行う	要求保存、アンチケース排除、代替構成と改善関係、保証範囲
+system-quality	single	ソフトウェアの初期化・新規実装・機能追加・要求変更・全体再構成を行う	要求保存、追加時の全体整合、アンチケース排除、代替構成と改善関係、保証範囲

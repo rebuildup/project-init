@@ -30,6 +30,8 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 一覧にない能力が必要なら、その能力を行として追加する候補にする（§6）。
 
+**コード品質の基本能力**: コードがある、またはコードを生成・変更するprojectでは、リネーム依頼がなくても `code-naming` を選定する。日常の実装開始・追加時にroot contractから参照できるようにする。`system-quality` と役割を分担し、Skill導入だけで品質成立と扱わず実コードで確認する。
+
 **Webの優先候補**: HTML/CSS・DOM・Web UI・client-side JSを扱うprojectは `web-platform` を初回判定し、`GoogleChrome/modern-web-guidance` を優先評価する。framework・デザイン・品質のSkillとは別担当。backend・infra・CLI専用には不要。
 
 ## 2. 候補を集める
@@ -58,20 +60,20 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 ## 4. 導入する
 
-frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
+frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality code-naming --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
 
 - project-localに入れる。`--global` は使わない。
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
 - `--copy` で導入し、導入されたSkillのfileと `skills-lock.json` を両方commitする。`skills-lock.json` だけでは再現にならないためである。2026-10時点の `skills experimental_install` は、lockの `computedHash` と照合せずに配布元の現在の内容を取得し、導入先も `.agents/skills/` に固定される。
 - 更新は `bunx skills update` で行い、Skill fileのdiffをPRで確認してから取り込む。配布元の変更を、確認せずに取り込まないためである。
-- 導入した複製は直接編集しない。複製の内容は `computedHash`（各fileの相対pathと中身を、pathの大文字小文字を区別しない順に連結したsha256）と一致し続ける必要がある。project-initの `evals/policy-evaluation/vendored-skills-contract.mts` と同じ検査をprojectのquality gateに入れる。直したい点があれば、正本へPRを出す。
+- 導入した複製は直接編集しない。複製の内容は `computedHash` と一致し続ける必要がある。hash方式は `skills-lock.json` の `version` で決まる: version 1 は各fileの相対pathと中身をpathの大文字小文字を区別しない順に連結したsha256、version 2（skills CLI 1.9以降）はCLIの `hashSkillFiles` と同じ byte-wise path sort・`path NUL length NUL content` framing・CRLF正規化・`metadata.json`/cache dir 除外のsha256である。project-initの `evals/policy-evaluation/vendored-skills-contract.mts` と同じ検査をprojectのquality gateに入れる。直したい点があれば、正本へPRを出す。
 - 配布元がtagを付けているなら、`https://github.com/<owner>/<repo>/tree/<tag>` で導入してlockの `ref` をtagに固定する。commit SHAは `ref` に使えない。
 - licenseが再配布を禁じるSkillはcommitしない。`skills-lock.json` にだけ記録し、必要な環境で導入する。
 - `disable-model-invocation: true` のSkill（`candidates.tsv` の `invocation` が `manual`）は、agentが自動では起動しない。採用する場合は、root contractの能力表に「この場面ではこのpathを読む」と明記する。
 
 ## 5. root contractへ反映する
 
-root contractのSkill一覧は、能力ごとの担当表として書く。採用したSkillの名前、使う場面、手動起動ならそのpathを並べる。外部Skillも自作Skillも同じ表に載せる。
+root contractのSkill一覧は、能力ごとの担当表として書く。コードがあるprojectでは、実装・追加・変更開始時に `code-naming` と `system-quality` へ辿れる短い導線を置く。詳細はrootへコピーしない。採用したSkillの名前、使う場面、手動起動ならそのpathを並べる。外部Skillも自作Skillも同じ表に載せる。
 
 見送った候補や除外したrouterは、root contractに書かない。理由はproject内の決定記録（ADR等）に残す。
 
