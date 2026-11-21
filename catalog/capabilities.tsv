@@ -22,6 +22,7 @@ interaction-style	single	always	userとのやりとり、質問の絞り方、bl
 policy-evaluation	single	Skillやpolicyを変更する	policyの評価、context budget
 skill-authoring	single	repositoryでSkillを書く	Skillの書き方
 visual-design	single	UIや視覚的な成果物を作る	実例を観察し、構造を抽出し、翻訳して作り、出来上がりで確かめる
+visual-composition-audit	single	完成した画面・ページ全体の構図を監査する	完成した画面を一般的なデザイン原則（Gestalt 群化・CRAP・階層・グリッドと非対称・字面と scale・色と面・余白のリズム・メディアのアートディレクション・均衡・反復と統一・レスポンシブ再構成・IA と視覚表現の対応・認知負荷）と照らして監査し、欠陥を観察可能な特徴として記録する
 web-platform	single	HTML/CSS・DOM・ブラウザ上のWeb UI/client-side JavaScriptを実装・更新する	ブラウザ標準API、Baseline互換性、フォールバック、性能・アクセシビリティの実装指針
 motion-design	multi	animationやmotion graphicsを作る	motionの設計と検証
 platform-cloudflare	multi	Cloudflareを使う	Cloudflareのproductとtool
