@@ -229,6 +229,8 @@ npx skills add rebuildup/project-init --skill '*' --agent codex
 - `orca-frontend` — Orcaを任意のworktree / agent terminal frontendとして併用し、lifecycle・作業の正本・orchestration stateをOrcaに依存させない
 - `skill-selection` — 能力ごとに担当Skillを1つ決め、外部Skillを個別に導入して `skills-lock.json` と採否を記録する
 
+Lean 4の証明作成・修正には、[公式 `leanprover/skills`](https://github.com/leanprover/skills) の `lean-proof` を優先候補とします。Mathlib本体をビルドする場合に限り `mathlib-build` も候補になります。対象projectの `skill-selection` で必要性を判定して個別導入し、上流Skillをこのrepositoryに複製・再実装しません。
+
 ## Core principle
 
 > Constitutionはtool/provider-independentなorganizational propertyだけを定義する。現在のGitHub / Linear / release branch / Worktrunk / mise / Skill等は、それらを満たすOperating Model / Practiceであり、同等以上のguaranteeを示せるより良い手段へ置換できる。agentはprocedure compliance自体ではなく、Constitutionとexplicit decisionの制約下でproject全体を最適化する。
