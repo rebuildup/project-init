@@ -23,6 +23,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 - 技術stack: language / framework / runtime / SDKの実version、manifest / lockfile、workspace構成
 - Web該当性: HTML/CSS・DOM・ブラウザ側JavaScript / Web UIの有無と対象ブラウザ範囲（該当する場合は `skill-selection` の `web-platform` 初期候補を確認）
 - Lean 4該当性: `.lean`・`lean-toolchain`・`lakefile` の有無と定理証明の作成・修正の対象範囲（該当する場合は `skill-selection` の `lean4-proof` 候補を確認）
+- 視覚レビュー該当性: UI変更の rendered screenshot を回帰・coherence 観点でレビューする必要があるか（該当する場合は `skill-selection` の `visual-review` 候補を確認。局所レビューと freeze 後の包括レビューは quality-gate の visual review handoff に従う）
 - 開発環境: devcontainer / Containerfile / Nix / `mise.toml`、host（macOS / WSL / Linux）差の扱い
 - 品質: test / lint / type / build、smoke・integration・E2Eの基盤、CI（GitHub Actions）
 - コード構造: 変更先の兄弟entry、似た名前、責務の所有者、利用側の既存実装
