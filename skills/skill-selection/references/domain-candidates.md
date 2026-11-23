@@ -18,8 +18,8 @@
 
 導入した複製は直接編集せず、内容が `computedHash` と一致し続ける状態を維持する。
 
-- **version 1**: 各fileの相対pathと中身を、pathの大文字小文字を区別しない順に連結したsha256。
-- **version 2（skills CLI 1.9以降）**: CLIの `hashSkillFiles` と同じ byte-wise path sort・`path NUL length NUL content` framing・CRLF正規化・`metadata.json`/cache dir 除外のsha256。
+- **version 1**: `.git` と `node_modules` を除いた各fileの相対pathと中身を、pathの大文字小文字を区別しない順に連結したsha256。
+- **version 2（skills CLI 1.9以降）**: CLIの `hashSkillFiles` と同じ byte-wise path sort・`path NUL length NUL content` framing・CRLF正規化（NUL byte を含む binary file は正規化せずそのまま hash）・`metadata.json`/cache dir（`.git`, `__pycache__`, `__pypackages__`）除外のsha256。
 - project-initの `evals/policy-evaluation/vendored-skills-contract.mts` と同じ検査をprojectのquality gateに入れる。修正が必要なら正本へPRを出す。
 
 ## `candidates.tsv` の列の値
