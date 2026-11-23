@@ -318,7 +318,7 @@ test("real git repo: exceptions and ADR are loaded from --head tree, rejecting t
     );
     const invalidLoaded = loadExceptions(dir, ".config/bad-exceptions.json", { ref: "HEAD" });
     assert.equal(invalidLoaded.exceptions.length, 0);
-    assert.equal(invalidLoaded.errors.length, 4);
+    assert.equal(invalidLoaded.errors.length, 6);
     assert.ok(invalidLoaded.errors.every((e) => e.code === "INVALID_EXCEPTION"));
   });
 });
