@@ -486,7 +486,7 @@ quality profileに対象check、入力・環境の識別、最大間隔、強制
 
 新規実装・追加時はformatter・lint・型検査とは別に、[code-naming](../code-naming/SKILL.md) と [system-quality](../system-quality/SKILL.md) に基づき、影響範囲の新旧ファイル・兄弟entry・責務の所有者・import・利用側をコードで評価する。今回の変更が生んだ重複・曖昧な命名・階層不整合は、同じticketで解消する。後日のリファクタリングは受入の代わりにならない。
 
-機械判定可能な違反は低コストのproject-local検査で拒否する。ファイル数や共通prefixだけで意味の良否を決めず、残る意味判断は実コードの差分と周辺構造で確認する。自己申告を独立強制と呼ばず、通常ticketへrelease候補のGUI・full E2Eを追加しない。
+機械判定可能な違反は低コストのproject-local検査で拒否する。新規Pythonスクリプト導入のPR差分検査とADR例外境界は [new-python-guard](references/new-python-guard.md)（実装: [check-new-python.mts](../../scripts/quality/check-new-python.mts) / 根拠: [ADR-0001](../../docs/adr/ADR-0001.md) §11）に従う。ファイル数や共通prefixだけで意味の良否を決めず、残る意味判断は実コードの差分と周辺構造で確認する。自己申告を独立強制と呼ばず、通常ticketへrelease候補のGUI・full E2Eを追加しない。
 
 ## 9. Worker gate
 
