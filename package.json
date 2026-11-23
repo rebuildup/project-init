@@ -12,6 +12,7 @@
     "delivery-status": "node scripts/delivery-status/delivery-status.mts",
     "test:supervisor-boundary": "node --test templates/supervisor-boundary/guard.test.mts",
     "quality:structure": "node scripts/quality/check.mts",
+    "test:new-python": "node --test scripts/quality/check-new-python.test.mts",
     "test:system-quality": "node --test evals/system-quality/*.test.mts evals/code-structure/*.test.mts scripts/quality/*.test.mts",
     "quality:challenge": "node evals/system-quality/challenge.mts"
   },
