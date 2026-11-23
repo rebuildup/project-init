@@ -40,6 +40,8 @@ jobs:
         run: node --test evals/policy-evaluation/requirement-handoff.test.mts
       - name: Test delivery-status classification and CLI safety
         run: bun run test:delivery-status
+      - name: Test review finding persistence and recurrence ledger
+        run: bun run test:review-findings
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
