@@ -8,7 +8,7 @@
 
 判定に必要な最小情報:
 
-- integrated ticket IDs / dependency graph / scope admission state（未確定要求をcritical pathへ入れない）
+- integrated ticket IDs / dependency graph / scope admission state（未確定要求をcritical pathへ入れない。scope・owner承認の照合は [scope-authority-reconciliation.md](./scope-authority-reconciliation.md) に従う）
 - user-facing value・priority・security impact・urgency・external deadlines
 - earliest integrated-but-unpublished change、elapsed waiting time、未公開変更の件数とリスク面
 - changed areas / interfaces / persistence / deployment / reversibility、必要なrelease-wide verification

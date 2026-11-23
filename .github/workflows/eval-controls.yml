@@ -32,6 +32,8 @@ jobs:
         run: bun run test:eval-regressions
       - name: Test TypeScript release batching controls
         run: bun run test:release-batching
+      - name: Test release scope and authority reconciliation controls
+        run: bun run test:scope-authority
       - name: Test TypeScript interaction and Linear controls
         run: |
           bun run test:interaction
