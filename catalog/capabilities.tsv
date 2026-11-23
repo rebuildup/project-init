@@ -24,7 +24,7 @@ interaction-style	single	always	userとのやりとり、質問の絞り方、bl
 policy-evaluation	single	Skillやpolicyを変更する	policyの評価、context budget
 skill-authoring	single	repositoryでSkillを書く	Skillの書き方
 visual-design-foundation	single	2Dの視覚成果物・UI・グラフィック・スライド・映像を新規設計または大きく再構成する	配置や装飾の前に目的・対象体験・情報選別・構造・実物による探索判断を組み立てる上流の設計基盤
-visual-design	single	UIや視覚的な成果物を作る	実例を観察し、構造を抽出し、翻訳して作り、出来上がりで確かめる
+visual-design	single	UIや視覚的な成果物の視覚方向・briefを固めて制作する	視覚方向・brief・トーンを定義し、実例観察と翻訳を通じてUIや視覚成果物を具体的に作り上げる（配置前の目的・情報選別・体験構造探索は visual-design-foundation が担う）
 visual-composition-audit	single	完成した画面・ページ全体の構図を監査する	完成した画面を一般的なデザイン原則（Gestalt 群化・CRAP・階層・グリッドと非対称・字面と scale・色と面・余白のリズム・メディアのアートディレクション・均衡・反復と統一・レスポンシブ再構成・IA と視覚表現の対応・認知負荷）と照らして監査し、欠陥を観察可能な特徴として記録する
 visual-review	single	UI変更の rendered screenshot を回帰・coherence・first-encounter の観点でレビューする	rendered 画面の screenshot を baseline・仕様・観察可能な特徴と照らしてレビューし、defect / spec-mismatch / suggestion を区別する
 functional-ui-review	single	Web / application UIの実際のタスク導線を評価・改善する必要がある	視覚的な操作発見・情報の優先順位・摩擦・一貫性・feedback / recovery を利用者のtaskから監査する
