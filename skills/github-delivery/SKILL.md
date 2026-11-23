@@ -102,15 +102,13 @@ release train開始時に`main`からbranchを切る。緊急patchもrelease PR�
 
 ### Delivery forecast / capacity
 
-1週間はplanning cadenceであり、選んだscopeが必ず1週間で完了するというestimateではない。
+1週間はplanning cadenceであり、完了時期のestimateではない。release/milestoneの完了時期・capacity・carry-over・agent数変更効果の判断には `agent-delivery-estimation` Skillを使う。
 
-release / roadmap / milestoneの完了時期、release date、capacity、carry-over、agent数変更による短縮効果を判断する場合は `agent-delivery-estimation` Skillを使用する。
-
-- IssueのSizeをcalendar durationとして扱わない
-- AI自身の「数日・数ヶ月」という主観的estimateをrelease dateの根拠にしない
-- dependency graph、Work Unit、observed throughput、human review capacity、CI/external wait、usage limitを使う
-- material unknownがある場合は `complete / conditional / unavailable` を維持し、日付を捏造してfieldを埋めない
-- sprintごとの実績を次のforecast calibrationへ戻す
+- Issue Sizeをcalendar durationにせず、AIの主観estimateも根拠にしない
+- Work Unit、dependency、実測throughput、human/CI/external wait、usage limitを使う
+- active releaseの観測snapshot/deltaには `scripts/delivery-status/`（`--snapshot-out`/`--prev-snapshot`）を使う
+- material unknown時は `complete/conditional/unavailable` を維持し日付を捏造しない
+- sprint実績を次回calibrationへ戻す
 
 ## Issue
 

@@ -18,11 +18,56 @@ export const FLAGS = [
 export type Flag = (typeof FLAGS)[number];
 export type CiState = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'UNKNOWN';
 
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const DASH_SEMVER_PATTERN = /^(\d+)-(\d+)-(\d+)(?:-(.+))?$/;
+
+export function isReleaseBranch(branchName: string): boolean {
+  return branchName.startsWith('release-') || branchName.startsWith('release/');
+}
+
+/**
+ * Extract canonical SemVer (without leading `v`) from `release-X-Y-Z` or
+ * `release/X.Y.Z[-pre]`. Returns `null` if the branch name does not encode a
+ * parseable semantic version (never guesses).
+ */
+export function extractReleaseVersion(branchName: string): string | null {
+  if (branchName.startsWith('release/')) {
+    const raw = branchName.slice('release/'.length).replace(/^v/, '');
+    return SEMVER_PATTERN.test(raw) ? raw : null;
+  }
+  if (branchName.startsWith('release-')) {
+    const raw = branchName.slice('release-'.length).replace(/^v/, '');
+    if (SEMVER_PATTERN.test(raw)) return raw;
+    const dash = DASH_SEMVER_PATTERN.exec(raw);
+    if (!dash) return null;
+    const [, major, minor, patch, pre] = dash;
+    return pre ? `${major}.${minor}.${patch}-${pre}` : `${major}.${minor}.${patch}`;
+  }
+  return null;
+}
+
+/**
+ * Check whether a matching SemVer tag (`X.Y.Z` or `vX.Y.Z`) exists for a
+ * release branch. Returns `null` when tags could not be fetched or the branch
+ * name has no parseable version.
+ */
+export function isReleaseTagPublished(
+  branchName: string,
+  tags: readonly string[] | null,
+): boolean | null {
+  if (tags === null) return null;
+  const version = extractReleaseVersion(branchName);
+  if (version === null) return null;
+  const candidates = new Set([version, `v${version}`]);
+  return tags.some((tag) => candidates.has(tag));
+}
+
 export interface PrFacts {
   readonly number: number;
   readonly title: string;
   readonly isDraft: boolean;
   readonly base: string;
+  readonly headRefName?: string | null;
   readonly headSha: string;
   readonly updatedAt: string;
   /** GraphQL PullRequest.mergeable: MERGEABLE | CONFLICTING | UNKNOWN */
@@ -43,6 +88,7 @@ export interface PrRow {
   readonly title: string;
   readonly draft: boolean;
   readonly base: string;
+  readonly headRefName: string | null;
   readonly headSha: string;
   readonly mergeable: string;
   readonly mergeStateStatus: string;
@@ -60,6 +106,8 @@ export interface ReleasePrRef {
 
 export interface ReleaseBranchFacts {
   readonly name: string;
+  /** Current commit OID of the release branch head; null/undefined when unknown. */
+  readonly branchHeadSha?: string | null;
   /** Commits on the release branch that the default branch lacks; null when the comparison failed. */
   readonly aheadOfDefault: number | null;
   /** Commits on the default branch that the release branch lacks; null/undefined when unknown. */
@@ -73,6 +121,7 @@ export interface ReleaseBranchFacts {
 
 export interface ReleaseRow {
   readonly name: string;
+  readonly branchHeadSha: string | null;
   readonly aheadOfDefault: number | null;
   readonly behindOfDefault: number | null;
   readonly openReleasePr: ReleasePrRef | null;
@@ -133,6 +182,7 @@ export function classifyPr(facts: PrFacts, now: Date): PrRow {
     title: facts.title,
     draft: facts.isDraft,
     base: facts.base,
+    headRefName: facts.headRefName ?? null,
     headSha: facts.headSha,
     mergeable: facts.mergeable,
     mergeStateStatus: facts.mergeStateStatus,
@@ -170,6 +220,7 @@ export function classifyReleaseBranch(facts: ReleaseBranchFacts): ReleaseRow {
 
   return {
     name: facts.name,
+    branchHeadSha: facts.branchHeadSha ?? null,
     aheadOfDefault: facts.aheadOfDefault,
     behindOfDefault: behind,
     openReleasePr: facts.openReleasePr,
