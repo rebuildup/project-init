@@ -229,7 +229,7 @@ Git外の操作は特に危険。
 
 可能ならidempotency keyを使用する。
 
-side effect前にintent、後にresult/remote identifierをdurable journalへ記録する。実行直前にcurrent fencing tokenを検証し、recovery時はownership取得後にremote actual stateを確認してからretryする。
+side effect前にintent、後にresult/remote identifierをdurable journalへ記録する。実行直前にcurrent fencing tokenを検証し、recovery時はownership取得後にremote actual stateを確認してからretryする。GitHub review/Issue投稿失敗時のfinding永続化・重複抑止・再発追跡には `scripts/review-findings/cli.mts` を使用する。
 
 `command returned no response = operation did not happen` と推測してはいけない。
 
