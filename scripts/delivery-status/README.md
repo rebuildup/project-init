@@ -13,7 +13,10 @@ Issue → PR → release branch → `main` の経路で滞留している作業�
 node scripts/delivery-status/delivery-status.mts                      # 既定の3リポジトリ
 node scripts/delivery-status/delivery-status.mts --repo owner/name    # 対象を指定（繰り返し可）
 node scripts/delivery-status/delivery-status.mts --json               # JSON 出力
+node scripts/delivery-status/delivery-status.mts --snapshot-out .tmp/delivery-day1.json --prev-snapshot .tmp/delivery-day0.json --json
 ```
+
+`--snapshot-out` / `--prev-snapshot` は既存の読み取り専用観測を拡張し、per-release の evidence snapshot と連続 2 回の再現可能な delta を算出します（Issue #122）。初回や欠落履歴は `unknown` として扱い、commit 数・PR 数を Work Unit へ変換したり、観測不足の状態で P50/P80/P95 を生成したりしません。
 
 既定の対象は `rebuildup/pc-setup`、`rebuildup/dotfiles`、`rebuildup/project-init`。前提は `gh` CLI の認証済みであること。判定ロジックのテストは `bun run test:delivery-status`（`classify.mts` の純粋関数のみを検証する。ネットワーク不要）。
 

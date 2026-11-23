@@ -13,6 +13,7 @@
 // Authentication is delegated to `gh`; this script never reads or prints tokens.
 
 import { execFileSync } from 'node:child_process';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -23,6 +24,12 @@ import {
   type ReleaseRow,
   type ReleaseBranchFacts,
 } from './classify.mts';
+import {
+  buildSnapshot,
+  computeSnapshotDelta,
+  type DeliverySnapshot,
+  type SnapshotDeltaReport,
+} from './snapshot.mts';
 
 const DEFAULT_REPOS = [
   'rebuildup/pc-setup',
@@ -46,6 +53,8 @@ interface Report {
   readonly generatedAt: string;
   readonly repos: readonly RepoReport[];
   readonly errors: readonly { readonly repo: string; readonly message: string }[];
+  readonly snapshot?: DeliverySnapshot;
+  readonly delta?: SnapshotDeltaReport;
 }
 
 class GhError extends Error {
@@ -213,35 +222,45 @@ export function failingCheckNames(contexts: readonly RawContext[]): string[] {
   return [...latest].filter(([, v]) => v.failing).map(([k]) => k).sort();
 }
 
-// `gh api repos/o/n/compare/<default>...<branch>` -> commits `branch` has beyond default.
+// `gh api repos/o/n/compare/<default>...<branch>` -> ahead/behind commits relative to default.
 // Any API comparison failure is unknown, never a green/stale conclusion.
-function aheadOfDefault(owner: string, name: string, defaultBranch: string, branch: string): number | null {
+function compareToDefault(
+  owner: string,
+  name: string,
+  defaultBranch: string,
+  branch: string,
+): { ahead: number; behind: number } | null {
   try {
-    const cmp = ghJson<{ ahead_by: number }>([
+    const cmp = ghJson<{ ahead_by: number; behind_by: number }>([
       'api',
       `repos/${owner}/${name}/compare/${encodeURIComponent(defaultBranch)}...${encodeURIComponent(branch)}`,
     ]);
-    return cmp.ahead_by;
+    return { ahead: cmp.ahead_by, behind: cmp.behind_by };
   } catch (error) {
     if (error instanceof GhError) return null;
     throw error;
   }
 }
 
-function mergedPrCount(owner: string, name: string, branch: string): number {
-  const data = ghJson<{ data: { repository: { pullRequests: { totalCount: number } } } }>([
-    'api',
-    'graphql',
-    '-f',
-    `query=${MERGED_COUNT_QUERY}`,
-    '-f',
-    `owner=${owner}`,
-    '-f',
-    `name=${name}`,
-    '-f',
-    `head=${branch}`,
-  ]);
-  return data.data.repository.pullRequests.totalCount;
+function mergedPrCount(owner: string, name: string, branch: string): number | null {
+  try {
+    const data = ghJson<{ data: { repository: { pullRequests: { totalCount: number } } } }>([
+      'api',
+      'graphql',
+      '-f',
+      `query=${MERGED_COUNT_QUERY}`,
+      '-f',
+      `owner=${owner}`,
+      '-f',
+      `name=${name}`,
+      '-f',
+      `head=${branch}`,
+    ]);
+    return data.data.repository.pullRequests.totalCount;
+  } catch (error) {
+    if (error instanceof GhError) return null;
+    throw error;
+  }
 }
 
 export function matchesReleasePr(pr: Pick<RawPr, 'headRefName' | 'baseRefName' | 'isCrossRepository'>, branch: string, defaultBranch: string): boolean {
@@ -255,11 +274,12 @@ export function collectRepo(repo: string, now: Date): RepoReport {
   const main = defaultBranchOf(owner, name);
   const rawPrs = graphqlPaged<RawPr>(REPO_QUERY, owner, name, (data) => data.repository.pullRequests);
 
-  const compareCache = new Map<string, number | null>();
-  const aheadCached = (branch: string): number | null => {
-    if (!compareCache.has(branch)) compareCache.set(branch, aheadOfDefault(owner, name, main, branch));
+  const compareCache = new Map<string, { ahead: number; behind: number } | null>();
+  const compareCached = (branch: string): { ahead: number; behind: number } | null => {
+    if (!compareCache.has(branch)) compareCache.set(branch, compareToDefault(owner, name, main, branch));
     return compareCache.get(branch) ?? null;
   };
+  const aheadCached = (branch: string): number | null => compareCached(branch)?.ahead ?? null;
 
   const openPrs: PrRow[] = rawPrs.map((pr) => {
     const facts: PrFacts = {
@@ -287,9 +307,11 @@ export function collectRepo(repo: string, now: Date): RepoReport {
     .sort()
     .map((branch) => {
       const openReleasePr = rawPrs.find((pr) => matchesReleasePr(pr, branch, main));
+      const cmp = compareCached(branch);
       const facts: ReleaseBranchFacts = {
         name: branch,
-        aheadOfDefault: aheadCached(branch),
+        aheadOfDefault: cmp?.ahead ?? null,
+        behindOfDefault: cmp?.behind ?? null,
         openReleasePr: openReleasePr
           ? { number: openReleasePr.number, isDraft: openReleasePr.isDraft, mergeStateStatus: openReleasePr.mergeStateStatus }
           : null,
@@ -341,7 +363,7 @@ export function renderText(report: Report): string {
           b.name,
           b.aheadOfDefault === null ? 'unknown' : String(b.aheadOfDefault),
           b.openReleasePr ? `#${b.openReleasePr.number}${b.openReleasePr.isDraft ? ' (draft)' : ''} ${b.openReleasePr.mergeStateStatus}` : '-',
-          String(b.mergedPrCount),
+          b.mergedPrCount === null ? 'unknown' : String(b.mergedPrCount),
           b.flags.join(',') || '-',
         ]),
       ),
@@ -367,10 +389,12 @@ interface Args {
   repos: string[];
   json: boolean;
   help: boolean;
+  snapshotOut: string | null;
+  prevSnapshot: string | null;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
-  const args: Args = { repos: [], json: false, help: false };
+  const args: Args = { repos: [], json: false, help: false, snapshotOut: null, prevSnapshot: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') args.json = true;
@@ -379,17 +403,27 @@ export function parseArgs(argv: readonly string[]): Args {
       const value = argv[++i];
       if (value === undefined || value.startsWith('-')) throw new Error('--repo requires owner/name');
       args.repos.push(value);
+    } else if (arg === '--snapshot-out') {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith('-')) throw new Error('--snapshot-out requires a file path');
+      args.snapshotOut = value;
+    } else if (arg === '--prev-snapshot') {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith('-')) throw new Error('--prev-snapshot requires a file path');
+      args.prevSnapshot = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
   if (args.repos.length === 0) args.repos = [...DEFAULT_REPOS];
   return args;
 }
 
-const USAGE = `Usage: node scripts/delivery-status/delivery-status.mts [--repo owner/name ...] [--json]
+const USAGE = `Usage: node scripts/delivery-status/delivery-status.mts [--repo owner/name ...] [--json] [--snapshot-out path] [--prev-snapshot path]
 
-  --repo owner/name   repository to inspect (repeatable; default: ${DEFAULT_REPOS.join(', ')})
-  --json              print the report as JSON instead of tables
-  -h, --help          show this help
+  --repo owner/name      repository to inspect (repeatable; default: ${DEFAULT_REPOS.join(', ')})
+  --json                 print the report as JSON instead of tables
+  --snapshot-out path    write the evidence snapshot JSON to a local file
+  --prev-snapshot path   compare current snapshot against a prior snapshot JSON
+  -h, --help             show this help
 `;
 
 function main(argv: readonly string[]): number {
@@ -416,7 +450,24 @@ function main(argv: readonly string[]): number {
     }
   }
 
-  const report: Report = { generatedAt: now.toISOString(), repos, errors };
+  const generatedAt = now.toISOString();
+  const snapshot = buildSnapshot(generatedAt, repos, errors);
+  let delta: SnapshotDeltaReport | undefined;
+  if (args.prevSnapshot) {
+    const previous = JSON.parse(readFileSync(resolve(args.prevSnapshot), 'utf8')) as DeliverySnapshot;
+    delta = computeSnapshotDelta(previous, snapshot);
+  }
+  if (args.snapshotOut) {
+    writeFileSync(resolve(args.snapshotOut), redact(`${JSON.stringify(snapshot, null, 2)}\n`), 'utf8');
+  }
+
+  const report: Report = {
+    generatedAt,
+    repos,
+    errors,
+    ...(args.snapshotOut || args.prevSnapshot ? { snapshot } : {}),
+    ...(delta ? { delta } : {}),
+  };
   process.stdout.write(redact(args.json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report)}\n`));
   return errors.length > 0 ? 1 : 0;
 }

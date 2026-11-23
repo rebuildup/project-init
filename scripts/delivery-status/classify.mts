@@ -10,6 +10,8 @@ export const FLAGS = [
   'NO-PR-BODY-CHECKS',
   'UNRELEASED-COMMITS',
   'MERGED-STALE-BASE',
+  'BRANCH-DIVERGED',
+  'TAG-UNPUBLISHED',
   'BRANCH-UNKNOWN',
 ] as const;
 
@@ -60,16 +62,22 @@ export interface ReleaseBranchFacts {
   readonly name: string;
   /** Commits on the release branch that the default branch lacks; null when the comparison failed. */
   readonly aheadOfDefault: number | null;
+  /** Commits on the default branch that the release branch lacks; null/undefined when unknown. */
+  readonly behindOfDefault?: number | null;
   readonly openReleasePr: ReleasePrRef | null;
-  /** Number of merged PRs whose head is this branch. */
-  readonly mergedPrCount: number;
+  /** Number of merged PRs whose head is this branch; null when the lookup failed. */
+  readonly mergedPrCount: number | null;
+  /** Whether the corresponding release tag is confirmed published; null/undefined when unknown. */
+  readonly tagPublished?: boolean | null;
 }
 
 export interface ReleaseRow {
   readonly name: string;
   readonly aheadOfDefault: number | null;
+  readonly behindOfDefault: number | null;
   readonly openReleasePr: ReleasePrRef | null;
-  readonly mergedPrCount: number;
+  readonly mergedPrCount: number | null;
+  readonly tagPublished: boolean | null;
   readonly flags: readonly Flag[];
 }
 
@@ -137,6 +145,8 @@ export function classifyPr(facts: PrFacts, now: Date): PrRow {
 
 export function classifyReleaseBranch(facts: ReleaseBranchFacts): ReleaseRow {
   const flags: Flag[] = [];
+  const behind = facts.behindOfDefault ?? null;
+  const tagPublished = facts.tagPublished ?? null;
 
   if (facts.aheadOfDefault === null) {
     flags.push('BRANCH-UNKNOWN');
@@ -145,15 +155,26 @@ export function classifyReleaseBranch(facts: ReleaseBranchFacts): ReleaseRow {
     // after its content reached main. Note that a freshly cut zero-diff branch
     // also satisfies this; mergedPrCount tells the two apart for the reader.
     flags.push('MERGED-STALE-BASE');
-  } else if (facts.openReleasePr === null) {
-    flags.push('UNRELEASED-COMMITS');
+  } else {
+    if (facts.openReleasePr === null) {
+      flags.push('UNRELEASED-COMMITS');
+    }
+    if (behind !== null && behind > 0) {
+      flags.push('BRANCH-DIVERGED');
+    }
+  }
+
+  if (tagPublished === false) {
+    flags.push('TAG-UNPUBLISHED');
   }
 
   return {
     name: facts.name,
     aheadOfDefault: facts.aheadOfDefault,
+    behindOfDefault: behind,
     openReleasePr: facts.openReleasePr,
     mergedPrCount: facts.mergedPrCount,
+    tagPublished,
     flags,
   };
 }
