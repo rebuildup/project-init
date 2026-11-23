@@ -1,0 +1,65 @@
+{
+  "trigger": "weekly",
+  "outcome": "candidate",
+  "stage": "frozen",
+  "basis": {
+    "scope": "admitted feature #201 and reproduced bug #205 while #202 stays in discovery and #206 stays in backlog",
+    "value": "admitted feature and bugfix ready for users",
+    "waiting": "5 days",
+    "change_risk": "low: localized API addition and targeted bugfix",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "promoted_by_calendar_only": false,
+  "admission_items": [
+    {
+      "id": "#201",
+      "item_type": "feature",
+      "track": "critical-path",
+      "promoted_by_calendar_only": false,
+      "requirement_confirmed": true,
+      "bug_reproduced_or_pinpointed": "not-applicable",
+      "acceptance_executable": true,
+      "dependency_owner_identified": true,
+      "validation_path_defined": true
+    },
+    {
+      "id": "#205",
+      "item_type": "bug",
+      "track": "critical-path",
+      "promoted_by_calendar_only": false,
+      "requirement_confirmed": true,
+      "bug_reproduced_or_pinpointed": true,
+      "acceptance_executable": true,
+      "dependency_owner_identified": true,
+      "validation_path_defined": true
+    },
+    {
+      "id": "#202",
+      "item_type": "feature",
+      "track": "research-discovery",
+      "requirement_confirmed": false,
+      "bug_reproduced_or_pinpointed": "not-applicable",
+      "acceptance_executable": false,
+      "dependency_owner_identified": true,
+      "validation_path_defined": false
+    },
+    {
+      "id": "#206",
+      "item_type": "chore",
+      "track": "backlog",
+      "requirement_confirmed": false,
+      "bug_reproduced_or_pinpointed": "not-applicable",
+      "acceptance_executable": false,
+      "dependency_owner_identified": false,
+      "validation_path_defined": false
+    }
+  ],
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}

@@ -348,7 +348,7 @@ unknownを発見したら、まず4種類へ分類する。
 
 ## Structural unknown
 
-scope、dependency、architecture等が未確定でWork Graph自体が安定しない。
+scope、dependency、architecture等が未確定でWork Graph自体が安定しない。`github-delivery` の release scope admission gate（[adaptive-release-batching.md](../github-delivery/references/adaptive-release-batching.md)）で `critical-path` 基準（`requirement_confirmed`、`bug_reproduced_or_pinpointed`［`bug` は `true`、`feature`/`chore` は `"not-applicable"`］、`acceptance_executable`、`dependency_owner_identified`、`validation_path_defined`、`promoted_by_calendar_only: false`）を満たさない項目は、calendar target だけで `critical-path` へ昇格せず `research-discovery` / `backlog` へ分離する。
 
 結果:
 
