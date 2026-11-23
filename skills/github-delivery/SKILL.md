@@ -98,7 +98,7 @@ canonical format:
 
 `release-<major>-<minor>-<patch>`
 
-release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由する。候補はscope・公開価値・滞留・変更リスク・release-only実測コストで判定し、PR数だけで決めない。freezeとcarry-overは [adaptive-release-batching.md](./references/adaptive-release-batching.md) に従う。
+release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由。候補はscope・価値・滞留・リスク・release-only実測コストで判定しPR数だけで決めない。手順は [adaptive-release-batching.md](./references/adaptive-release-batching.md)・[scope-authority-reconciliation.md](./references/scope-authority-reconciliation.md) に従う。
 
 ### Delivery forecast / capacity
 
@@ -397,7 +397,7 @@ release branchはticketを集約する開発中のintegration lineであり、�
 
 release branchはrelease train開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
+Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを維持し、readiness達成後はReadyへ遷移する。mutable validation stateはGitHub checks等を正本にし、PR本文には判断に必要な意味だけ書く。
 
 release候補を選択しscope/current SHAをfreezeした後、release branch上でfull applicable quality gateを実行する。freeze中の新規ticket landingは禁止し、修正でSHAが変わった場合はapplicable gateを再実行する（[candidate review](./references/adaptive-release-batching.md)）。
 

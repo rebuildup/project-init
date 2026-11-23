@@ -1,0 +1,36 @@
+{
+  "id": "positive-bulk-close-with-evidence",
+  "item": "batch-close-2026-10-31",
+  "changeClass": "close-issue-batch",
+  "requestedTargetRelease": "release-0-8-0",
+  "canonicalTargetRelease": "release-0-8-0",
+  "requestedIntent": "preserve-progress",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 2,
+  "latestOwnerDecision": {
+    "revision": 2,
+    "decidedAt": "2026-10-31",
+    "actor": "rebuildup",
+    "provenance": "human-owner-direct",
+    "sourceKind": "github-issue-comment",
+    "targetRelease": "release-0-8-0",
+    "allowedIntent": "land-to-release",
+    "evidenceUrl": "https://github.com/rebuildup/my-web-2026/issues/741",
+    "items": ["#712"]
+  },
+  "closedItems": [
+    {
+      "item": "#710",
+      "disposition": "completed",
+      "implemented": true,
+      "evidenceSha": "1a2b3c4d5e6f",
+      "evidenceUrl": "https://github.com/rebuildup/my-web-2026/pull/711"
+    },
+    {
+      "item": "#712",
+      "disposition": "absorbed",
+      "evidenceUrl": "https://github.com/rebuildup/my-web-2026/issues/741",
+      "rationale": "Owner approved folding #712 into #710 implementation"
+    }
+  ]
+}

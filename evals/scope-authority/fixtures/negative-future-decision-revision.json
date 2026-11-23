@@ -1,0 +1,21 @@
+{
+  "id": "negative-future-decision-revision",
+  "item": "#145",
+  "changeClass": "move-feature-to-release",
+  "requestedTargetRelease": "release-4-0-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "land-to-release",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 3,
+  "latestOwnerDecision": {
+    "revision": 2,
+    "decidedAt": "2026-10-30",
+    "actor": "rebuildup",
+    "provenance": "human-owner-direct",
+    "sourceKind": "github-issue-comment",
+    "targetRelease": "release-4-0-0",
+    "allowedIntent": "land-to-release",
+    "evidenceUrl": "https://github.com/rebuildup/Aulymo_v04/issues/59",
+    "items": ["#145"]
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "id": "positive-release-ready-clean",
+  "item": "release-0-8-0",
+  "changeClass": "mark-release-ready",
+  "requestedTargetRelease": "release-0-8-0",
+  "canonicalTargetRelease": "release-0-8-0",
+  "requestedIntent": "land-to-release",
+  "canonicalIntent": "land-to-release",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1,
+  "openBlockers": [],
+  "unmergedReadyPrs": [],
+  "droppedItems": [],
+  "releaseBranchCommitsAhead": 12
+}

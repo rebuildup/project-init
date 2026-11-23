@@ -1,0 +1,10 @@
+{
+  "id": "negative-unknown-scope-intent",
+  "item": "#145",
+  "changeClass": "move-feature-to-release",
+  "requestedTargetRelease": "release-4-0-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "auto-ship-everything",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 2
+}
