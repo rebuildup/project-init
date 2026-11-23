@@ -564,6 +564,10 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 **Readyはticket Doneではない。** ticket-class PRは`github-delivery` / ADR-0027に従ってそのままautonomous landingへ進み、target release trunk到達後のlinked Issue closeとsafe branch cleanupまで完了して初めてticket lifecycleが完遂する。release-classだけはReady後にexplicit release authorization gateで停止する。
 
+### 13.1 Review finding persistence / recurrence tracking
+
+GitHub への Issue / PR review 投稿が権限・rate-limit・validation・own-PR `REQUEST_CHANGES` 制約・network 障害で失敗した場合は、finding を揮発させず `scripts/review-findings/cli.mts`（詳細: `scripts/review-findings/README.md`）へ永続化する。再送時の重複起票防止・`own-pr-request-changes` 時のコメントフォールバック・40 桁 exact head SHA による解消検証・再発検出・scope 変更の owner 承認分離は同台帳で管理する。
+
 ## 14. False green禁止
 
 actual executionとreported claimの照合（fail-closedと0件実行silent passの区別、CI event/ref一致、prose invariant乖離防止）は [gate-honesty](references/gate-honesty.md) に従う。
