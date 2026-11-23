@@ -8,9 +8,10 @@ const STAGES = new Set(['collecting', 'frozen', 'verified']);
 const NO_EVIDENCE = new Set(['', 'unknown', 'n/a', 'na', 'none', 'not measured', 'unavailable', '?']);
 const SHA = /^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
 const ONLY_COUNTS = /^\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?(?:\s*(?:,|;|and|&)\s*\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?)*$/;
-const ADMISSION_CRITERIA = [
-  'requirement_determined',
-  'bug_reproduced_or_pinpointed',
+const ADMISSION_TRACKS = new Set(['critical-path', 'research-discovery', 'backlog']);
+const ITEM_TYPES = new Set(['bug', 'feature', 'chore']);
+const BOOLEAN_ADMISSION_CRITERIA = [
+  'requirement_confirmed',
   'acceptance_executable',
   'dependency_owner_identified',
   'validation_path_defined',
@@ -71,8 +72,12 @@ export function check(data: unknown): string[] {
     if (typeof value !== 'boolean') failures.push(name + ' must be a boolean');
   }
 
-  if (Object.hasOwn(data, 'promoted_by_calendar_only') && data.promoted_by_calendar_only === true) {
-    failures.push('calendar target alone cannot admit unknowns to release critical path');
+  if (Object.hasOwn(data, 'promoted_by_calendar_only')) {
+    if (typeof data.promoted_by_calendar_only !== 'boolean') {
+      failures.push('promoted_by_calendar_only must be a boolean');
+    } else if (data.promoted_by_calendar_only === true) {
+      failures.push('calendar target alone cannot admit unknowns to release critical path');
+    }
   }
 
   if (Object.hasOwn(data, 'admission_items')) {
@@ -80,25 +85,61 @@ export function check(data: unknown): string[] {
     if (!Array.isArray(items)) {
       failures.push('admission_items must be an array');
     } else {
+      let criticalPathCount = 0;
       for (const [idx, raw] of items.entries()) {
         if (!isRecord(raw)) {
           failures.push('admission_items[' + idx + '] must be an object');
           continue;
         }
-        const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : '#' + idx;
+        const hasValidId = typeof raw.id === 'string' && raw.id.trim().length > 0;
+        const id = hasValidId ? (raw.id as string).trim() : '#' + idx;
+        if (!hasValidId) {
+          failures.push('admission_items[' + idx + '] requires a non-empty id');
+        }
         const track = raw.track;
-        if (track !== 'critical-path' && track !== 'research-discovery') {
+        if (typeof track !== 'string' || !ADMISSION_TRACKS.has(track)) {
           failures.push('admission item ' + id + ' has invalid track');
           continue;
         }
-        // Research/discovery items may run with open unknowns; critical-path items must pass all 5 admission criteria.
+        if (Object.hasOwn(raw, 'item_type')) {
+          if (typeof raw.item_type !== 'string' || !ITEM_TYPES.has(raw.item_type)) {
+            failures.push('admission item ' + id + ' has invalid item_type');
+          }
+        }
+        if (Object.hasOwn(raw, 'promoted_by_calendar_only')) {
+          if (typeof raw.promoted_by_calendar_only !== 'boolean') {
+            failures.push('admission item ' + id + ' promoted_by_calendar_only must be a boolean');
+          } else if (raw.promoted_by_calendar_only === true && track === 'critical-path') {
+            failures.push('calendar target alone cannot admit critical-path item ' + id);
+          }
+        }
+        // Research/discovery and backlog items may run with open unknowns;
+        // critical-path items must pass all 5 admission criteria.
         if (track === 'critical-path') {
-          for (const key of ADMISSION_CRITERIA) {
+          criticalPathCount++;
+          for (const key of BOOLEAN_ADMISSION_CRITERIA) {
             if (raw[key] !== true) {
               failures.push('critical-path item ' + id + ' failed admission criterion: ' + key);
             }
           }
+          const itemType = typeof raw.item_type === 'string' ? raw.item_type : undefined;
+          const bugCriterion = raw.bug_reproduced_or_pinpointed;
+          if (itemType === 'feature' || itemType === 'chore') {
+            if (bugCriterion !== true && bugCriterion !== 'not-applicable') {
+              failures.push('critical-path item ' + id + ' failed admission criterion: bug_reproduced_or_pinpointed');
+            }
+          } else {
+            // Bug items (or omitted item_type) must prove reproduction/pinpointing and cannot evade with 'not-applicable'.
+            if (bugCriterion === 'not-applicable') {
+              failures.push('critical-path bug item ' + id + ' cannot use not-applicable for bug_reproduced_or_pinpointed');
+            } else if (bugCriterion !== true) {
+              failures.push('critical-path item ' + id + ' failed admission criterion: bug_reproduced_or_pinpointed');
+            }
+          }
         }
+      }
+      if (outcome === 'candidate' && criticalPathCount === 0) {
+        failures.push('candidate with admission_items requires at least one critical-path item');
       }
     }
   }

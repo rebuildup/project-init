@@ -20,17 +20,17 @@ PR数・変更ファイル数は変更量の一部であり、それだけでrel
 
 ## 1.5 Release scope admission gate（#54）
 
-**release scope admission**（critical path へ載せてよいか）と **release terminal gate**（freeze 済み候補を公開してよいか）は別の責務である。calendar target や期限の設定だけで未確定項目を release critical path へ昇格させない。
+**release scope admission**（critical path へ載せてよいか）と **release terminal gate**（freeze 済み候補を公開してよいか）は別の責務である。calendar target や期限の設定だけ（`promoted_by_calendar_only: true`）で未確定項目を release critical path へ昇格させない。
 
-release critical path へ組み込む項目は、最低限次を満たすこと:
+各項目は track を `critical-path` / `research-discovery` / `backlog`、種別（`item_type`）を `bug` / `feature` / `chore` に分類する。`candidate` へ進むには最低 1 件以上の `critical-path` 項目が必要であり、`critical-path` へ組み込む項目は次の 5 基準と非 calendar 昇格（`promoted_by_calendar_only: false`）を満たすこと:
 
-- **requirement**: 実装判断可能な程度に要求が確定している
-- **reproduction / targeting**: bug は再現済み、または独立した証拠により修正対象が特定できる（非 bug 項目は非該当）
-- **acceptance**: acceptance criteria が実行可能である
-- **ownership**: dependency / blocker owner が特定されている
-- **validation**: validation path が定義されている
+- **`requirement_confirmed`**: 実装判断可能な程度に要求が確定している（`true`）
+- **`bug_reproduced_or_pinpointed`**: `item_type: "bug"`（または未指定）は再現済み・独立証跡による修正対象特定が必須（`true`、`"not-applicable"` 不可）。非 bug 項目（`feature` / `chore`）は `"not-applicable"`（または `true`）とする
+- **`acceptance_executable`**: acceptance criteria が実行可能である（`true`）
+- **`dependency_owner_identified`**: dependency / blocker owner が特定されている（`true`）
+- **`validation_path_defined`**: validation path が定義されている（`true`）
 
-いずれかを満たさない項目は **research / discovery / backlog** として実行自体は妨げずに分離し、`agent-delivery-estimation` の **Structural unknown**（未解消のまま critical path へ混ぜると Work Graph 不安定・`forecast_status: unavailable`）として扱う。明示的な判断なしに release critical path や release candidate へ昇格しない。
+いずれかを満たさない項目は `research-discovery` または `backlog` として実行自体は妨げずに分離し、`agent-delivery-estimation` の **Structural unknown**（未解消のまま critical path へ混ぜると Work Graph 不安定・`forecast_status: unavailable`）として扱う。明示的な判断なしに release critical path や release candidate へ昇格しない。
 
 ## 2. Outcomeは3種類
 

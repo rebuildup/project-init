@@ -1,0 +1,43 @@
+{
+  "trigger": "weekly",
+  "outcome": "candidate",
+  "stage": "frozen",
+  "basis": {
+    "scope": "candidate lists only research-discovery and backlog items with zero critical-path scope",
+    "value": "exploratory spike progress",
+    "waiting": "5 days",
+    "change_risk": "low: docs and exploratory prototype only",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "promoted_by_calendar_only": false,
+  "admission_items": [
+    {
+      "id": "#209",
+      "item_type": "feature",
+      "track": "research-discovery",
+      "requirement_confirmed": false,
+      "bug_reproduced_or_pinpointed": "not-applicable",
+      "acceptance_executable": false,
+      "dependency_owner_identified": true,
+      "validation_path_defined": false
+    },
+    {
+      "id": "#210",
+      "item_type": "chore",
+      "track": "backlog",
+      "requirement_confirmed": false,
+      "bug_reproduced_or_pinpointed": "not-applicable",
+      "acceptance_executable": false,
+      "dependency_owner_identified": false,
+      "validation_path_defined": false
+    }
+  ],
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}
