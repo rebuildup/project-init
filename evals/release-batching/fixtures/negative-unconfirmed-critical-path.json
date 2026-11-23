@@ -1,0 +1,41 @@
+{
+  "trigger": "weekly",
+  "outcome": "candidate",
+  "stage": "frozen",
+  "basis": {
+    "scope": "calendar target forced unconfirmed #203 and unreproduced bug #204 into critical path",
+    "value": "target date reached",
+    "waiting": "7 days",
+    "change_risk": "unknown",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "promoted_by_calendar_only": true,
+  "admission_items": [
+    {
+      "id": "#203",
+      "track": "critical-path",
+      "requirement_determined": false,
+      "bug_reproduced_or_pinpointed": true,
+      "acceptance_executable": false,
+      "dependency_owner_identified": true,
+      "validation_path_defined": true
+    },
+    {
+      "id": "#204",
+      "track": "critical-path",
+      "requirement_determined": true,
+      "bug_reproduced_or_pinpointed": false,
+      "acceptance_executable": true,
+      "dependency_owner_identified": false,
+      "validation_path_defined": false
+    }
+  ],
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}

@@ -13,12 +13,14 @@ const cases: ReadonlyArray<readonly [string, 'PASS' | 'FAIL']> = [
   ['positive-frozen-candidate', 'PASS'],
   ['positive-authorized-release', 'PASS'],
   ['positive-blocked-unknown', 'PASS'],
+  ['positive-discovery-separated', 'PASS'],
   ['negative-weekly-auto-merge', 'FAIL'],
   ['negative-counts-only', 'FAIL'],
   ['negative-mutable-ref', 'FAIL'],
   ['negative-stale-validation', 'FAIL'],
   ['negative-freeze-ticket-landing', 'FAIL'],
   ['negative-unadmitted-candidate', 'FAIL'],
+  ['negative-unconfirmed-critical-path', 'FAIL'],
   ['negative-unapproved-release', 'FAIL'],
 ];
 
@@ -45,6 +47,7 @@ const required: ReadonlyArray<readonly [string, string]> = [
   ['skills/github-delivery/SKILL.md', '## Weekly planning / adaptive release batching'],
   ['skills/github-delivery/SKILL.md', 'references/adaptive-release-batching.md'],
   ['skills/github-delivery/references/adaptive-release-batching.md', 'hold | candidate | blocked'],
+  ['skills/github-delivery/references/adaptive-release-batching.md', '## 1.5 Release scope admission gate'],
   ['skills/linear-release-control/SKILL.md', 'release cadenceは可変'],
   ['docs/adr/ADR-0032.md', 'user authorization'],
 ];

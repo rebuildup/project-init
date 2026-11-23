@@ -1,0 +1,40 @@
+{
+  "trigger": "weekly",
+  "outcome": "candidate",
+  "stage": "frozen",
+  "basis": {
+    "scope": "admitted feature #201 while #202 stays in discovery",
+    "value": "admitted feature ready for users",
+    "waiting": "5 days",
+    "change_risk": "localized API addition",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "admission_items": [
+    {
+      "id": "#201",
+      "track": "critical-path",
+      "requirement_determined": true,
+      "bug_reproduced_or_pinpointed": true,
+      "acceptance_executable": true,
+      "dependency_owner_identified": true,
+      "validation_path_defined": true
+    },
+    {
+      "id": "#202",
+      "track": "research-discovery",
+      "requirement_determined": false,
+      "bug_reproduced_or_pinpointed": false,
+      "acceptance_executable": false,
+      "dependency_owner_identified": true,
+      "validation_path_defined": false
+    }
+  ],
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}

@@ -18,6 +18,20 @@
 
 PR数・変更ファイル数は変更量の一部であり、それだけでrelease eligibility、安全性、費用を決定しない。quality gateを削って費用を最適化しない。`quality-gate` がCI resource evidenceを、`agent-delivery-estimation` が日程/待ち時間の根拠を提供する。
 
+## 1.5 Release scope admission gate（#54）
+
+**release scope admission**（critical path へ載せてよいか）と **release terminal gate**（freeze 済み候補を公開してよいか）は別の責務である。calendar target や期限の設定だけで未確定項目を release critical path へ昇格させない。
+
+release critical path へ組み込む項目は、最低限次を満たすこと:
+
+- **requirement**: 実装判断可能な程度に要求が確定している
+- **reproduction / targeting**: bug は再現済み、または独立した証拠により修正対象が特定できる（非 bug 項目は非該当）
+- **acceptance**: acceptance criteria が実行可能である
+- **ownership**: dependency / blocker owner が特定されている
+- **validation**: validation path が定義されている
+
+いずれかを満たさない項目は **research / discovery / backlog** として実行自体は妨げずに分離し、`agent-delivery-estimation` の **Structural unknown**（未解消のまま critical path へ混ぜると Work Graph 不安定・`forecast_status: unavailable`）として扱う。明示的な判断なしに release critical path や release candidate へ昇格しない。
+
 ## 2. Outcomeは3種類
 
 | Outcome | 意味 |

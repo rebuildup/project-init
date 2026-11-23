@@ -8,6 +8,13 @@ const STAGES = new Set(['collecting', 'frozen', 'verified']);
 const NO_EVIDENCE = new Set(['', 'unknown', 'n/a', 'na', 'none', 'not measured', 'unavailable', '?']);
 const SHA = /^(?:[0-9a-fA-F]{40}|[0-9a-fA-F]{64})$/;
 const ONLY_COUNTS = /^\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?(?:\s*(?:,|;|and|&)\s*\d+\s+(?:files?|prs?|commits?|changes?)(?:\s+changed)?)*$/;
+const ADMISSION_CRITERIA = [
+  'requirement_determined',
+  'bug_reproduced_or_pinpointed',
+  'acceptance_executable',
+  'dependency_owner_identified',
+  'validation_path_defined',
+] as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -62,6 +69,38 @@ export function check(data: unknown): string[] {
     ['release_authorized', authorized],
   ] as const) {
     if (typeof value !== 'boolean') failures.push(name + ' must be a boolean');
+  }
+
+  if (Object.hasOwn(data, 'promoted_by_calendar_only') && data.promoted_by_calendar_only === true) {
+    failures.push('calendar target alone cannot admit unknowns to release critical path');
+  }
+
+  if (Object.hasOwn(data, 'admission_items')) {
+    const items = data.admission_items;
+    if (!Array.isArray(items)) {
+      failures.push('admission_items must be an array');
+    } else {
+      for (const [idx, raw] of items.entries()) {
+        if (!isRecord(raw)) {
+          failures.push('admission_items[' + idx + '] must be an object');
+          continue;
+        }
+        const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : '#' + idx;
+        const track = raw.track;
+        if (track !== 'critical-path' && track !== 'research-discovery') {
+          failures.push('admission item ' + id + ' has invalid track');
+          continue;
+        }
+        // Research/discovery items may run with open unknowns; critical-path items must pass all 5 admission criteria.
+        if (track === 'critical-path') {
+          for (const key of ADMISSION_CRITERIA) {
+            if (raw[key] !== true) {
+              failures.push('critical-path item ' + id + ' failed admission criterion: ' + key);
+            }
+          }
+        }
+      }
+    }
   }
 
   if (outcome === 'hold' && stage !== 'collecting') {
