@@ -19,6 +19,7 @@ import {
   approveScopeChange,
   loadLedger,
   markPosted,
+  parseExistingRecordsJson,
   planRetry,
   recordFinding,
   recordPostFailure,
@@ -120,11 +121,11 @@ function summarizeLedger(ledger: FindingLedger): Record<string, unknown> {
 
 function parseExistingRecords(filePath: string): readonly ExistingGitHubRecord[] {
   const raw = readFileSync(resolve(filePath), "utf8");
-  const parsed: unknown = JSON.parse(raw);
-  if (!Array.isArray(parsed)) {
-    throw new Error("--existing file must contain a JSON array");
+  try {
+    return parseExistingRecordsJson(raw);
+  } catch (error) {
+    throw new CliUsageError(`invalid --existing file (${filePath}): ${(error as Error).message}`);
   }
-  return parsed as ExistingGitHubRecord[];
 }
 
 export function runCli(argv: readonly string[]): {

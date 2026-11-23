@@ -450,6 +450,62 @@ export function matchesExisting(
   return false;
 }
 
+export function parseExistingRecordsJson(raw: string): readonly ExistingGitHubRecord[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    throw new Error(`invalid existing records JSON: ${(error as Error).message}`);
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("existing records must be a JSON array");
+  }
+  const records: ExistingGitHubRecord[] = [];
+  for (let i = 0; i < parsed.length; i++) {
+    const entry = parsed[i];
+    if (!entry || typeof entry !== "object" || Array.isArray(entry)) {
+      throw new Error(`existing[${i}] must be an object`);
+    }
+    const r = entry as Record<string, unknown>;
+    const repository = assertRepository(r.repository, `existing[${i}].repository`);
+    const url = assertUrl(r.url, `existing[${i}].url`);
+    if (r.state !== "OPEN" && r.state !== "CLOSED") {
+      throw new Error(`existing[${i}].state must be OPEN or CLOSED`);
+    }
+    if (r.findingId !== undefined && typeof r.findingId !== "string") {
+      throw new Error(`existing[${i}].findingId must be a string`);
+    }
+    if (r.file !== undefined && typeof r.file !== "string") {
+      throw new Error(`existing[${i}].file must be a string`);
+    }
+    if (r.category !== undefined && typeof r.category !== "string") {
+      throw new Error(`existing[${i}].category must be a string`);
+    }
+    if (r.symbol !== undefined && typeof r.symbol !== "string") {
+      throw new Error(`existing[${i}].symbol must be a string`);
+    }
+    if (r.fingerprint !== undefined && typeof r.fingerprint !== "string") {
+      throw new Error(`existing[${i}].fingerprint must be a string`);
+    }
+    let line: number | undefined;
+    if (r.line !== undefined) {
+      line = assertPositiveInteger(r.line, `existing[${i}].line`);
+    }
+    records.push({
+      repository,
+      url,
+      state: r.state,
+      ...(r.findingId !== undefined ? { findingId: r.findingId } : {}),
+      ...(r.file !== undefined ? { file: r.file } : {}),
+      ...(r.category !== undefined ? { category: r.category } : {}),
+      ...(r.symbol !== undefined ? { symbol: r.symbol } : {}),
+      ...(r.fingerprint !== undefined ? { fingerprint: r.fingerprint } : {}),
+      ...(line !== undefined ? { line } : {}),
+    });
+  }
+  return records;
+}
+
 export function planRetry(
   ledger: FindingLedger,
   existingGitHub: readonly ExistingGitHubRecord[],
@@ -486,13 +542,14 @@ export function planRetry(
 
     const match = existingGitHub.find((r) => matchesExisting(finding, r));
     if (match) {
+      const matchedUrl = assertUrl(match.url, "existingGitHub.url");
       if (finding.verificationStatus === "recurred") {
         // Do NOT silently swallow a recurred defect as already posted: emit explicit recurrence comment action.
         decisions.push({
           action: "comment-recurrence",
           repository: finding.repository,
           findingId: finding.findingId,
-          url: match.url,
+          url: matchedUrl,
         });
         nextFindings.push(finding);
         continue;
@@ -501,11 +558,11 @@ export function planRetry(
         action: "link-existing",
         repository: finding.repository,
         findingId: finding.findingId,
-        url: match.url,
+        url: matchedUrl,
       });
       const priorIssueUrls =
         finding.issueOrReviewUrl &&
-        finding.issueOrReviewUrl !== match.url &&
+        finding.issueOrReviewUrl !== matchedUrl &&
         !finding.priorIssueUrls.includes(finding.issueOrReviewUrl)
           ? [...finding.priorIssueUrls, finding.issueOrReviewUrl]
           : [...finding.priorIssueUrls];
@@ -513,7 +570,7 @@ export function planRetry(
         ...finding,
         postingState: "posted",
         failureReason: null,
-        issueOrReviewUrl: match.url,
+        issueOrReviewUrl: matchedUrl,
         priorIssueUrls,
       });
       continue;

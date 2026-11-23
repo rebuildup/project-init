@@ -621,6 +621,56 @@ test("CLI end-to-end subcommands and negative-control exit codes (0, 1, 2)", () 
     assert.equal(summary.total, 2);
     assert.equal(summary.byVerificationStatus.resolved, 1);
     assert.equal(summary.byVerificationStatus.open, 1);
+
+    // Negative control: malformed --existing records (missing or non-https url / invalid state)
+    // must fail closed with exit 2 and never corrupt the saved ledger on disk.
+    const badExistingMissingUrl = join(dir, "bad-missing-url.json");
+    writeFileSync(
+      badExistingMissingUrl,
+      JSON.stringify([{ repository: "rebuildup/project-init", findingId: "scope-1", state: "OPEN" }]),
+      "utf8",
+    );
+    const badMissingRes = runCli([
+      "plan-retry",
+      "--ledger",
+      ledgerPath,
+      "--existing",
+      badExistingMissingUrl,
+      "--write",
+    ]);
+    assert.equal(badMissingRes.exitCode, 2);
+    assert.match(badMissingRes.stderr, /existing\[0\]\.url/);
+
+    const badExistingInvalidUrl = join(dir, "bad-invalid-url.json");
+    writeFileSync(
+      badExistingInvalidUrl,
+      JSON.stringify([
+        { repository: "rebuildup/project-init", findingId: "scope-1", state: "OPEN", url: "ftp://bad" },
+      ]),
+      "utf8",
+    );
+    assert.equal(
+      runCli(["plan-retry", "--ledger", ledgerPath, "--existing", badExistingInvalidUrl, "--write"]).exitCode,
+      2,
+    );
+
+    // Ledger on disk must remain valid and loadable after failed --existing --write attempts
+    const reloaded = loadLedger(ledgerPath);
+    assert.equal(reloaded.findings.length, 2);
+
+    // Direct API negative control: planRetry rejects invalid matched URL
+    assert.throws(
+      () =>
+        planRetry(reloaded, [
+          {
+            repository: "rebuildup/project-init",
+            findingId: "scope-1",
+            state: "OPEN",
+            url: "",
+          },
+        ]),
+      /existingGitHub\.url/,
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }
