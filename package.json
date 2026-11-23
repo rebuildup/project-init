@@ -6,6 +6,7 @@
     "test:adaptive": "node --test evals/adaptive-tests/scheduler.test.mts",
     "test:eval-regressions": "node --test evals/review-regressions.test.mts",
     "test:release-batching": "bun evals/release-batching/controls.mts",
+    "test:scope-authority": "node --test evals/scope-authority/grade.test.mts && bun evals/scope-authority/controls.mts",
     "test:interaction": "bun evals/interaction-discipline/controls.mts",
     "test:linear": "bun evals/linear-release-control/controls.mts",
     "test:delivery-status": "node --test scripts/delivery-status/*.test.mts",
@@ -13,6 +14,8 @@
     "test:supervisor-boundary": "node --test templates/supervisor-boundary/guard.test.mts",
     "quality:structure": "node scripts/quality/check.mts",
     "test:new-python": "node --test scripts/quality/check-new-python.test.mts",
+    "quality:workflow-honesty": "node scripts/gate-honesty/cli.mts workflow --workflows-dir .github/workflows",
+    "test:gate-honesty": "node scripts/gate-honesty/cli.mts run-and-verify --partition gate-honesty --floor 1 -- node --test --test-reporter=tap scripts/gate-honesty/gate-honesty.test.mts scripts/quality/check-gate-honesty.test.mts",
     "test:system-quality": "node --test evals/system-quality/*.test.mts evals/code-structure/*.test.mts scripts/quality/*.test.mts",
     "quality:challenge": "node evals/system-quality/challenge.mts"
   },

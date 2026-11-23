@@ -57,23 +57,34 @@ function reserveAttempt(path: string, attempt: AttemptBinding): void {
   catch { fail('attempt name already reserved; inspect live Herdr state before retry: '+attempt.name); }
   try { writeFileSync(fd, JSON.stringify(attempt)+'\n'); } finally { closeSync(fd); }
 }
-function agentInstance(agent: Record<string,unknown>, pane: string): string {
+export function extractAgentInstance(agent: Record<string,unknown>, processInfoResponse?: unknown): string | undefined {
   // Herdr schemas may expose different stable identity fields.
   for(const field of ['instance_id','agent_id','session_id']) {
     const id=agent[field];
     if((typeof id==='string' && id.length>0) || (typeof id==='number' && Number.isInteger(id)))
       return field+':'+String(id);
   }
-  // When an agent ID is unavailable, a foreground process group can fence replacement.
-  const info=call('herdr',['pane','process-info','--pane',pane],true);
-  const state:unknown=info.result;
+  const term=typeof agent.terminal_id==='string' && agent.terminal_id.length>0 ? 'term:'+agent.terminal_id+':' : '';
+  if(processInfoResponse===undefined) return undefined;
+  const top:unknown=isRecord(processInfoResponse) && Object.hasOwn(processInfoResponse,'result')
+    ? processInfoResponse.result : processInfoResponse;
+  const state:unknown=isRecord(top) && Object.hasOwn(top,'process_info') ? top.process_info : top;
   if(isRecord(state)) {
     const pgid=state.foreground_pgid ?? state.foreground_process_group_id;
-    if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return 'pgid:'+pgid;
+    if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return term+'pgid:'+pgid;
     const procs=state.foreground_processes;
     if(Array.isArray(procs) && isRecord(procs[0]) && typeof procs[0].pid==='number')
-      return 'pid:'+String(procs[0].pid);
+      return term+'pid:'+String(procs[0].pid);
   }
+  return undefined;
+}
+function agentInstance(agent: Record<string,unknown>, pane: string): string {
+  const direct=extractAgentInstance(agent);
+  if(direct) return direct;
+  // When an agent ID is unavailable, a foreground process group (paired with terminal_id when present) fences replacement.
+  const info=call('herdr',['pane','process-info','--pane',pane],true);
+  const resolved=extractAgentInstance(agent,info);
+  if(resolved) return resolved;
   fail('stable live agent identity not available; do not prompt unverified pane');
 }
 function verifyAttempt(args: Record<string,string>, route: Route): void {
@@ -113,6 +124,20 @@ function call(binary: string, args: string[], json = false): CliResponse | strin
   if (out.error || out.status !== 0) fail(binary + ' ' + (args[0] ?? '') + ': ' + (out.error?.message ?? out.stderr?.trim() ?? 'command failed'));
   if (!json) return out.stdout.trim();
   try { return JSON.parse(out.stdout) as CliResponse; } catch { fail(binary + ': malformed JSON response'); }
+}
+export function agentCheckCommand(platform: NodeJS.Platform = process.platform): { binary: string; args: string[] } {
+  // On Windows native, dotfiles exposes `agent.cmd`; Node >= 20 refuses spawning .cmd directly with shell:false (EINVAL/ETIMEDOUT).
+  return platform === 'win32'
+    ? { binary: 'cmd.exe', args: ['/d', '/s', '/c', 'agent check'] }
+    : { binary: 'agent', args: ['check'] };
+}
+export function isDirectExecution(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  try {
+    return realpathSync(resolve(argv1)) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return resolve(argv1) === fileURLToPath(moduleUrl);
+  }
 }
 export function resolveRoute(config: unknown, role: string): Route {
   if (!isRecord(config)) fail('invalid routing config');
@@ -169,7 +194,8 @@ export async function run(argv: string[]): Promise<unknown> {
     if (configuredFunction !== undefined && typeof configuredFunction !== 'string') fail('invalid execution function');
     const functionName = configuredFunction ?? args.role;
     return locked(projectRoot, async () => {
-      call('agent',['check']);
+      const agentCheck = agentCheckCommand(process.platform);
+      call(agentCheck.binary, agentCheck.args);
       const snapshot=call('herdr',['api','snapshot'],true);
       const decision=planPlacement(snapshot,{
         layout:config.layout, functionName, cwd, projectRoot,
@@ -220,9 +246,32 @@ export async function run(argv: string[]): Promise<unknown> {
         pane=split?.result?.pane?.pane_id;
       }
       if (typeof pane!=='string'||!PANE.test(pane)) fail('layout changed but pane ID unavailable; reconcile before retry');
+      // Wait briefly for a freshly created shell pane (e.g. WSL .bashrc hooks) to settle before sending the command.
+      for (let w = 0; w < 12; w++) {
+        const pi = spawnSync('herdr', ['pane', 'process-info', '--pane', pane], { encoding: 'utf8', timeout: 10000 });
+        if (pi.status === 0) {
+          try {
+            const parsed = JSON.parse(pi.stdout) as CliResponse;
+            const raw: unknown = parsed?.result;
+            const st: unknown = isRecord(raw) && Object.hasOwn(raw, 'process_info') ? raw.process_info : raw;
+            if (isRecord(st) && typeof st.shell_pid === 'number' && typeof st.foreground_process_group_id === 'number') {
+              const fg = st.foreground_processes;
+              const busy = Array.isArray(fg) && fg.some((proc) => isRecord(proc) && typeof proc.pid === 'number' && proc.pid !== st.shell_pid);
+              if (!busy) break;
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        } else {
+          break;
+        }
+        await new Promise((ok) => setTimeout(ok, 250));
+      }
       // Provider-scoped command; never switch to herdr agent start --kind.
       call('herdr',['pane','run',pane,'agent '+route.harness+' '+route.provider]);
-      for(let i=0;i<16;i++){
+      for(let i=0;i<24;i++){
         await new Promise(ok=>setTimeout(ok,750));
         const probe=spawnSync('herdr',['agent','get',pane],{encoding:'utf8',timeout:20000});
         if (probe.status!==0) continue;
@@ -251,7 +300,7 @@ export async function run(argv: string[]): Promise<unknown> {
   verifyAttempt(args,resolveRoute(config,args.role));
   return {output:call('herdr',['agent','read',args.target,'--source','recent-unwrapped','--lines','120'])};
 }
-if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+if (isDirectExecution(process.argv[1], import.meta.url)) {
   run(process.argv.slice(2)).then(value=>console.log(JSON.stringify(value,null,2)),error=>{
     console.error('agent-routing: '+(error instanceof Error ? error.message : String(error)));
     process.exitCode=1;

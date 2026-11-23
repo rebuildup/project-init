@@ -98,19 +98,17 @@ canonical format:
 
 `release-<major>-<minor>-<patch>`
 
-release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由する。候補はscope・公開価値・滞留・変更リスク・release-only実測コストで判定し、PR数だけで決めない。freezeとcarry-overは [adaptive-release-batching.md](./references/adaptive-release-batching.md) に従う。
+release train開始時に`main`からbranchを切る。緊急patchもrelease PRを経由。候補はscope・価値・滞留・リスク・release-only実測コストで判定しPR数だけで決めない。手順は [adaptive-release-batching.md](./references/adaptive-release-batching.md)・[scope-authority-reconciliation.md](./references/scope-authority-reconciliation.md) に従う。
 
 ### Delivery forecast / capacity
 
-1週間はplanning cadenceであり、選んだscopeが必ず1週間で完了するというestimateではない。
+1週間はplanning cadenceであり、完了時期のestimateではない。release/milestoneの完了時期・capacity・carry-over・agent数変更効果の判断には `agent-delivery-estimation` Skillを使う。
 
-release / roadmap / milestoneの完了時期、release date、capacity、carry-over、agent数変更による短縮効果を判断する場合は `agent-delivery-estimation` Skillを使用する。
-
-- IssueのSizeをcalendar durationとして扱わない
-- AI自身の「数日・数ヶ月」という主観的estimateをrelease dateの根拠にしない
-- dependency graph、Work Unit、observed throughput、human review capacity、CI/external wait、usage limitを使う
-- material unknownがある場合は `complete / conditional / unavailable` を維持し、日付を捏造してfieldを埋めない
-- sprintごとの実績を次のforecast calibrationへ戻す
+- Issue Sizeをcalendar durationにせず、AIの主観estimateも根拠にしない
+- Work Unit、dependency、実測throughput、human/CI/external wait、usage limitを使う
+- active releaseの観測snapshot/deltaには `scripts/delivery-status/`（`--snapshot-out`/`--prev-snapshot`）を使う
+- material unknown時は `complete/conditional/unavailable` を維持し日付を捏造しない
+- sprint実績を次回calibrationへ戻す
 
 ## Issue
 
@@ -397,7 +395,7 @@ release branchはticketを集約する開発中のintegration lineであり、�
 
 release branchはrelease train開始時に作成する。GitHubは`main`と差分がない状態ではPRを作れないため、release branchに最初のmeaningful integrated differenceが入った直後にDraft release PRを作成する。zero-diff release branchだけはDraft PR invariantの例外である。
 
-Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを設定し、release期間中維持する。release readiness条件を満たしたらDraftのまま残さずReady for reviewへ遷移する。validationのmutable stateはGitHub checks等のcanonical surfaceで追跡し、PR proseにはrelease判断に必要な意味だけを書く。
+Draft release PRにもassignee / reviewer / labels / release goal / included Issuesを維持し、readiness達成後はReadyへ遷移する。mutable validation stateはGitHub checks等を正本にし、PR本文には判断に必要な意味だけ書く。
 
 release候補を選択しscope/current SHAをfreezeした後、release branch上でfull applicable quality gateを実行する。freeze中の新規ticket landingは禁止し、修正でSHAが変わった場合はapplicable gateを再実行する（[candidate review](./references/adaptive-release-batching.md)）。
 

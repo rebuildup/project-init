@@ -1,0 +1,34 @@
+{
+  "trigger": "weekly",
+  "outcome": "candidate",
+  "stage": "frozen",
+  "basis": {
+    "scope": "candidate includes unreproduced bug #204 on critical path",
+    "value": "stability fix for crash report",
+    "waiting": "3 days",
+    "change_risk": "medium: runtime retry path",
+    "release_cost": "measured release-only gate"
+  },
+  "admission_passed": true,
+  "promoted_by_calendar_only": false,
+  "admission_items": [
+    {
+      "id": "#204",
+      "item_type": "bug",
+      "track": "critical-path",
+      "promoted_by_calendar_only": false,
+      "requirement_confirmed": true,
+      "bug_reproduced_or_pinpointed": false,
+      "acceptance_executable": true,
+      "dependency_owner_identified": true,
+      "validation_path_defined": true
+    }
+  ],
+  "candidate_sha": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "validated_sha": null,
+  "release_gate_passed": false,
+  "ticket_landing_requested": false,
+  "release_merge_requested": false,
+  "release_authorized": false,
+  "authorized_sha": null
+}

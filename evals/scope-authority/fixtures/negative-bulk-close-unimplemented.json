@@ -1,0 +1,22 @@
+{
+  "id": "negative-bulk-close-unimplemented",
+  "item": "batch-close-my-web-741",
+  "changeClass": "close-issue-batch",
+  "requestedTargetRelease": "release-0-8-0",
+  "canonicalTargetRelease": "release-0-8-0",
+  "requestedIntent": "preserve-progress",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1,
+  "closedItems": [
+    {
+      "item": "#741-idea-a",
+      "disposition": "completed",
+      "implemented": false
+    },
+    {
+      "item": "#741-idea-b",
+      "disposition": "absorbed",
+      "rationale": "Assumed absorbed during cleanup"
+    }
+  ]
+}

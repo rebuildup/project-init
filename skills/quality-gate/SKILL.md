@@ -566,6 +566,8 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 ## 14. False green禁止
 
+actual executionとreported claimの照合（fail-closedと0件実行silent passの区別、CI event/ref一致、prose invariant乖離防止）は [gate-honesty](references/gate-honesty.md) に従う。
+
 禁止:
 
 - skipped test / `.only`

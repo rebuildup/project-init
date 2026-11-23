@@ -1,0 +1,13 @@
+{
+  "id": "negative-release-ready-open-blockers",
+  "item": "release-pr-679",
+  "changeClass": "mark-release-ready",
+  "requestedTargetRelease": "release-0-8-0",
+  "canonicalTargetRelease": "release-0-8-0",
+  "requestedIntent": "land-to-release",
+  "canonicalIntent": "land-to-release",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1,
+  "openBlockers": ["#720", "#741", "#732"],
+  "unmergedReadyPrs": ["#698", "#740"]
+}

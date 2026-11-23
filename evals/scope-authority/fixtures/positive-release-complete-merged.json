@@ -1,0 +1,26 @@
+{
+  "id": "positive-release-complete-merged",
+  "item": "release-0-4-0",
+  "changeClass": "claim-release-complete",
+  "requestedTargetRelease": "release-0-4-0",
+  "canonicalTargetRelease": "release-0-4-0",
+  "requestedIntent": "land-to-release",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1,
+  "releasePrToMainMerged": true,
+  "releaseBranchCommitsAhead": 0,
+  "openBlockers": [],
+  "unmergedReadyPrs": [],
+  "latestOwnerDecision": {
+    "revision": 1,
+    "decidedAt": "2026-11-01",
+    "actor": "rebuildup",
+    "provenance": "human-owner-direct",
+    "sourceKind": "github-pr-comment",
+    "targetRelease": "release-0-4-0",
+    "allowedIntent": "land-to-release",
+    "evidenceUrl": "https://github.com/rebuildup/xyt-media/pull/191",
+    "evidenceSha": "abcdef1234567890",
+    "items": ["release-0-4-0"]
+  }
+}

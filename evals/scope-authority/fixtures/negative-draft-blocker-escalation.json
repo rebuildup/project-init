@@ -1,0 +1,10 @@
+{
+  "id": "negative-draft-blocker-escalation",
+  "item": "#109",
+  "changeClass": "design-research-draft",
+  "requestedTargetRelease": "release-4-1-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "release-blocker",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1
+}
