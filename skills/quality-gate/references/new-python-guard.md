@@ -38,7 +38,7 @@ bun run test:new-python
   run: |
     node scripts/quality/check-new-python.mts \
       --base "${{ github.event.pull_request.base.sha }}" \
-      --head "${{ github.event.pull_request.head.sha }}" \
+      --head HEAD \
       --exceptions ".config/python-exceptions.json" \
       --policy "docs/adr/ADR-0001.md#11-tooling-conventions"
 ```

@@ -26,7 +26,7 @@ jobs:
         run: bun run quality:structure
       - name: Reject newly added Python scripts on PR diff
         if: github.event_name == 'pull_request'
-        run: node scripts/quality/check-new-python.mts --base "${{ github.event.pull_request.base.sha }}" --head "${{ github.event.pull_request.head.sha }}"
+        run: node scripts/quality/check-new-python.mts --base "${{ github.event.pull_request.base.sha }}" --head HEAD
       - name: Test quality checks and challenge executor
         run: bun run test:system-quality
       - name: Challenge actual repository checks
