@@ -8,7 +8,7 @@
 
 判定に必要な最小情報:
 
-- integrated ticket IDs / dependency graph / scope admission state（未確定要求をcritical pathへ入れない）
+- integrated ticket IDs / dependency graph / scope admission state（未確定要求をcritical pathへ入れない。scope・owner承認の照合は [scope-authority-reconciliation.md](./scope-authority-reconciliation.md) に従う）
 - user-facing value・priority・security impact・urgency・external deadlines
 - earliest integrated-but-unpublished change、elapsed waiting time、未公開変更の件数とリスク面
 - changed areas / interfaces / persistence / deployment / reversibility、必要なrelease-wide verification
@@ -17,6 +17,20 @@
 - project-local thresholdsと根拠のrevision。測定不足なら `unknown` と記録し、架空のcostや推奨頻度を作らない
 
 PR数・変更ファイル数は変更量の一部であり、それだけでrelease eligibility、安全性、費用を決定しない。quality gateを削って費用を最適化しない。`quality-gate` がCI resource evidenceを、`agent-delivery-estimation` が日程/待ち時間の根拠を提供する。
+
+## 1.5 Release scope admission gate（#54）
+
+**release scope admission**（critical path へ載せてよいか）と **release terminal gate**（freeze 済み候補を公開してよいか）は別の責務である。calendar target や期限の設定だけ（`promoted_by_calendar_only: true`）で未確定項目を release critical path へ昇格させない。
+
+各項目は track を `critical-path` / `research-discovery` / `backlog`、種別（`item_type`）を `bug` / `feature` / `chore` に分類する。`candidate` へ進むには最低 1 件以上の `critical-path` 項目が必要であり、`critical-path` へ組み込む項目は次の 5 基準と非 calendar 昇格（`promoted_by_calendar_only: false`）を満たすこと:
+
+- **`requirement_confirmed`**: 実装判断可能な程度に要求が確定している（`true`）
+- **`bug_reproduced_or_pinpointed`**: `item_type: "bug"`（または未指定）は再現済み・独立証跡による修正対象特定が必須（`true`、`"not-applicable"` 不可）。非 bug 項目（`feature` / `chore`）は `"not-applicable"`（または `true`）とする
+- **`acceptance_executable`**: acceptance criteria が実行可能である（`true`）
+- **`dependency_owner_identified`**: dependency / blocker owner が特定されている（`true`）
+- **`validation_path_defined`**: validation path が定義されている（`true`）
+
+いずれかを満たさない項目は `research-discovery` または `backlog` として実行自体は妨げずに分離し、`agent-delivery-estimation` の **Structural unknown**（未解消のまま critical path へ混ぜると Work Graph 不安定・`forecast_status: unavailable`）として扱う。明示的な判断なしに release critical path や release candidate へ昇格しない。
 
 ## 2. Outcomeは3種類
 

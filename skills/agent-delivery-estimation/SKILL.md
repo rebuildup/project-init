@@ -348,7 +348,7 @@ unknownを発見したら、まず4種類へ分類する。
 
 ## Structural unknown
 
-scope、dependency、architecture等が未確定でWork Graph自体が安定しない。
+scope、dependency、architecture等が未確定でWork Graph自体が安定しない。`github-delivery` の release scope admission gate（[adaptive-release-batching.md](../github-delivery/references/adaptive-release-batching.md)）で `critical-path` 基準（`requirement_confirmed`、`bug_reproduced_or_pinpointed`［`bug` は `true`、`feature`/`chore` は `"not-applicable"`］、`acceptance_executable`、`dependency_owner_identified`、`validation_path_defined`、`promoted_by_calendar_only: false`）を満たさない項目は、calendar target だけで `critical-path` へ昇格せず `research-discovery` / `backlog` へ分離する。
 
 結果:
 
@@ -709,6 +709,8 @@ release / sprint scope、target date、capacity、carry-over判断を行う時�
 IssueのSizeはcalendar durationと同義にしない。
 
 週次sprint cadenceはplanning cadenceであり、「すべてのscopeが1週間で完了する」というestimateではない。
+
+active release の進捗・滞留・連続 delta の読み取り専用 evidence snapshot には `scripts/delivery-status/delivery-status.mts`（`--snapshot-out` / `--prev-snapshot`）を利用する。GitHub snapshot 単体では calibrated WU や joint observation を供給しないため、sample policy を満たすまで `forecastStatus: unavailable` とし P50/P80/P95 を生成しない。
 
 ## parallel-orchestration
 

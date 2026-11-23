@@ -1,0 +1,21 @@
+{
+  "id": "negative-self-attested-approval",
+  "item": "#720",
+  "changeClass": "remove-human-gate",
+  "requestedTargetRelease": "release-0-8-0",
+  "canonicalTargetRelease": "release-0-8-0",
+  "requestedIntent": "land-to-release",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1,
+  "latestOwnerDecision": {
+    "revision": 1,
+    "decidedAt": "2026-10-31",
+    "actor": "agent-writing-as-rebuildup",
+    "provenance": "agent-self-attested",
+    "sourceKind": "agent-summary",
+    "targetRelease": "release-0-8-0",
+    "allowedIntent": "land-to-release",
+    "evidenceUrl": "https://github.com/rebuildup/my-web-2026/issues/720",
+    "items": ["#720"]
+  }
+}

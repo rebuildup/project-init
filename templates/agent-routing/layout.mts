@@ -87,7 +87,8 @@ export function resolveLayout(config: unknown = {}, functionName: string) {
   return {function:fn, tabLabel, workspaceLabel:config.workspaceLabel, maxPanes, maxTabs, overflow};
 }
 export function normalizeSnapshot(response: unknown): Snapshot {
-  const result = obj(response) ? (response.result ?? response) : response;
+  const raw = obj(response) ? (response.result ?? response) : response;
+  const result = obj(raw) && Object.hasOwn(raw, 'snapshot') ? raw.snapshot : raw;
   if (!obj(result)) fail('invalid snapshot');
   return {workspaces:array<Workspace>(result.workspaces,'workspaces'), tabs:array<Tab>(result.tabs,'tabs'),
     panes:array<Pane>(result.panes,'panes'), agents:array<Agent>(result.agents,'agents')};

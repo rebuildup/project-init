@@ -10,6 +10,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -22,6 +24,13 @@ jobs:
         run: shellcheck --version
       - name: Check whole-repository analysis and references
         run: bun run quality:structure
+      - name: Reject newly added Python scripts on PR diff
+        if: github.event_name == 'pull_request'
+        run: node scripts/quality/check-new-python.mts --base "${{ github.event.pull_request.base.sha }}" --head HEAD
+      - name: Check workflow gate honesty
+        run: bun run quality:workflow-honesty
+      - name: Test gate honesty and verify real execution count
+        run: bun run test:gate-honesty
       - name: Test quality checks and challenge executor
         run: bun run test:system-quality
       - name: Challenge actual repository checks
@@ -32,6 +41,8 @@ jobs:
         run: bun run test:eval-regressions
       - name: Test TypeScript release batching controls
         run: bun run test:release-batching
+      - name: Test release scope and authority reconciliation controls
+        run: bun run test:scope-authority
       - name: Test TypeScript interaction and Linear controls
         run: |
           bun run test:interaction
@@ -40,6 +51,8 @@ jobs:
         run: node --test evals/policy-evaluation/requirement-handoff.test.mts
       - name: Test delivery-status classification and CLI safety
         run: bun run test:delivery-status
+      - name: Test review finding persistence and recurrence ledger
+        run: bun run test:review-findings
       - name: Test TypeScript comparative controls
         run: bun evals/policy-evaluation/comparative-controls.mts
       - name: Test delegated agent routing
@@ -57,14 +70,15 @@ jobs:
       - name: Run deterministic controls
         shell: bash
         run: |
-          set +e
           failed=0
-          bun evals/policy-evaluation/controls.mts || failed=1
+          if ! bun evals/policy-evaluation/controls.mts; then
+            failed=1
+          fi
           for suite in \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
-            bash "evals/$suite/controls.sh"
-            rc=$?
+            rc=0
+            bash "evals/$suite/controls.sh" || rc=$?
             echo "::endgroup::"
             if [ "$rc" -ne 0 ]; then
               echo "::error title=Eval failure::$suite returned exit $rc"

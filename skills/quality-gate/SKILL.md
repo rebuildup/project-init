@@ -486,7 +486,7 @@ quality profileに対象check、入力・環境の識別、最大間隔、強制
 
 新規実装・追加時はformatter・lint・型検査とは別に、[code-naming](../code-naming/SKILL.md) と [system-quality](../system-quality/SKILL.md) に基づき、影響範囲の新旧ファイル・兄弟entry・責務の所有者・import・利用側をコードで評価する。今回の変更が生んだ重複・曖昧な命名・階層不整合は、同じticketで解消する。後日のリファクタリングは受入の代わりにならない。
 
-機械判定可能な違反は低コストのproject-local検査で拒否する。ファイル数や共通prefixだけで意味の良否を決めず、残る意味判断は実コードの差分と周辺構造で確認する。自己申告を独立強制と呼ばず、通常ticketへrelease候補のGUI・full E2Eを追加しない。
+機械判定可能な違反は低コストのproject-local検査で拒否する。新規Pythonスクリプト導入のPR差分検査とADR例外境界は [new-python-guard](references/new-python-guard.md)（実装: [check-new-python.mts](../../scripts/quality/check-new-python.mts) / 根拠: [ADR-0001](../../docs/adr/ADR-0001.md) §11）に従う。ファイル数や共通prefixだけで意味の良否を決めず、残る意味判断は実コードの差分と周辺構造で確認する。自己申告を独立強制と呼ばず、通常ticketへrelease候補のGUI・full E2Eを追加しない。
 
 ## 9. Worker gate
 
@@ -564,7 +564,13 @@ stack predecessorがreview/rebase/updateで変化した場合、affected downstr
 
 **Readyはticket Doneではない。** ticket-class PRは`github-delivery` / ADR-0027に従ってそのままautonomous landingへ進み、target release trunk到達後のlinked Issue closeとsafe branch cleanupまで完了して初めてticket lifecycleが完遂する。release-classだけはReady後にexplicit release authorization gateで停止する。
 
+### 13.1 Review finding persistence / recurrence tracking
+
+GitHub への Issue / PR review 投稿が権限・rate-limit・validation・own-PR `REQUEST_CHANGES` 制約・network 障害で失敗した場合は、finding を揮発させず `scripts/review-findings/cli.mts`（詳細: `scripts/review-findings/README.md`）へ永続化する。再送時の重複起票防止・`own-pr-request-changes` 時のコメントフォールバック・40 桁 exact head SHA による解消検証・再発検出・scope 変更の owner 承認分離は同台帳で管理する。
+
 ## 14. False green禁止
+
+actual executionとreported claimの照合（fail-closedと0件実行silent passの区別、CI event/ref一致、prose invariant乖離防止）は [gate-honesty](references/gate-honesty.md) に従う。
 
 禁止:
 

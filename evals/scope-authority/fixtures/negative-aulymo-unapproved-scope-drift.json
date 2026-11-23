@@ -1,0 +1,10 @@
+{
+  "id": "negative-aulymo-unapproved-scope-drift",
+  "item": "#109",
+  "changeClass": "move-feature-to-release",
+  "requestedTargetRelease": "release-4-0-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "land-to-release",
+  "sourceKind": "single-pr-or-doc",
+  "evaluatedDecisionRevision": 1
+}
