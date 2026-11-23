@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { resolveRoute, parseArgs, discoverProjectRoot } from './dispatch.mts';
+import { resolveRoute, parseArgs, discoverProjectRoot, extractAgentInstance } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
@@ -65,4 +65,38 @@ test('linked Git worktrees identify the common project root automatically',()=>{
     rmSync(wt,{recursive:true,force:true});
     rmSync(root,{recursive:true,force:true});
   }
+});
+
+test('herdr 0.9.5 nested pane_process_info unwraps and fences agent replacement in same terminal',()=>{
+  const agent={name:'rev132',agent:'omp',terminal_id:'term_abc123',pane_id:'w9:p2'};
+  const pinfo1={
+    id:'cli:pane:process_info',
+    result:{
+      type:'pane_process_info',
+      process_info:{
+        pane_id:'w9:p2',
+        shell_pid:1001,
+        foreground_process_group_id:22148,
+        foreground_processes:[{pid:22148,name:'omp'}],
+      },
+    },
+  };
+  const pinfo2={
+    id:'cli:pane:process_info',
+    result:{
+      type:'pane_process_info',
+      process_info:{
+        pane_id:'w9:p2',
+        shell_pid:1001,
+        foreground_process_group_id:29999,
+        foreground_processes:[{pid:29999,name:'omp'}],
+      },
+    },
+  };
+  const id1=extractAgentInstance(agent,pinfo1);
+  const id2=extractAgentInstance(agent,pinfo2);
+  assert.equal(id1,'term:term_abc123:pgid:22148');
+  assert.equal(id2,'term:term_abc123:pgid:29999');
+  assert.notEqual(id1,id2);
+  assert.equal(extractAgentInstance(agent,{id:'cli:pane:process_info',result:{type:'pane_process_info',process_info:null}}),undefined);
 });

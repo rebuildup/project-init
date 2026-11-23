@@ -57,23 +57,34 @@ function reserveAttempt(path: string, attempt: AttemptBinding): void {
   catch { fail('attempt name already reserved; inspect live Herdr state before retry: '+attempt.name); }
   try { writeFileSync(fd, JSON.stringify(attempt)+'\n'); } finally { closeSync(fd); }
 }
-function agentInstance(agent: Record<string,unknown>, pane: string): string {
+export function extractAgentInstance(agent: Record<string,unknown>, processInfoResponse?: unknown): string | undefined {
   // Herdr schemas may expose different stable identity fields.
   for(const field of ['instance_id','agent_id','session_id']) {
     const id=agent[field];
     if((typeof id==='string' && id.length>0) || (typeof id==='number' && Number.isInteger(id)))
       return field+':'+String(id);
   }
-  // When an agent ID is unavailable, a foreground process group can fence replacement.
-  const info=call('herdr',['pane','process-info','--pane',pane],true);
-  const state:unknown=info.result;
+  const term=typeof agent.terminal_id==='string' && agent.terminal_id.length>0 ? 'term:'+agent.terminal_id+':' : '';
+  if(processInfoResponse===undefined) return undefined;
+  const top:unknown=isRecord(processInfoResponse) && Object.hasOwn(processInfoResponse,'result')
+    ? processInfoResponse.result : processInfoResponse;
+  const state:unknown=isRecord(top) && Object.hasOwn(top,'process_info') ? top.process_info : top;
   if(isRecord(state)) {
     const pgid=state.foreground_pgid ?? state.foreground_process_group_id;
-    if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return 'pgid:'+pgid;
+    if(typeof pgid==='number' && Number.isInteger(pgid) && pgid>0) return term+'pgid:'+pgid;
     const procs=state.foreground_processes;
     if(Array.isArray(procs) && isRecord(procs[0]) && typeof procs[0].pid==='number')
-      return 'pid:'+String(procs[0].pid);
+      return term+'pid:'+String(procs[0].pid);
   }
+  return undefined;
+}
+function agentInstance(agent: Record<string,unknown>, pane: string): string {
+  const direct=extractAgentInstance(agent);
+  if(direct) return direct;
+  // When an agent ID is unavailable, a foreground process group (paired with terminal_id when present) fences replacement.
+  const info=call('herdr',['pane','process-info','--pane',pane],true);
+  const resolved=extractAgentInstance(agent,info);
+  if(resolved) return resolved;
   fail('stable live agent identity not available; do not prompt unverified pane');
 }
 function verifyAttempt(args: Record<string,string>, route: Route): void {
@@ -222,7 +233,7 @@ export async function run(argv: string[]): Promise<unknown> {
       if (typeof pane!=='string'||!PANE.test(pane)) fail('layout changed but pane ID unavailable; reconcile before retry');
       // Provider-scoped command; never switch to herdr agent start --kind.
       call('herdr',['pane','run',pane,'agent '+route.harness+' '+route.provider]);
-      for(let i=0;i<16;i++){
+      for(let i=0;i<24;i++){
         await new Promise(ok=>setTimeout(ok,750));
         const probe=spawnSync('herdr',['agent','get',pane],{encoding:'utf8',timeout:20000});
         if (probe.status!==0) continue;

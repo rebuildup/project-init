@@ -67,8 +67,29 @@ test('existing user pane cannot be taken over as a worker',()=>{
 });
 test('missing or inconsistent state does not create additional layout',()=>{
   assert.throws(()=>normalizeSnapshot({result:{tabs:[],panes:[],agents:[]}}),/workspaces/);
+  assert.throws(()=>normalizeSnapshot({id:'cli:api:snapshot',result:{type:'session_snapshot',snapshot:null}}),/invalid snapshot/);
   const s=clone(active);s.result.tabs[1].pane_count=1;
   assert.equal(planPlacement(s,opts).action,'blocked');
+});
+test('herdr 0.9.5 nested session_snapshot payload unwraps and reuses existing workspace',()=>{
+  const wrapped={
+    id:'cli:api:snapshot',
+    result:{
+      type:'session_snapshot',
+      snapshot:{
+        protocol:22,
+        version:'0.9.5',
+        workspaces:active.result.workspaces,
+        tabs:active.result.tabs,
+        panes:active.result.panes,
+        agents:active.result.agents,
+      },
+    },
+  };
+  const p=planPlacement(wrapped,opts);
+  assert.equal(p.action,'split-pane');
+  assert.equal(p.workspace,'w1');
+  assert.equal(p.tab,'w1:t2');
 });
 test('unknown functions and unsafe configuration fail closed',()=>{
   assert.throws(()=>resolveLayout({},'arbitrary'),/unknown execution function/);
