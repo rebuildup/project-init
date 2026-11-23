@@ -22,6 +22,8 @@ jobs:
         run: shellcheck --version
       - name: Check whole-repository analysis and references
         run: bun run quality:structure
+      - name: Check workflow gate honesty
+        run: node scripts/quality/check-gate-honesty.mts workflow .github/workflows/eval-controls.yml
       - name: Test quality checks and challenge executor
         run: bun run test:system-quality
       - name: Challenge actual repository checks
