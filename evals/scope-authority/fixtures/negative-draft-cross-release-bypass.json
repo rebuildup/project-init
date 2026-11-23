@@ -1,0 +1,10 @@
+{
+  "id": "negative-draft-cross-release-bypass",
+  "item": "#109",
+  "changeClass": "design-research-draft",
+  "requestedTargetRelease": "release-4-0-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "preserve-progress",
+  "sourceKind": "reconciled-canonical",
+  "evaluatedDecisionRevision": 1
+}

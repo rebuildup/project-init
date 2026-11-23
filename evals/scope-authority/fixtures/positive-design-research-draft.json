@@ -1,0 +1,10 @@
+{
+  "id": "positive-design-research-draft",
+  "item": "#109",
+  "changeClass": "design-research-draft",
+  "requestedTargetRelease": "release-4-1-0",
+  "canonicalTargetRelease": "release-4-1-0",
+  "requestedIntent": "preserve-progress",
+  "sourceKind": "single-pr-or-doc",
+  "evaluatedDecisionRevision": 1
+}
