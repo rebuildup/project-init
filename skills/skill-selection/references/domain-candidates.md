@@ -6,8 +6,9 @@
 
 - **Web (`web-platform`)**: HTML/CSS・DOM・Web UI・client-side JSを扱うprojectは `web-platform` を初回判定し、`GoogleChrome/modern-web-guidance` を優先評価する。framework・デザイン・品質のSkillとは別担当。backend・infra・CLI専用には不要。上流の広いMANDATORY triggerを組織共通routerとして流用しない。例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
 - **Lean 4 (`lean4-proof` / `mathlib-build`)**: Lean 4で定理・補題の証明を作成・修正する場合は `lean4-proof` を判定し、公式 `leanprover/skills` の `lean-proof` を優先評価する。`mathlib-build` はMathlib本体をビルド・修正する場合に限定し、Mathlibを依存利用するだけのprojectには導入しない。保証対象とruntime modelの対応は引き続き `correctness-assurance` が設計する。`lean-proof` は作業中の `sorry` を認めているが、未解決の証明を完了扱いにしてはならない。
-- **視覚・UIレビューの4能力の分離**:
-  - `visual-design`: 制作（実例観察・設計方向づけ・実装）
+- **視覚・UI設計およびレビューの能力分離**:
+  - `visual-design-foundation`: 配置前の上流設計基盤（目的・選別・体験構造・実物探索。`design-discipline` は `design-skills v0.6.0` で公開済みだが paired rendered-artifact trial 未完了のため `watch` 維持。`design-intent` / `design-refinement` / `idea-discovery` とは別責務）
+  - `visual-design`: 制作・視覚方向づけ（`design-intent`）
   - `visual-composition-audit`: 完成画面・ページ全体の構図原則監査（`composition-review`）
   - `visual-review`: rendered screenshot の回帰・coherence・first-encounter レビュー（局所レビューと freeze 後包括レビューは `quality-gate` の visual review handoff に従う）
   - `functional-ui-review`: Web / application UI で代表タスクの操作発見・情報優先順位・摩擦・一貫性・feedback / recovery を監査する能力
