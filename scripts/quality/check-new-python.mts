@@ -50,7 +50,7 @@ const PYTHON_EXTENSION = /\.py[wi]?$/i;
 const PYTHON_EXECUTABLE = /^(?:pythonw?|pypy)(?:\d+(?:\.\d+)*)?t?$/i;
 const ENV_ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
 const ENV_FLAGS_WITH_ARG = new Set(["-u", "--unset", "-C", "--chdir", "-P", "-a"]);
-const ADR_PATH_PATTERN = /(?:^|\/)(?:docs\/)?adrs?\/.+\.md$/i;
+const ADR_PATH_PATTERN = /^(?:docs\/)?adrs?\/[^/]+\.md$/i;
 const STATUS_KEY_PATTERN =
   /^(?:[-*+]\s+)?(?:\*\*)?(?:Status|ステータス|状態)(?:\*\*)?\s*[:：]\s*(.+)$/i;
 const STATUS_HEADING_PATTERN = /^#{1,3}\s*(?:Status|ステータス|状態)\s*$/i;

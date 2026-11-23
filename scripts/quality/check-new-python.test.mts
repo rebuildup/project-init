@@ -197,6 +197,8 @@ test("real git repo: rename semantics allow .py->.py while catching .txt->.py", 
 test("real git repo: exceptions and ADR are loaded from --head tree, rejecting traversal, Draft ADRs, and non-ADR files", async () => {
   await withTempRepo(async (dir) => {
     commitFile(dir, "README.md", "# Project\n\nStatus: Accepted\n", "initial");
+    commitFile(dir, "vendor/pkg/adr/notes.md", "# Fake\n\nStatus: Accepted\n", "add vendor adr");
+    commitFile(dir, "docs/adr/sub/dir/x.md", "# Nested\n\nStatus: Accepted\n", "add nested adr");
     execFileSync("git", ["checkout", "-q", "-b", "feature"], { cwd: dir });
     commitFile(dir, "bootstrap/pre-bun-init.py", "print('bootstrap')\n", "add python file");
 
@@ -279,6 +281,20 @@ test("real git repo: exceptions and ADR are loaded from --head tree, rejecting t
             paths: ["bootstrap/pre-bun-init.py"],
             adr: "README.md",
             reason: "non-adr file",
+            alternatives: "none",
+            sunsetCondition: "never",
+          },
+          {
+            paths: ["bootstrap/pre-bun-init.py"],
+            adr: "vendor/pkg/adr/notes.md",
+            reason: "prefixed non-root adr",
+            alternatives: "none",
+            sunsetCondition: "never",
+          },
+          {
+            paths: ["bootstrap/pre-bun-init.py"],
+            adr: "docs/adr/sub/dir/x.md",
+            reason: "nested subdir adr",
             alternatives: "none",
             sunsetCondition: "never",
           },

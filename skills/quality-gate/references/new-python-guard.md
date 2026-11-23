@@ -33,6 +33,9 @@ bun run test:new-python
 既存の Python コードベースを壊さず新規導入だけを制限するため、導入を選択した下流リポジトリの PR workflow に以下を追加する（既存 Python の変更や承認済み `.config/python-exceptions.json` は通過する）。
 
 ```yaml
+- uses: actions/checkout@v4
+  with:
+    fetch-depth: 0
 - name: Reject newly added Python scripts on PR diff
   if: github.event_name == 'pull_request'
   run: |
