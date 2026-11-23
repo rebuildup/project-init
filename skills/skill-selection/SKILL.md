@@ -36,6 +36,10 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 **Lean 4の優先候補**: Lean 4で定理・補題の証明を作成・修正する場合は `lean4-proof` を判定し、公式 `leanprover/skills` の `lean-proof` を優先評価する。`mathlib-build` はMathlib本体をビルド・修正する場合に限定し、Mathlibを依存利用するだけのprojectには導入しない。保証対象とruntime modelの対応は引き続き `correctness-assurance` が設計する。`lean-proof` は作業中の `sorry` を認めているが、未解決の証明を完了扱いにしてはならない。
 
+**UI機能美レビューの候補**: UI / Web アプリで実際の代表タスクの理解・発見・操作・状態認識・回復を監査する必要がある場合は `functional-ui-review` を判定する。`visual-design`（作る）、`visual-composition-audit`（完成構図）、`functional-ui-review`（タスクを迷わず遂行できるか）は別能力として扱う。単に UI を変更しただけで毎 ticket に独立した大規模な visual / interaction review や人間の確認を追加しない。変更領域の簡潔なレビューと RC の広い確認を区別する。
+
+`functional-aesthetics-review` は設計元が未 release・実成果物 trial 未完了の間は `watch` として評価対象に留め、`default` / 自動配布済み / 効果実証済みと扱わない。上流の正式 release / tag と task-based real-artifact trial が揃った後、`reviewed_rev` と証跡を更新して `default` 昇格を検討する。すでに利用可能な既存 Skill（`visual-review` など）に、その能力があると推定して置換しない。
+
 ## 2. 候補を集める
 
 能力ごとに、次の順で候補を集める。
