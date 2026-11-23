@@ -49,6 +49,7 @@ const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash',
   ['placement routing contract', 'bun', 'text-contracts.mts', ['execution-placement-contract']],
   ['Herdr orchestration contract', 'bun', 'text-contracts.mts', ['herdr-orchestration-contract']],
   ['constitutional refinement controls', 'bun', 'constitutional-refinement-controls.mts', []],
+  ['gate honesty controls', 'bun', 'gate-honesty-controls.mts', []],
 ];
 for (const [label, interpreter, path, args] of contracts) {
   const cmd = interpreter === 'bun' ? process.execPath : 'bash';

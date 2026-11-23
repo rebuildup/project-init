@@ -22,6 +22,10 @@ jobs:
         run: shellcheck --version
       - name: Check whole-repository analysis and references
         run: bun run quality:structure
+      - name: Check workflow gate honesty
+        run: bun run quality:workflow-honesty
+      - name: Test gate honesty and verify real execution count
+        run: bun run test:gate-honesty
       - name: Test quality checks and challenge executor
         run: bun run test:system-quality
       - name: Challenge actual repository checks
@@ -59,14 +63,15 @@ jobs:
       - name: Run deterministic controls
         shell: bash
         run: |
-          set +e
           failed=0
-          bun evals/policy-evaluation/controls.mts || failed=1
+          if ! bun evals/policy-evaluation/controls.mts; then
+            failed=1
+          fi
           for suite in \
             skills-cli-materialization; do
             echo "::group::evals/$suite"
-            bash "evals/$suite/controls.sh"
-            rc=$?
+            rc=0
+            bash "evals/$suite/controls.sh" || rc=$?
             echo "::endgroup::"
             if [ "$rc" -ne 0 ]; then
               echo "::error title=Eval failure::$suite returned exit $rc"

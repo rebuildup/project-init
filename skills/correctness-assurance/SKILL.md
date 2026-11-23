@@ -436,7 +436,7 @@ Evidence
 - toolchain/version
 ```
 
-「tests green」「proof green」だけで終了しない。
+「tests green」「proof green」だけで終了しない。actual execution と reported claim の乖離（0 件実行 silent pass、index silent fallback、未検証 prose mirror）の機械検証契約は [gate-honesty](../quality-gate/references/gate-honesty.md) を参照する。
 
 ## 15. Reproducibility
 
