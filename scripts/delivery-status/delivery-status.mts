@@ -2,27 +2,39 @@
 // Read-only delivery-status report across repositories.
 //
 // Detects work stranded between Issue / PR / release branch and `main`:
-// open PRs (CI, conflicts, stale base), release-* branches with unreleased
-// commits, and merged release branches that were never deleted.
+// open PRs (CI, conflicts, stale base), release-* / release/* branches with
+// unreleased commits, divergence, unpublished tags, and merged release branches
+// that were never deleted.
 //
 // Usage:
 //   node scripts/delivery-status/delivery-status.mts [--repo owner/name ...] [--json]
+//     [--snapshot-out path] [--prev-snapshot path]
 //
 // Read-only by construction: only `gh api` GraphQL queries and REST GETs are
 // issued. Nothing is merged, commented on, labelled or otherwise mutated.
 // Authentication is delegated to `gh`; this script never reads or prints tokens.
 
 import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   classifyPr,
   classifyReleaseBranch,
+  isReleaseBranch,
+  isReleaseTagPublished,
   type PrFacts,
   type PrRow,
   type ReleaseRow,
   type ReleaseBranchFacts,
 } from './classify.mts';
+import {
+  buildSnapshot,
+  computeSnapshotDelta,
+  parseSnapshotJson,
+  type DeliverySnapshot,
+  type SnapshotDeltaReport,
+} from './snapshot.mts';
 
 const DEFAULT_REPOS = [
   'rebuildup/pc-setup',
@@ -31,21 +43,23 @@ const DEFAULT_REPOS = [
 ] as const;
 
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
-const RELEASE_BRANCH_PREFIX = 'release-';
 const FAILING_CHECK_CONCLUSIONS = new Set(['FAILURE', 'TIMED_OUT', 'CANCELLED', 'ACTION_REQUIRED', 'STARTUP_FAILURE']);
 const FAILING_STATUS_STATES = new Set(['FAILURE', 'ERROR']);
 
-interface RepoReport {
+export interface RepoReport {
   readonly repo: string;
   readonly defaultBranch: string;
+  readonly defaultBranchHeadSha: string | null;
   readonly openPrs: readonly PrRow[];
   readonly releaseBranches: readonly ReleaseRow[];
 }
 
-interface Report {
+export interface Report {
   readonly generatedAt: string;
   readonly repos: readonly RepoReport[];
   readonly errors: readonly { readonly repo: string; readonly message: string }[];
+  readonly snapshot?: DeliverySnapshot;
+  readonly delta?: SnapshotDeltaReport;
 }
 
 class GhError extends Error {
@@ -103,26 +117,43 @@ query($owner: String!, $name: String!, $after: String) {
   }
 }`;
 
-function defaultBranchOf(owner: string, name: string): string {
-  const data = ghJson<{ data: { repository: { defaultBranchRef: { name: string } | null } } }>([
+function defaultBranchInfo(owner: string, name: string): { name: string; headSha: string | null } {
+  const data = ghJson<{
+    data: {
+      repository: {
+        defaultBranchRef: { name: string; target?: { oid?: string } | null } | null;
+      };
+    };
+  }>([
     'api',
     'graphql',
     '-f',
-    `query=query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { defaultBranchRef { name } } }`,
+    `query=query($owner: String!, $name: String!) { repository(owner: $owner, name: $name) { defaultBranchRef { name target { oid } } } }`,
     '-f',
     `owner=${owner}`,
     '-f',
     `name=${name}`,
   ]);
-  const branch = data.data.repository.defaultBranchRef?.name;
-  if (!branch) throw new Error(`${owner}/${name} has no default branch`);
-  return branch;
+  const ref = data.data.repository.defaultBranchRef;
+  if (!ref?.name) throw new Error(`${owner}/${name} has no default branch`);
+  return { name: ref.name, headSha: ref.target?.oid ?? null };
 }
 
+// Query both `release-*` and `release/*` via prefix "release", then filter strictly with isReleaseBranch.
 const REFS_QUERY = `
 query($owner: String!, $name: String!, $after: String) {
   repository(owner: $owner, name: $name) {
-    refs(refPrefix: "refs/heads/", first: 100, after: $after, query: "${RELEASE_BRANCH_PREFIX}") {
+    refs(refPrefix: "refs/heads/", first: 100, after: $after, query: "release") {
+      pageInfo { hasNextPage endCursor }
+      nodes { name target { oid } }
+    }
+  }
+}`;
+
+const TAGS_QUERY = `
+query($owner: String!, $name: String!, $after: String) {
+  repository(owner: $owner, name: $name) {
+    refs(refPrefix: "refs/tags/", first: 100, after: $after) {
       pageInfo { hasNextPage endCursor }
       nodes { name }
     }
@@ -190,6 +221,11 @@ interface RawPr {
   } | null;
 }
 
+interface RawRef {
+  name: string;
+  target?: { oid?: string } | null;
+}
+
 type RawContext =
   | { __typename: 'CheckRun'; name: string; conclusion: string | null; completedAt: string | null }
   | { __typename: 'StatusContext'; context: string; state: string; createdAt: string | null };
@@ -213,35 +249,56 @@ export function failingCheckNames(contexts: readonly RawContext[]): string[] {
   return [...latest].filter(([, v]) => v.failing).map(([k]) => k).sort();
 }
 
-// `gh api repos/o/n/compare/<default>...<branch>` -> commits `branch` has beyond default.
+// `gh api repos/o/n/compare/<default>...<branch>` -> ahead/behind commits relative to default.
 // Any API comparison failure is unknown, never a green/stale conclusion.
-function aheadOfDefault(owner: string, name: string, defaultBranch: string, branch: string): number | null {
+function compareToDefault(
+  owner: string,
+  name: string,
+  defaultBranch: string,
+  branch: string,
+): { ahead: number; behind: number } | null {
   try {
-    const cmp = ghJson<{ ahead_by: number }>([
+    const cmp = ghJson<{ ahead_by: number; behind_by: number }>([
       'api',
       `repos/${owner}/${name}/compare/${encodeURIComponent(defaultBranch)}...${encodeURIComponent(branch)}`,
     ]);
-    return cmp.ahead_by;
+    return { ahead: cmp.ahead_by, behind: cmp.behind_by };
   } catch (error) {
     if (error instanceof GhError) return null;
     throw error;
   }
 }
 
-function mergedPrCount(owner: string, name: string, branch: string): number {
-  const data = ghJson<{ data: { repository: { pullRequests: { totalCount: number } } } }>([
-    'api',
-    'graphql',
-    '-f',
-    `query=${MERGED_COUNT_QUERY}`,
-    '-f',
-    `owner=${owner}`,
-    '-f',
-    `name=${name}`,
-    '-f',
-    `head=${branch}`,
-  ]);
-  return data.data.repository.pullRequests.totalCount;
+function fetchTags(owner: string, name: string): string[] | null {
+  try {
+    return graphqlPaged<{ name: string }>(TAGS_QUERY, owner, name, (data) => data.repository.refs).map(
+      (ref) => ref.name,
+    );
+  } catch (error) {
+    if (error instanceof GhError) return null;
+    throw error;
+  }
+}
+
+function mergedPrCount(owner: string, name: string, branch: string): number | null {
+  try {
+    const data = ghJson<{ data: { repository: { pullRequests: { totalCount: number } } } }>([
+      'api',
+      'graphql',
+      '-f',
+      `query=${MERGED_COUNT_QUERY}`,
+      '-f',
+      `owner=${owner}`,
+      '-f',
+      `name=${name}`,
+      '-f',
+      `head=${branch}`,
+    ]);
+    return data.data.repository.pullRequests.totalCount;
+  } catch (error) {
+    if (error instanceof GhError) return null;
+    throw error;
+  }
 }
 
 export function matchesReleasePr(pr: Pick<RawPr, 'headRefName' | 'baseRefName' | 'isCrossRepository'>, branch: string, defaultBranch: string): boolean {
@@ -252,14 +309,16 @@ export function collectRepo(repo: string, now: Date): RepoReport {
   if (!REPO_PATTERN.test(repo)) throw new Error(`invalid repo "${repo}", expected owner/name`);
   const [owner, name] = repo.split('/') as [string, string];
 
-  const main = defaultBranchOf(owner, name);
+  const defaultBranch = defaultBranchInfo(owner, name);
+  const main = defaultBranch.name;
   const rawPrs = graphqlPaged<RawPr>(REPO_QUERY, owner, name, (data) => data.repository.pullRequests);
 
-  const compareCache = new Map<string, number | null>();
-  const aheadCached = (branch: string): number | null => {
-    if (!compareCache.has(branch)) compareCache.set(branch, aheadOfDefault(owner, name, main, branch));
+  const compareCache = new Map<string, { ahead: number; behind: number } | null>();
+  const compareCached = (branch: string): { ahead: number; behind: number } | null => {
+    if (!compareCache.has(branch)) compareCache.set(branch, compareToDefault(owner, name, main, branch));
     return compareCache.get(branch) ?? null;
   };
+  const aheadCached = (branch: string): number | null => compareCached(branch)?.ahead ?? null;
 
   const openPrs: PrRow[] = rawPrs.map((pr) => {
     const facts: PrFacts = {
@@ -267,6 +326,7 @@ export function collectRepo(repo: string, now: Date): RepoReport {
       title: pr.title.replace(/\s+/g, ' ').trim(),
       isDraft: pr.isDraft,
       base: pr.baseRefName,
+      headRefName: pr.headRefName,
       headSha: pr.headRefOid,
       updatedAt: pr.updatedAt,
       mergeable: pr.mergeable,
@@ -279,26 +339,37 @@ export function collectRepo(repo: string, now: Date): RepoReport {
     return classifyPr(facts, now);
   });
 
-  const branchNames = graphqlPaged<{ name: string }>(REFS_QUERY, owner, name, (data) => data.repository.refs).map(
-    (ref) => ref.name,
-  );
-  const releaseBranches: ReleaseRow[] = branchNames
-    .filter((branch) => branch.startsWith(RELEASE_BRANCH_PREFIX))
-    .sort()
-    .map((branch) => {
-      const openReleasePr = rawPrs.find((pr) => matchesReleasePr(pr, branch, main));
-      const facts: ReleaseBranchFacts = {
-        name: branch,
-        aheadOfDefault: aheadCached(branch),
-        openReleasePr: openReleasePr
-          ? { number: openReleasePr.number, isDraft: openReleasePr.isDraft, mergeStateStatus: openReleasePr.mergeStateStatus }
-          : null,
-        mergedPrCount: mergedPrCount(owner, name, branch),
-      };
-      return classifyReleaseBranch(facts);
-    });
+  const releaseRefs = graphqlPaged<RawRef>(REFS_QUERY, owner, name, (data) => data.repository.refs)
+    .filter((ref) => isReleaseBranch(ref.name))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
-  return { repo, defaultBranch: main, openPrs, releaseBranches };
+  const tags = releaseRefs.length > 0 ? fetchTags(owner, name) : [];
+
+  const releaseBranches: ReleaseRow[] = releaseRefs.map((ref) => {
+    const branch = ref.name;
+    const openReleasePr = rawPrs.find((pr) => matchesReleasePr(pr, branch, main));
+    const cmp = compareCached(branch);
+    const facts: ReleaseBranchFacts = {
+      name: branch,
+      branchHeadSha: ref.target?.oid ?? null,
+      aheadOfDefault: cmp?.ahead ?? null,
+      behindOfDefault: cmp?.behind ?? null,
+      openReleasePr: openReleasePr
+        ? { number: openReleasePr.number, isDraft: openReleasePr.isDraft, mergeStateStatus: openReleasePr.mergeStateStatus }
+        : null,
+      mergedPrCount: mergedPrCount(owner, name, branch),
+      tagPublished: isReleaseTagPublished(branch, tags),
+    };
+    return classifyReleaseBranch(facts);
+  });
+
+  return {
+    repo,
+    defaultBranch: main,
+    defaultBranchHeadSha: defaultBranch.headSha,
+    openPrs,
+    releaseBranches,
+  };
 }
 
 function truncate(text: string, max: number): string {
@@ -309,6 +380,11 @@ function renderTable(headers: readonly string[], rows: readonly (readonly string
   const widths = headers.map((h, i) => Math.max(h.length, ...rows.map((r) => (r[i] ?? '').length)));
   const line = (cells: readonly string[]) => cells.map((c, i) => c.padEnd(widths[i] ?? 0)).join('  ').trimEnd();
   return [line(headers), line(widths.map((w) => '-'.repeat(w))), ...rows.map(line)].join('\n');
+}
+
+function formatDeltaNumber(value: number | 'unknown'): string {
+  if (value === 'unknown') return 'unknown';
+  return value > 0 ? `+${value}` : String(value);
 }
 
 export function renderText(report: Report): string {
@@ -336,13 +412,39 @@ export function renderText(report: Report): string {
     out.push('', `Release branches (${repo.releaseBranches.length})`);
     out.push(
       renderTable(
-        ['BRANCH', 'AHEAD_OF_DEFAULT', 'OPEN_RELEASE_PR', 'MERGED_PRS', 'FLAGS'],
+        ['BRANCH', 'AHEAD_OF_DEFAULT', 'BEHIND', 'OPEN_RELEASE_PR', 'MERGED_PRS', 'TAG', 'FLAGS'],
         repo.releaseBranches.map((b) => [
           b.name,
           b.aheadOfDefault === null ? 'unknown' : String(b.aheadOfDefault),
+          b.behindOfDefault === null ? 'unknown' : String(b.behindOfDefault),
           b.openReleasePr ? `#${b.openReleasePr.number}${b.openReleasePr.isDraft ? ' (draft)' : ''} ${b.openReleasePr.mergeStateStatus}` : '-',
-          String(b.mergedPrCount),
+          b.mergedPrCount === null ? 'unknown' : String(b.mergedPrCount),
+          b.tagPublished === null ? 'unknown' : b.tagPublished ? 'published' : 'unpublished',
           b.flags.join(',') || '-',
+        ]),
+      ),
+    );
+    out.push('');
+  }
+  if (report.delta) {
+    out.push(
+      `## Delta (previous: ${report.delta.previousCapturedAt ?? 'none'} -> current: ${report.delta.currentCapturedAt})`,
+      '',
+    );
+    out.push(
+      renderTable(
+        ['REPO', 'BRANCH', 'STATUS', 'AHEAD_DELTA', 'BEHIND_DELTA', 'OPEN_PR_DELTA', 'CI_FAIL_DELTA', 'ADV_BEYOND_PR', 'ADDED_FLAGS', 'CLEARED_FLAGS'],
+        report.delta.deltas.map((d) => [
+          d.repo,
+          d.branch,
+          d.status,
+          formatDeltaNumber(d.aheadDelta),
+          formatDeltaNumber(d.behindDelta),
+          formatDeltaNumber(d.openPrTotalDelta),
+          formatDeltaNumber(d.ciFailDelta),
+          d.representativePrUnchangedWhileBranchAdvanced ? 'yes' : 'no',
+          d.addedFlags.join(',') || '-',
+          d.clearedFlags.join(',') || '-',
         ]),
       ),
     );
@@ -356,7 +458,8 @@ export function renderText(report: Report): string {
   out.push(
     'Flags: CI-FAIL (head checks failed) · CONFLICTING (merge conflict) · STALE-BASE (base fully contained in default branch)',
     '       BASE-UNKNOWN (base comparison failed) · NO-PR-BODY-CHECKS (no check rollup: CI state undetermined, not green)',
-    '       UNRELEASED-COMMITS (release-* ahead of default with no open release PR) · MERGED-STALE-BASE (release-* fully contained in default branch, not deleted)',
+    '       UNRELEASED-COMMITS (release-*/release/* ahead of default with no open release PR) · MERGED-STALE-BASE (release branch fully contained in default branch, not deleted)',
+    '       BRANCH-DIVERGED (release branch both ahead of and behind default branch) · TAG-UNPUBLISHED (matching release tag not found)',
     '       BRANCH-UNKNOWN (release branch comparison failed)',
     'Read-only: nothing was merged, commented on, labelled or changed. Merge authority is unchanged (github-delivery Skill).',
   );
@@ -367,10 +470,12 @@ interface Args {
   repos: string[];
   json: boolean;
   help: boolean;
+  snapshotOut: string | null;
+  prevSnapshot: string | null;
 }
 
 export function parseArgs(argv: readonly string[]): Args {
-  const args: Args = { repos: [], json: false, help: false };
+  const args: Args = { repos: [], json: false, help: false, snapshotOut: null, prevSnapshot: null };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === '--json') args.json = true;
@@ -379,20 +484,41 @@ export function parseArgs(argv: readonly string[]): Args {
       const value = argv[++i];
       if (value === undefined || value.startsWith('-')) throw new Error('--repo requires owner/name');
       args.repos.push(value);
+    } else if (arg === '--snapshot-out') {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith('-')) throw new Error('--snapshot-out requires a file path');
+      args.snapshotOut = value;
+    } else if (arg === '--prev-snapshot') {
+      const value = argv[++i];
+      if (value === undefined || value.startsWith('-')) throw new Error('--prev-snapshot requires a file path');
+      args.prevSnapshot = value;
     } else throw new Error(`unknown argument: ${arg}`);
   }
   if (args.repos.length === 0) args.repos = [...DEFAULT_REPOS];
   return args;
 }
 
-const USAGE = `Usage: node scripts/delivery-status/delivery-status.mts [--repo owner/name ...] [--json]
+const USAGE = `Usage: node scripts/delivery-status/delivery-status.mts [--repo owner/name ...] [--json] [--snapshot-out path] [--prev-snapshot path]
 
-  --repo owner/name   repository to inspect (repeatable; default: ${DEFAULT_REPOS.join(', ')})
-  --json              print the report as JSON instead of tables
-  -h, --help          show this help
+  --repo owner/name      repository to inspect (repeatable; default: ${DEFAULT_REPOS.join(', ')})
+  --json                 print the report as JSON instead of tables
+  --snapshot-out path    write the evidence snapshot JSON to a local file
+  --prev-snapshot path   compare current snapshot against a prior snapshot JSON
+  -h, --help             show this help
 `;
 
-function main(argv: readonly string[]): number {
+export function writeSnapshotFile(filePath: string, snapshot: DeliverySnapshot): void {
+  const outPath = resolve(filePath);
+  mkdirSync(dirname(outPath), { recursive: true });
+  writeFileSync(outPath, redact(`${JSON.stringify(snapshot, null, 2)}\n`), 'utf8');
+}
+
+export function loadPreviousSnapshot(filePath: string): DeliverySnapshot {
+  const raw = readFileSync(resolve(filePath), 'utf8');
+  return parseSnapshotJson(raw);
+}
+
+export function main(argv: readonly string[]): number {
   let args: Args;
   try {
     args = parseArgs(argv);
@@ -403,6 +529,16 @@ function main(argv: readonly string[]): number {
   if (args.help) {
     process.stdout.write(USAGE);
     return 0;
+  }
+
+  let previousSnapshot: DeliverySnapshot | null = null;
+  if (args.prevSnapshot) {
+    try {
+      previousSnapshot = loadPreviousSnapshot(args.prevSnapshot);
+    } catch (error) {
+      process.stderr.write(`invalid --prev-snapshot (${args.prevSnapshot}): ${redact((error as Error).message)}\n`);
+      return 2;
+    }
   }
 
   const now = new Date();
@@ -416,7 +552,20 @@ function main(argv: readonly string[]): number {
     }
   }
 
-  const report: Report = { generatedAt: now.toISOString(), repos, errors };
+  const generatedAt = now.toISOString();
+  const snapshot = buildSnapshot(generatedAt, repos, errors);
+  const delta = previousSnapshot ? computeSnapshotDelta(previousSnapshot, snapshot) : undefined;
+  if (args.snapshotOut) {
+    writeSnapshotFile(args.snapshotOut, snapshot);
+  }
+
+  const report: Report = {
+    generatedAt,
+    repos,
+    errors,
+    ...(args.snapshotOut || args.prevSnapshot ? { snapshot } : {}),
+    ...(delta ? { delta } : {}),
+  };
   process.stdout.write(redact(args.json ? `${JSON.stringify(report, null, 2)}\n` : `${renderText(report)}\n`));
   return errors.length > 0 ? 1 : 0;
 }

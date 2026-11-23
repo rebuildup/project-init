@@ -10,17 +10,64 @@ export const FLAGS = [
   'NO-PR-BODY-CHECKS',
   'UNRELEASED-COMMITS',
   'MERGED-STALE-BASE',
+  'BRANCH-DIVERGED',
+  'TAG-UNPUBLISHED',
   'BRANCH-UNKNOWN',
 ] as const;
 
 export type Flag = (typeof FLAGS)[number];
 export type CiState = 'SUCCESS' | 'FAILURE' | 'PENDING' | 'UNKNOWN';
 
+const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+const DASH_SEMVER_PATTERN = /^(\d+)-(\d+)-(\d+)(?:-(.+))?$/;
+
+export function isReleaseBranch(branchName: string): boolean {
+  return branchName.startsWith('release-') || branchName.startsWith('release/');
+}
+
+/**
+ * Extract canonical SemVer (without leading `v`) from `release-X-Y-Z` or
+ * `release/X.Y.Z[-pre]`. Returns `null` if the branch name does not encode a
+ * parseable semantic version (never guesses).
+ */
+export function extractReleaseVersion(branchName: string): string | null {
+  if (branchName.startsWith('release/')) {
+    const raw = branchName.slice('release/'.length).replace(/^v/, '');
+    return SEMVER_PATTERN.test(raw) ? raw : null;
+  }
+  if (branchName.startsWith('release-')) {
+    const raw = branchName.slice('release-'.length).replace(/^v/, '');
+    if (SEMVER_PATTERN.test(raw)) return raw;
+    const dash = DASH_SEMVER_PATTERN.exec(raw);
+    if (!dash) return null;
+    const [, major, minor, patch, pre] = dash;
+    return pre ? `${major}.${minor}.${patch}-${pre}` : `${major}.${minor}.${patch}`;
+  }
+  return null;
+}
+
+/**
+ * Check whether a matching SemVer tag (`X.Y.Z` or `vX.Y.Z`) exists for a
+ * release branch. Returns `null` when tags could not be fetched or the branch
+ * name has no parseable version.
+ */
+export function isReleaseTagPublished(
+  branchName: string,
+  tags: readonly string[] | null,
+): boolean | null {
+  if (tags === null) return null;
+  const version = extractReleaseVersion(branchName);
+  if (version === null) return null;
+  const candidates = new Set([version, `v${version}`]);
+  return tags.some((tag) => candidates.has(tag));
+}
+
 export interface PrFacts {
   readonly number: number;
   readonly title: string;
   readonly isDraft: boolean;
   readonly base: string;
+  readonly headRefName?: string | null;
   readonly headSha: string;
   readonly updatedAt: string;
   /** GraphQL PullRequest.mergeable: MERGEABLE | CONFLICTING | UNKNOWN */
@@ -41,6 +88,7 @@ export interface PrRow {
   readonly title: string;
   readonly draft: boolean;
   readonly base: string;
+  readonly headRefName: string | null;
   readonly headSha: string;
   readonly mergeable: string;
   readonly mergeStateStatus: string;
@@ -58,18 +106,27 @@ export interface ReleasePrRef {
 
 export interface ReleaseBranchFacts {
   readonly name: string;
+  /** Current commit OID of the release branch head; null/undefined when unknown. */
+  readonly branchHeadSha?: string | null;
   /** Commits on the release branch that the default branch lacks; null when the comparison failed. */
   readonly aheadOfDefault: number | null;
+  /** Commits on the default branch that the release branch lacks; null/undefined when unknown. */
+  readonly behindOfDefault?: number | null;
   readonly openReleasePr: ReleasePrRef | null;
-  /** Number of merged PRs whose head is this branch. */
-  readonly mergedPrCount: number;
+  /** Number of merged PRs whose head is this branch; null when the lookup failed. */
+  readonly mergedPrCount: number | null;
+  /** Whether the corresponding release tag is confirmed published; null/undefined when unknown. */
+  readonly tagPublished?: boolean | null;
 }
 
 export interface ReleaseRow {
   readonly name: string;
+  readonly branchHeadSha: string | null;
   readonly aheadOfDefault: number | null;
+  readonly behindOfDefault: number | null;
   readonly openReleasePr: ReleasePrRef | null;
-  readonly mergedPrCount: number;
+  readonly mergedPrCount: number | null;
+  readonly tagPublished: boolean | null;
   readonly flags: readonly Flag[];
 }
 
@@ -125,6 +182,7 @@ export function classifyPr(facts: PrFacts, now: Date): PrRow {
     title: facts.title,
     draft: facts.isDraft,
     base: facts.base,
+    headRefName: facts.headRefName ?? null,
     headSha: facts.headSha,
     mergeable: facts.mergeable,
     mergeStateStatus: facts.mergeStateStatus,
@@ -137,6 +195,8 @@ export function classifyPr(facts: PrFacts, now: Date): PrRow {
 
 export function classifyReleaseBranch(facts: ReleaseBranchFacts): ReleaseRow {
   const flags: Flag[] = [];
+  const behind = facts.behindOfDefault ?? null;
+  const tagPublished = facts.tagPublished ?? null;
 
   if (facts.aheadOfDefault === null) {
     flags.push('BRANCH-UNKNOWN');
@@ -145,15 +205,27 @@ export function classifyReleaseBranch(facts: ReleaseBranchFacts): ReleaseRow {
     // after its content reached main. Note that a freshly cut zero-diff branch
     // also satisfies this; mergedPrCount tells the two apart for the reader.
     flags.push('MERGED-STALE-BASE');
-  } else if (facts.openReleasePr === null) {
-    flags.push('UNRELEASED-COMMITS');
+  } else {
+    if (facts.openReleasePr === null) {
+      flags.push('UNRELEASED-COMMITS');
+    }
+    if (behind !== null && behind > 0) {
+      flags.push('BRANCH-DIVERGED');
+    }
+  }
+
+  if (tagPublished === false) {
+    flags.push('TAG-UNPUBLISHED');
   }
 
   return {
     name: facts.name,
+    branchHeadSha: facts.branchHeadSha ?? null,
     aheadOfDefault: facts.aheadOfDefault,
+    behindOfDefault: behind,
     openReleasePr: facts.openReleasePr,
     mergedPrCount: facts.mergedPrCount,
+    tagPublished,
     flags,
   };
 }

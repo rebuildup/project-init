@@ -710,6 +710,8 @@ IssueのSizeはcalendar durationと同義にしない。
 
 週次sprint cadenceはplanning cadenceであり、「すべてのscopeが1週間で完了する」というestimateではない。
 
+active release の進捗・滞留・連続 delta の読み取り専用 evidence snapshot には `scripts/delivery-status/delivery-status.mts`（`--snapshot-out` / `--prev-snapshot`）を利用する。GitHub snapshot 単体では calibrated WU や joint observation を供給しないため、sample policy を満たすまで `forecastStatus: unavailable` とし P50/P80/P95 を生成しない。
+
 ## parallel-orchestration
 
 agent数、WIP、spawn数を増やす前に、現在のbottleneckとparallelism evidenceを確認する。

@@ -4,6 +4,9 @@ import {
   classifyPr,
   classifyReleaseBranch,
   ciFromRollup,
+  extractReleaseVersion,
+  isReleaseBranch,
+  isReleaseTagPublished,
   type PrFacts,
   type ReleaseBranchFacts,
 } from './classify.mts';
@@ -159,4 +162,43 @@ test('release branch with merged PRs and nothing ahead of main is flagged MERGED
 test('release branch whose comparison failed is BRANCH-UNKNOWN, not clean', () => {
   const row = classifyReleaseBranch(release({ aheadOfDefault: null, mergedPrCount: 1 }));
   assert.deepEqual(row.flags, ['BRANCH-UNKNOWN']);
+});
+
+test('supports both release- and release/ branch prefixes and SemVer tag lookup', () => {
+  assert.equal(isReleaseBranch('release-0-12-0'), true);
+  assert.equal(isReleaseBranch('release/0.1.0-alpha.1'), true);
+  assert.equal(isReleaseBranch('main'), false);
+  assert.equal(isReleaseBranch('122'), false);
+  assert.equal(isReleaseBranch('release'), false);
+
+  assert.equal(extractReleaseVersion('release-0-12-0'), '0.12.0');
+  assert.equal(extractReleaseVersion('release/0.1.0-alpha.1'), '0.1.0-alpha.1');
+  assert.equal(extractReleaseVersion('release/v1.2.3'), '1.2.3');
+  assert.equal(extractReleaseVersion('release-next'), null);
+
+  assert.equal(isReleaseTagPublished('release-0-12-0', null), null);
+  assert.equal(isReleaseTagPublished('release-next', ['v0.12.0']), null);
+  assert.equal(isReleaseTagPublished('release-0-12-0', ['v0.11.0']), false);
+  assert.equal(isReleaseTagPublished('release-0-12-0', ['v0.12.0']), true);
+  assert.equal(isReleaseTagPublished('release/0.1.0-alpha.1', ['0.1.0-alpha.1']), true);
+  assert.equal(isReleaseTagPublished('release/0.1.0-alpha.1', ['v0.1.0']), false);
+});
+
+test('tagPublished null/false/true and behindOfDefault classify TAG-UNPUBLISHED and BRANCH-DIVERGED accurately', () => {
+  const unknownTag = classifyReleaseBranch(
+    release({ aheadOfDefault: 2, behindOfDefault: 0, openReleasePr: { number: 1, isDraft: false, mergeStateStatus: 'CLEAN' }, tagPublished: null }),
+  );
+  assert.deepEqual(unknownTag.flags, []);
+  assert.equal(unknownTag.tagPublished, null);
+
+  const unpublishedDiverged = classifyReleaseBranch(
+    release({ aheadOfDefault: 2, behindOfDefault: 3, openReleasePr: { number: 1, isDraft: false, mergeStateStatus: 'CLEAN' }, tagPublished: false }),
+  );
+  assert.deepEqual([...unpublishedDiverged.flags].sort(), ['BRANCH-DIVERGED', 'TAG-UNPUBLISHED']);
+
+  const published = classifyReleaseBranch(
+    release({ aheadOfDefault: 2, behindOfDefault: 0, openReleasePr: { number: 1, isDraft: false, mergeStateStatus: 'CLEAN' }, tagPublished: true }),
+  );
+  assert.deepEqual(published.flags, []);
+  assert.equal(published.tagPublished, true);
 });
