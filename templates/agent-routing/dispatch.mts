@@ -125,6 +125,20 @@ function call(binary: string, args: string[], json = false): CliResponse | strin
   if (!json) return out.stdout.trim();
   try { return JSON.parse(out.stdout) as CliResponse; } catch { fail(binary + ': malformed JSON response'); }
 }
+export function agentCheckCommand(platform: NodeJS.Platform = process.platform): { binary: string; args: string[] } {
+  // On Windows native, dotfiles exposes `agent.cmd`; Node >= 20 refuses spawning .cmd directly with shell:false (EINVAL/ETIMEDOUT).
+  return platform === 'win32'
+    ? { binary: 'cmd.exe', args: ['/d', '/s', '/c', 'agent check'] }
+    : { binary: 'agent', args: ['check'] };
+}
+export function isDirectExecution(argv1: string | undefined, moduleUrl: string): boolean {
+  if (!argv1) return false;
+  try {
+    return realpathSync(resolve(argv1)) === realpathSync(fileURLToPath(moduleUrl));
+  } catch {
+    return resolve(argv1) === fileURLToPath(moduleUrl);
+  }
+}
 export function resolveRoute(config: unknown, role: string): Route {
   if (!isRecord(config)) fail('invalid routing config');
   if (typeof role !== 'string' || !NAME.test(role)) fail('invalid role');
@@ -180,7 +194,8 @@ export async function run(argv: string[]): Promise<unknown> {
     if (configuredFunction !== undefined && typeof configuredFunction !== 'string') fail('invalid execution function');
     const functionName = configuredFunction ?? args.role;
     return locked(projectRoot, async () => {
-      call('agent',['check']);
+      const agentCheck = agentCheckCommand(process.platform);
+      call(agentCheck.binary, agentCheck.args);
       const snapshot=call('herdr',['api','snapshot'],true);
       const decision=planPlacement(snapshot,{
         layout:config.layout, functionName, cwd, projectRoot,
@@ -231,6 +246,29 @@ export async function run(argv: string[]): Promise<unknown> {
         pane=split?.result?.pane?.pane_id;
       }
       if (typeof pane!=='string'||!PANE.test(pane)) fail('layout changed but pane ID unavailable; reconcile before retry');
+      // Wait briefly for a freshly created shell pane (e.g. WSL .bashrc hooks) to settle before sending the command.
+      for (let w = 0; w < 12; w++) {
+        const pi = spawnSync('herdr', ['pane', 'process-info', '--pane', pane], { encoding: 'utf8', timeout: 10000 });
+        if (pi.status === 0) {
+          try {
+            const parsed = JSON.parse(pi.stdout) as CliResponse;
+            const raw: unknown = parsed?.result;
+            const st: unknown = isRecord(raw) && Object.hasOwn(raw, 'process_info') ? raw.process_info : raw;
+            if (isRecord(st) && typeof st.shell_pid === 'number' && typeof st.foreground_process_group_id === 'number') {
+              const fg = st.foreground_processes;
+              const busy = Array.isArray(fg) && fg.some((proc) => isRecord(proc) && typeof proc.pid === 'number' && proc.pid !== st.shell_pid);
+              if (!busy) break;
+            } else {
+              break;
+            }
+          } catch {
+            break;
+          }
+        } else {
+          break;
+        }
+        await new Promise((ok) => setTimeout(ok, 250));
+      }
       // Provider-scoped command; never switch to herdr agent start --kind.
       call('herdr',['pane','run',pane,'agent '+route.harness+' '+route.provider]);
       for(let i=0;i<24;i++){
@@ -262,7 +300,7 @@ export async function run(argv: string[]): Promise<unknown> {
   verifyAttempt(args,resolveRoute(config,args.role));
   return {output:call('herdr',['agent','read',args.target,'--source','recent-unwrapped','--lines','120'])};
 }
-if (process.argv[1] && resolve(process.argv[1])===fileURLToPath(import.meta.url)) {
+if (isDirectExecution(process.argv[1], import.meta.url)) {
   run(process.argv.slice(2)).then(value=>console.log(JSON.stringify(value,null,2)),error=>{
     console.error('agent-routing: '+(error instanceof Error ? error.message : String(error)));
     process.exitCode=1;

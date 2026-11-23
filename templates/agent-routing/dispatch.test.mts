@@ -5,7 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { test } from 'node:test';
-import { resolveRoute, parseArgs, discoverProjectRoot, extractAgentInstance } from './dispatch.mts';
+import { resolveRoute, parseArgs, discoverProjectRoot, extractAgentInstance, agentCheckCommand, isDirectExecution } from './dispatch.mts';
 const here=dirname(fileURLToPath(import.meta.url));
 const config=JSON.parse(readFileSync(join(here,'agent-routing.example.json'),'utf8'));
 test('free review route stays free and excludes fallback',()=>{
@@ -99,4 +99,15 @@ test('herdr 0.9.5 nested pane_process_info unwraps and fences agent replacement 
   assert.equal(id2,'term:term_abc123:pgid:29999');
   assert.notEqual(id1,id2);
   assert.equal(extractAgentInstance(agent,{id:'cli:pane:process_info',result:{type:'pane_process_info',process_info:null}}),undefined);
+});
+
+test('agentCheckCommand uses cmd.exe for Windows .cmd shims and direct agent on POSIX',()=>{
+  assert.deepEqual(agentCheckCommand('win32'),{binary:'cmd.exe',args:['/d','/s','/c','agent check']});
+  assert.deepEqual(agentCheckCommand('darwin'),{binary:'agent',args:['check']});
+  assert.deepEqual(agentCheckCommand('linux'),{binary:'agent',args:['check']});
+});
+
+test('isDirectExecution resolves symlinked entrypoints instead of silently exiting 0',()=>{
+  assert.equal(isDirectExecution(undefined,import.meta.url),false);
+  assert.equal(isDirectExecution(fileURLToPath(import.meta.url),import.meta.url),true);
 });
