@@ -10,6 +10,8 @@ debugging	single	コードがある	再現できる失敗のloopを作り、原�
 tdd	single	test基盤がある	失敗するtestを先に書く進め方
 code-review	multi	コードがある	diffを基準や仕様と照らして確認する観点
 correctness	single	重要な不変条件を持つ処理がある	不変条件の抽出と最小十分な保証手段の設計
+lean4-proof	single	Lean 4で定理・補題・証明を新規作成または修正する	Lean 4 の証明作成・エラー診断・未解決ゴールの整理
+mathlib-build	single	Mathlib本体のソースをビルド・修正する	Mathlibのcache取得と差分に応じたビルド
 code-naming	single	コードがある、または新規コードを生成・変更する	初回実装から責務・階層・名前を整え、追加ごとに既存側と整合する
 security-advisory	single	外部dependencyがある	脆弱性情報の取り込みと優先度
 security-audit	single	未知のsecurity defectを能動的に探すことを選んだ	coverageを明示した探索と独立検証
@@ -22,6 +24,9 @@ interaction-style	single	always	userとのやりとり、質問の絞り方、bl
 policy-evaluation	single	Skillやpolicyを変更する	policyの評価、context budget
 skill-authoring	single	repositoryでSkillを書く	Skillの書き方
 visual-design	single	UIや視覚的な成果物を作る	実例を観察し、構造を抽出し、翻訳して作り、出来上がりで確かめる
+visual-composition-audit	single	完成した画面・ページ全体の構図を監査する	完成した画面を一般的なデザイン原則（Gestalt 群化・CRAP・階層・グリッドと非対称・字面と scale・色と面・余白のリズム・メディアのアートディレクション・均衡・反復と統一・レスポンシブ再構成・IA と視覚表現の対応・認知負荷）と照らして監査し、欠陥を観察可能な特徴として記録する
+visual-review	single	UI変更の rendered screenshot を回帰・coherence・first-encounter の観点でレビューする	rendered 画面の screenshot を baseline・仕様・観察可能な特徴と照らしてレビューし、defect / spec-mismatch / suggestion を区別する
+functional-ui-review	single	Web / application UIの実際のタスク導線を評価・改善する必要がある	視覚的な操作発見・情報の優先順位・摩擦・一貫性・feedback / recovery を利用者のtaskから監査する
 web-platform	single	HTML/CSS・DOM・ブラウザ上のWeb UI/client-side JavaScriptを実装・更新する	ブラウザ標準API、Baseline互換性、フォールバック、性能・アクセシビリティの実装指針
 motion-design	multi	animationやmotion graphicsを作る	motionの設計と検証
 platform-cloudflare	multi	Cloudflareを使う	Cloudflareのproductとtool

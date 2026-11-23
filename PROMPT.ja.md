@@ -22,6 +22,9 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 - agent関連の設定: root instructions、既存のAgent Skills、plugin / MCP設定
 - 技術stack: language / framework / runtime / SDKの実version、manifest / lockfile、workspace構成
 - Web該当性: HTML/CSS・DOM・ブラウザ側JavaScript / Web UIの有無と対象ブラウザ範囲（該当する場合は `skill-selection` の `web-platform` 初期候補を確認）
+- Lean 4該当性: `.lean`・`lean-toolchain`・`lakefile` の有無と定理証明の作成・修正の対象範囲（該当する場合は `skill-selection` の `lean4-proof` 候補を確認）
+- 視覚レビュー該当性: UI変更の rendered screenshot を回帰・coherence 観点でレビューする必要があるか（該当する場合は `skill-selection` の `visual-review` 候補を確認。局所レビューと freeze 後の包括レビューは quality-gate の visual review handoff に従う）
+- UI task review該当性: 実際の操作画面と代表タスクの有無、重要な導線・状態・回復の評価が必要か（該当する場合は `skill-selection` の `functional-ui-review` を判定する。trial-pending 候補の自動導入はしない）
 - 開発環境: devcontainer / Containerfile / Nix / `mise.toml`、host（macOS / WSL / Linux）差の扱い
 - 品質: test / lint / type / build、smoke・integration・E2Eの基盤、CI（GitHub Actions）
 - コード構造: 変更先の兄弟entry、似た名前、責務の所有者、利用側の既存実装
@@ -83,7 +86,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 
 導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
 
-- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。コードがあるprojectでは単独のリネーム依頼がなくても `code-naming` を選定します。Web UI/ブラウザ側実装を含むprojectでは `web-platform` の候補を初回に優先評価します。
+- 必要な能力を `catalog/capabilities.tsv` の条件でprojectごとに判定します。コードがあるprojectでは単独のリネーム依頼がなくても `code-naming` を選定します。Web UI/ブラウザ側実装を含むprojectでは `web-platform` の候補を初回に優先評価します。 UI の代表タスクに関する機能美評価が必要なら `functional-ui-review` の候補も検討し、未 release / 未実測の候補は既定導入しません。
 - 候補を `catalog/candidates.tsv` と外部の探索から集めて評価し、能力ごとに担当を決めます。
 - 外部packの入口（router）は入れず、個別のSkillだけを入れます。
 - project-localに `--copy` で導入し、Skillのfileと `skills-lock.json` をcommitします。

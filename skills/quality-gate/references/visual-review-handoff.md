@@ -16,6 +16,18 @@ The handoff is an index of reviewable evidence, not a replacement for actual evi
 
 Compile the scope from changed UI states, affected user journeys, layout constraints, platform risks and explicit acceptance criteria. Prefer focused regression evidence for changed surfaces and representative critical paths over a full screenshot dump. Cover relevant interactive states (loading, empty, error, input focus, accessibility, transitions), not only the idle default screenshot. Do not infer Windows-native validation from WSL, macOS, CI success or a remote terminal connection. When a project has a canonical design artifact (e.g., a design file with node identities), reference that version and the affected nodes; do not quietly treat an unapproved redesign as a matched implementation.
 
+## Automated screenshot review (when the project provides one)
+
+A project may ship an automated screenshot reviewer (e.g., dotfiles `agent review run`). Use it as a verification aid inside the same handoff — never as a replacement for the record or for human acceptance.
+
+- **Local scope (during development):** run it on the changed surfaces/states only, under the same capture conditions as the handoff evidence.
+- **Freeze / release-candidate scope:** run the wider representative matrix the project quality profile defines; do not add a full-matrix run to every small change.
+- **Spec:** reuse the canonical spec shipped with the project's `visual-review` skill (design-skills `skills/visual-review/references/agent-review-spec.md`); do not copy prompts per project or per ticket.
+- **Findings:** keep the `[defect]` / `[spec-mismatch]` / `[suggestion]` classes. Suggestions are not defects and must not become fix tickets by themselves.
+- **Verdict:** `approve` covers only the reviewed images and spec for that run. It is not whole-product quality assurance and not human acceptance.
+- **Evidence:** record model ID, spec version (`specSha256`), input images, findings, and quota consumption together with the result JSON.
+- **Unknowns:** capture artifacts (broken-image icons, consent overlays), insufficient image coverage, and uncertain model verdicts are `unverified`, never `pass`.
+
 ## Minimal review record
 
 An individual record or its aggregate manifest identifies:
