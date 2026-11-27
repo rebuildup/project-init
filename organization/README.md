@@ -1,6 +1,6 @@
 # Organization model
 
-project-init は、具体的な開発手順より先にorganization semanticsを定義します。
+aude-skills は、具体的な開発手順より先にorganization semanticsを定義します。
 
 ## Constitution
 

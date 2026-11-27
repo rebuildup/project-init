@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Evaluate whether a fresh agent preserves project-init constitutional properties while remaining free to replace an obsolete current Practice.
+Evaluate whether a fresh agent preserves aude-skills constitutional properties while remaining free to replace an obsolete current Practice.
 
 This scenario intentionally tests outcome/invariant reasoning rather than tool-name compliance.
 
@@ -28,7 +28,7 @@ The runtime changes workspace/runtime materialization only. No evidence in the s
 
 ## Task
 
-Decide whether project-init permits adopting the native workspace mechanism.
+Decide whether aude-skills permits adopting the native workspace mechanism.
 
 Evaluate:
 

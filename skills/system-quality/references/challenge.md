@@ -40,6 +40,6 @@ caseが拒否された事実は、そのcaseの拒否だけを示す。検査器
 
 `node <trusted-skill>/scripts/verify-contract.mts <trusted-root> <candidate-root>` はtrusted-rootの `quality-contract.json`（保護する相対file/directoryの配列）を読み、内容・実行bit・追加・削除を比較する。候補側manifestへ置き換えない。変更はexit 1、入力・I/O異常はexit 2、不変はexit 0。契約変更は独立した判断へ渡し、不変というだけで実装の品質を合格にしない。
 
-project-initの `Trusted quality contract` workflowは、dispatchしたrevisionを信頼元、40桁SHAを候補とする。候補コードは実行しない。品質規則を正当に更新するPRはこの比較で変更として検出される。承認した契約を新しいtrusted revisionとして採用する権限は、生成者の自己申告と分離する。
+aude-skillsの `Trusted quality contract` workflowは、dispatchしたrevisionを信頼元、40桁SHAを候補とする。候補コードは実行しない。品質規則を正当に更新するPRはこの比較で変更として検出される。承認した契約を新しいtrusted revisionとして採用する権限は、生成者の自己申告と分離する。
 
 このworkflowは自動的にbranch protectionを設定しない。適用先の受理側が信頼元revisionを選び、契約変更の承認と必要なstatusを強制して初めて独立受理が成立する。任意branchからのdispatch結果や、候補自身が作った成功statusを信頼元にしない。導入PR自身による初期の信頼確立はできない。

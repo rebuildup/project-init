@@ -1,6 +1,6 @@
 # Formal organization model
 
-`Organization.tla` is a small tool-independent model of the project-init constitutional core.
+`Organization.tla` is a small tool-independent model of the aude-skills constitutional core.
 
 ## Purpose
 

@@ -1,6 +1,6 @@
 # Cold evaluation: ChatGPT-authored execution instructions preserve quality-stage policy
 
-A fresh assistant is asked to write a short **restart/implementation prompt** for a repo following project-init's release-driven profile and ADR-0036. It may read the canonical Issue/Spec/ADR and quality profile; no full specification should be copied into the prompt.
+A fresh assistant is asked to write a short **restart/implementation prompt** for a repo following aude-skills's release-driven profile and ADR-0036. It may read the canonical Issue/Spec/ADR and quality profile; no full specification should be copied into the prompt.
 
 ## Case
 

@@ -2,7 +2,7 @@
 
 ## What this evaluates
 
-Whether a consumer project can materialize project-init Agent Skills with the
+Whether a consumer project can materialize aude-skills Agent Skills with the
 Skills CLI in a way that is **discoverable, reproducible and free of duplicate
 tracking**, and whether a grader can tell a correct materialization from a
 broken one.
@@ -51,7 +51,7 @@ false PASS when neither runtime exists:
 bash evals/skills-cli-materialization/grade.sh --live engineering-decisions
 ```
 
-Overridable: `SKILLS_SOURCE` (default `rebuildup/project-init`),
+Overridable: `SKILLS_SOURCE` (default `rebuildup/aude-skills`),
 `SKILLS_CLI` (force a specific CLI invocation), `SKILLS_WORKDIR` (where the
 throwaway project is created).
 

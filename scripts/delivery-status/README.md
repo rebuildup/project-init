@@ -1,6 +1,6 @@
 # Delivery status（横断レポート）
 
-Issue → PR → release branch → `main` の経路で滞留している作業を、複数リポジトリについて読み取り専用で一覧する。Issue rebuildup/project-init#150 および #122 の実装。
+Issue → PR → release branch → `main` の経路で滞留している作業を、複数リポジトリについて読み取り専用で一覧する。Issue rebuildup/aude-skills#150（旧 project-init#150）および #122 の実装。
 
 検出対象:
 
@@ -23,7 +23,7 @@ node scripts/delivery-status/delivery-status.mts --prev-snapshot .tmp/delivery-d
 - `--prev-snapshot` が存在しない・壊れた JSON・不正な `schemaVersion` の場合は、ネットワーク呼び出し前に終了コード `2` で安全に失敗します。
 - 初回や欠落履歴・取得エラー発生リポジトリは `unknown` として扱い（`removed-series` や新規フラグと誤分類しない）、commit 数・PR 数を Work Unit へ変換したり、観測不足の状態で P50/P80/P95 を生成したりしません。
 
-既定の対象は `rebuildup/pc-setup`、`rebuildup/dotfiles`、`rebuildup/project-init`。前提は `gh` CLI の認証済みであること。判定・snapshot・CLI ヘルパーのテストは `bun run test:delivery-status`（ネットワーク不要）。
+既定の対象は `rebuildup/pc-setup`、`rebuildup/dotfiles`、`rebuildup/aude-skills`。前提は `gh` CLI の認証済みであること。判定・snapshot・CLI ヘルパーのテストは `bun run test:delivery-status`（ネットワーク不要）。
 
 終了コード: `0` 正常、`1` いずれかのリポジトリを評価できなかった（レポートの Errors 節に記載）、`2` 引数誤りまたは不正な `--prev-snapshot`。
 

@@ -513,4 +513,4 @@ coverage gapが残る場合、「脆弱性なし」ではなく「このscopeで
 - https://github.com/cloudflare/security-audit-skill
 - upstream license: MIT
 
-project-initではupstream固有のagent runtimeやscratch ownership実装をそのままcanonicalにせず、既存の `parallel-orchestration` / `sandbox-runtime` / `github-delivery` semanticsへtranslateして使用する。
+aude-skillsではupstream固有のagent runtimeやscratch ownership実装をそのままcanonicalにせず、既存の `parallel-orchestration` / `sandbox-runtime` / `github-delivery` semanticsへtranslateして使用する。

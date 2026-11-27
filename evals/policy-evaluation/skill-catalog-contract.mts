@@ -3,7 +3,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 const root = resolve(import.meta.dirname, '../..');
-const own = 'rebuildup/project-init';
+const own = 'rebuildup/aude-skills';
 function fail(message: string): never { throw new Error(message); }
 function isFile(path: string): boolean {
   try { return statSync(join(root, path)).isFile(); } catch { return false; }

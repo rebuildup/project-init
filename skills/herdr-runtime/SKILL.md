@@ -7,7 +7,7 @@ description: Herdrをoptional Supervisor/session Practiceとして使い、Worke
 
 Layer: **Practice**
 
-Herdrはproject-initのlogical Worker / Supervisor modelを実装するoptional runtime adapterである。
+Herdrはaude-skillsのlogical Worker / Supervisor modelを実装するoptional runtime adapterである。
 
 Herdr固有のworkspace / pane / agent stateをorganizational truthへ昇格させない。canonical semanticsは `organization/execution-roles.md`、ADR-0019、`parallel-orchestration`、`agent-recovery` に従う。
 
@@ -50,7 +50,7 @@ integrationはstate/session detectionを改善するPracticeであり、project 
 
 | Layer | Responsibility |
 | --- | --- |
-| project-init | work unit / attempt class / authority / evidence / admission / recovery semantics |
+| aude-skills | work unit / attempt class / authority / evidence / admission / recovery semantics |
 | Worktrunk or selected Git workspace Practice | branch/worktree materialization |
 | sandbox/runtime | filesystem/process/service/network/credential mutable ownership |
 | Herdr | terminal, pane, top-level agent lifecycle, transient state/observability |
@@ -60,7 +60,7 @@ Herdrの `worktree create` 等をWorktrunkの自動代替として使わない�
 
 ## Mapping
 
-project-init logical capabilityからHerdrへmappingする場合のcurrent shape:
+aude-skills logical capabilityからHerdrへmappingする場合のcurrent shape:
 
 | Logical capability | Herdr Practice |
 | --- | --- |
@@ -110,7 +110,7 @@ Supervisor loop:
 7. immutable result / evidenceを回収し、base / fencing / validation / authorityを確認する。
 8. remaining workとbottleneckを再評価し、spawn / continue / stopを選ぶ。
 
-official Herdr Agent Skillはcommand adapterとして利用できるが、project-initのattempt / ownership / evidence / admission semanticsを置換しない。導入する場合はproject-local Skill policyに従うか、`herdr --skill` 等のinstalled releaseに対応したsourceを利用し、global installationをproject correctnessの前提にしない。
+official Herdr Agent Skillはcommand adapterとして利用できるが、aude-skillsのattempt / ownership / evidence / admission semanticsを置換しない。導入する場合はproject-local Skill policyに従うか、`herdr --skill` 等のinstalled releaseに対応したsourceを利用し、global installationをproject correctnessの前提にしない。
 
 remote配置は[execution placement](../../organization/execution-placement.md)に従う。失敗時の別host/localへの無断移動とmutable attemptの二重実行は禁止する。
 
@@ -125,7 +125,7 @@ remote配置は[execution placement](../../organization/execution-placement.md)�
 7. execution attempt metadataへHerdr workspace/pane/agent nameをtransient referenceとして関連付ける。
 8. promptを送る。
 9. `agent wait` / `agent read` でobserveする。
-10. project-init result/evidence contractを満たすartifactを回収する。
+10. aude-skills result/evidence contractを満たすartifactを回収する。
 11. applicable fencing / validation / admission check後にのみorganizational resultへ採用する。
 
 workspace creation example:

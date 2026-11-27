@@ -1,6 +1,6 @@
-# project-init Constitution
+# aude-skills Constitution
 
-この文書は、project-init が生成・維持する開発組織の最上位contractです。
+この文書は、aude-skills（旧称 project-init）が生成・維持する開発組織の最上位contractです。
 
 具体的なagent、provider、IDE、Git hosting、planning tool、worktree manager、branch命名、sprint cadence、commandはConstitutionではありません。それらは current operating model / practice が、このConstitutionを実現するために選ぶ交換可能な手段です。
 
@@ -57,7 +57,7 @@ safetyのために通常workを永久停止させません。
 
 ## Optimization principle
 
-project-init の目的はcurrent procedureへの服従ではありません。
+aude-skills の目的はcurrent procedureへの服従ではありません。
 
 概念上、actorは次を行います。
 
