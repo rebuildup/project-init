@@ -45,3 +45,26 @@ test('check mode does not write any files',()=>{
     assert.equal(existsSync(join(project,'AGENTS.md')),false);
   } finally {rmSync(project,{recursive:true,force:true});}
 });
+
+test('reconciles an unchanged legacy routing section and preserves surrounding rules',()=>{
+  const project=mkdtempSync(join(tmpdir(),'routing-materialize-'));
+  try {
+    materialize(project);
+    const path=join(project,'AGENTS.md');
+    const current=readFileSync(path,'utf8');
+    assert.match(current,/## Agent delegation route \(aude-skills\)/);
+    const expected='# Existing rules\n\n'+current+'\n## Local rules\n';
+    const legacy=expected.replace('## Agent delegation route (aude-skills)','## Agent delegation route (project-init)');
+    writeFileSync(path,legacy);
+    assert.deepEqual(materialize(project,false,true).changed,['AGENTS.md']);
+    assert.equal(readFileSync(path,'utf8'),legacy);
+    assert.deepEqual(materialize(project).changed,['AGENTS.md']);
+    assert.equal(readFileSync(path,'utf8'),expected);
+    assert.deepEqual(materialize(project).changed,[]);
+
+    const customized=legacy.replace('Top-level delegated tasks must','Top-level delegated tasks may');
+    writeFileSync(path,customized);
+    assert.throws(()=>materialize(project),/routing section customized/);
+    assert.equal(readFileSync(path,'utf8'),customized);
+  } finally {rmSync(project,{recursive:true,force:true});}
+});
