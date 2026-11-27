@@ -1,0 +1,6 @@
+case_a_new_ui=skip-design-discipline
+case_b_css_fix=trigger-design-discipline
+case_c_writing_only=writing-and-design-discipline
+case_d_mixed_product_ui=idea-discovery-collision
+pointer_guard=allow-dangling-pointer
+scope=global-all-projects

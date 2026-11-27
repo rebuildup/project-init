@@ -37,6 +37,12 @@ if (runControls(dir, '../shared/record-grader.mts', [
   ['prompt-stage positive', 'fixtures/prompt-stage-positive.txt', 'PASS'],
 ], 'EVAL', ['prompt-stage-fidelity']) !== 0) failed = true;
 
+if (runControls(dir, '../shared/record-grader.mts', [
+  ['design-discipline dispatch negative', 'fixtures/design-discipline-dispatch-negative.txt', 'FAIL'],
+  ['design-discipline dispatch regression', 'fixtures/design-discipline-dispatch-regression.txt', 'FAIL'],
+  ['design-discipline dispatch positive', 'fixtures/design-discipline-dispatch-positive.txt', 'PASS'],
+], 'EVAL', ['design-discipline-dispatch']) !== 0) failed = true;
+
 const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash', path: string, args: string[]]> = [
   ['constitutional contract', 'bun', 'text-contracts.mts', ['constitutional-contract']],
   ['merge method contract', 'bun', 'text-contracts.mts', ['merge-method-contract']],
@@ -48,6 +54,7 @@ const contracts: ReadonlyArray<readonly [label: string, command: 'bun' | 'bash',
   ['context budget regression', 'bun', 'context-budget.mts', []],
   ['placement routing contract', 'bun', 'text-contracts.mts', ['execution-placement-contract']],
   ['Herdr orchestration contract', 'bun', 'text-contracts.mts', ['herdr-orchestration-contract']],
+  ['design-discipline routing contract', 'bun', 'text-contracts.mts', ['design-discipline-routing-contract']],
   ['constitutional refinement controls', 'bun', 'constitutional-refinement-controls.mts', []],
   ['gate honesty controls', 'bun', 'gate-honesty-controls.mts', []],
 ];

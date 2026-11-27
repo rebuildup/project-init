@@ -7,7 +7,7 @@
 - **Web (`web-platform`)**: HTML/CSS・DOM・Web UI・client-side JSを扱うprojectは `web-platform` を初回判定し、`GoogleChrome/modern-web-guidance` を優先評価する。framework・デザイン・品質のSkillとは別担当。backend・infra・CLI専用には不要。上流の広いMANDATORY triggerを組織共通routerとして流用しない。例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
 - **Lean 4 (`lean4-proof` / `mathlib-build`)**: Lean 4で定理・補題の証明を作成・修正する場合は `lean4-proof` を判定し、公式 `leanprover/skills` の `lean-proof` を優先評価する。`mathlib-build` はMathlib本体をビルド・修正する場合に限定し、Mathlibを依存利用するだけのprojectには導入しない。保証対象とruntime modelの対応は引き続き `correctness-assurance` が設計する。`lean-proof` は作業中の `sorry` を認めているが、未解決の証明を完了扱いにしてはならない。
 - **視覚・UI設計およびレビューの能力分離**:
-  - `visual-design-foundation`: 配置前の上流設計基盤（目的・選別・体験構造・実物探索。`design-discipline` は `design-skills v0.6.0 (10b0d4a9)` で公開済みであり、`design-intent` §7 等で概念上の責務分離は明記されているが、`policy-evaluation` による実証的な trigger 衝突検証および paired rendered-artifact trial が未完了のため `watch` 維持）
+  - `visual-design-foundation`: 配置前の上流設計基盤（仕様構造から独立した意味再構成・表現媒体選択・空間構成・実物探索。`design-discipline` は `design-skills v0.6.0 (10b0d4a9)` を `default` 採用。`design-skills#170`・`#205` Experiment 1A（`first-write` 交絡除去 2-0 および比例性検証）と `project-init#129` の `policy-evaluation` 4ケース実測・trigger 非衝突確認を通過。2D視覚成果物・UIを新規設計または大きく再構成する該当projectにのみ導入し、未導入 repo へ dangling pointer を置かず、確定済みCSS修正や文章のみのtaskへ発火させない。時間軸成果物と独立人間評価は未実施）
   - `visual-design`: 視覚方向・brief の固定と視覚制作（`design-intent`）
   - `visual-composition-audit`: 完成画面・ページ全体の構図原則監査（`composition-review`）
   - `visual-review`: rendered screenshot の回帰・coherence・first-encounter レビュー（局所レビューと freeze 後包括レビューは `quality-gate` の visual review handoff に従う）

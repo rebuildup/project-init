@@ -23,6 +23,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 - 技術stack: language / framework / runtime / SDKの実version、manifest / lockfile、workspace構成
 - Web該当性: HTML/CSS・DOM・ブラウザ側JavaScript / Web UIの有無と対象ブラウザ範囲（該当する場合は `skill-selection` の `web-platform` 初期候補を確認）
 - Lean 4該当性: `.lean`・`lean-toolchain`・`lakefile` の有無と定理証明の作成・修正の対象範囲（該当する場合は `skill-selection` の `lean4-proof` 候補を確認）
+- 2D視覚成果物・UI設計該当性: 2Dの視覚成果物・UI・グラフィック・スライド・映像を新規設計または大きく再構成するか（該当する場合は `skill-selection` で `visual-design-foundation`（`design-discipline`）および `visual-design`（`design-intent`）の要否を確認）
 - 視覚レビュー該当性: UI変更の rendered screenshot を回帰・coherence 観点でレビューする必要があるか（該当する場合は `skill-selection` の `visual-review` 候補を確認。局所レビューと freeze 後の包括レビューは quality-gate の visual review handoff に従う）
 - UI task review該当性: 実際の操作画面と代表タスクの有無、重要な導線・状態・回復の評価が必要か（該当する場合は `skill-selection` の `functional-ui-review` を判定する。trial-pending 候補の自動導入はしない）
 - 開発環境: devcontainer / Containerfile / Nix / `mise.toml`、host（macOS / WSL / Linux）差の扱い
@@ -105,6 +106,7 @@ root contractに書くもの:
 - 作業開始の約束: Issue番号だけのbranch → 最初のmeaningful commit → push → すぐPR、という流れ。詳細は `github-delivery` へのpointerにする
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
+- 2D視覚成果物・UIを新規設計または大きく再構成するprojectでは、導入済みで実fileが存在する `design-discipline` を配置・実装の前に読む短い条件付きpointerを置く（未導入ならdangling pointerを置かない。既存の細部修正・確定済みCSS修正や文章のみのtaskには発火させない）
 - コードの初回実装・追加・変更では、既存の責務・階層を先に調べ、`code-naming` と `system-quality` に従い影響範囲を同じ変更で整合する、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
 - top-level agent委譲を行うprojectでは、`templates/agent-routing/` のroute契約と起動CLIをproject-localにmaterializeする。runtime / provider を同じroot contractへ直接hardcodeせず、task roleと設定ファイルへのpointerだけを記す。無断provider fallbackやnative subagent置換を禁止する境界も指す
