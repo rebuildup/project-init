@@ -106,7 +106,7 @@ root contractに書くもの:
 - 作業開始の約束: Issue番号だけのbranch → 最初のmeaningful commit → push → すぐPR、という流れ。詳細は `github-delivery` へのpointerにする
 - userへ判断を返す条件は `engineering-decisions` にある、というpointer
 - 文章を残す前には `writing-discipline` を使う、というpointer
-- 2D視覚成果物・UIを新規設計または大きく再構成するprojectでは、導入済みで実fileが存在する `design-discipline` を配置・実装の前に読む短い条件付きpointerを置く（未導入ならdangling pointerを置かない。既存の細部修正・確定済みCSS修正や文章のみのtaskには発火させない）
+- 2D視覚成果物・UIを新規設計または大きく再構成するprojectでは、導入済みで実fileが存在する `design-discipline` を配置・実装の前に読む短い条件付きpointerを置く（`design-skills` 公開tagへpinして `--copy` 導入し、未導入ならdangling pointerを置かない。既存の細部修正・確定済みCSS修正や文章のみのtaskには発火させない）
 - コードの初回実装・追加・変更では、既存の責務・階層を先に調べ、`code-naming` と `system-quality` に従い影響範囲を同じ変更で整合する、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
 - top-level agent委譲を行うprojectでは、`templates/agent-routing/` のroute契約と起動CLIをproject-localにmaterializeする。runtime / provider を同じroot contractへ直接hardcodeせず、task roleと設定ファイルへのpointerだけを記す。無断provider fallbackやnative subagent置換を禁止する境界も指す

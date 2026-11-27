@@ -523,11 +523,19 @@
       ],
       [
         "PROMPT.ja.md",
-        "未導入ならdangling pointerを置かない"
+        "`design-skills` 公開tagへpinして `--copy` 導入し、未導入ならdangling pointerを置かない"
       ],
       [
         "PROMPT.ja.md",
         "既存の細部修正・確定済みCSS修正や文章のみのtaskには発火させない"
+      ],
+      [
+        "skills/skill-selection/SKILL.md",
+        "`visual-design-foundation`"
+      ],
+      [
+        "skills/quality-gate/SKILL.md",
+        "視覚検証・レビュー handoff（検証摩擦低減・最終revision鮮度・機械検査の限界・独立コールドレビュー分離を含む）"
       ],
       [
         "skills/skill-selection/references/domain-candidates.md",
