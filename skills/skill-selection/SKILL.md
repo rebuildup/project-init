@@ -32,7 +32,7 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 **コード品質の基本能力**: コードがある、またはコードを生成・変更するprojectでは、リネーム依頼がなくても `code-naming` を選定し、`system-quality` と役割分担する（Skill導入だけで品質成立と扱わない）。
 
-**領域別の優先候補**: Web（`web-platform` / `modern-web-guidance`）、Lean 4（`lean4-proof` / `mathlib-build`）、視覚・UIレビュー（`visual-design`・`visual-composition-audit`・`visual-review`・`functional-ui-review` は別能力として分離）の判定条件と昇格境界は [領域別候補とカタログ詳細](references/domain-candidates.md) を参照する。単にUIを変更しただけで毎ticketに全画面・実機レビューを追加せず、未release・未実測の候補（例: `functional-aesthetics-review`）を `default` や検証済みとして扱わない。
+**領域別の優先候補**: Web（`web-platform` / `modern-web-guidance`）、Lean 4（`lean4-proof` / `mathlib-build`）、視覚・UI設計およびレビュー（`visual-design-foundation`・`visual-design`・`visual-composition-audit`・`visual-review`・`functional-ui-review` は別能力として分離）の判定条件と昇格境界は [領域別候補とカタログ詳細](references/domain-candidates.md) を参照する。単にUIを変更しただけで毎ticketに全画面・実機レビューを追加せず、未release・未実測の候補（例: `functional-aesthetics-review`）を `default` や検証済みとして扱わない。
 
 ## 2. 候補を集める
 

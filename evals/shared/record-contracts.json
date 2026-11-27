@@ -393,5 +393,61 @@
       ]
     ],
     "order": true
+  },
+  "design-discipline-dispatch": {
+    "heading": "design-discipline 4-case dispatch and trigger-collision",
+    "required": [
+      [
+        "new UI routes to design-discipline before layout",
+        "case_a_new_ui=design-discipline-before-layout"
+      ],
+      [
+        "decided CSS fix avoids design-discipline redesign",
+        "case_b_css_fix=none-direct-edit"
+      ],
+      [
+        "writing-only task stays on writing-discipline",
+        "case_c_writing_only=writing-discipline-only"
+      ],
+      [
+        "mixed product + UI hands off cleanly without idea-discovery collision",
+        "case_d_mixed_product_ui=design-refinement-then-design-discipline-then-design-intent"
+      ],
+      [
+        "no dangling pointer when skill is absent",
+        "pointer_guard=installed-file-only"
+      ],
+      [
+        "conditional activation scoped to 2D visual projects",
+        "scope=applicable-2d-visual-projects-only"
+      ]
+    ],
+    "forbid": [
+      [
+        "no skipped or late design-discipline on new UI",
+        "^case_a_new_ui=(skip-design-discipline|design-discipline-after-layout)$"
+      ],
+      [
+        "no over-trigger on decided CSS fix",
+        "^case_b_css_fix=(trigger-design-discipline|redesign)$"
+      ],
+      [
+        "no visual skill leak into writing-only task",
+        "^case_c_writing_only=(writing-and-design-discipline|design-discipline-only)$"
+      ],
+      [
+        "no trigger collision with idea-discovery on mixed product + UI",
+        "^case_d_mixed_product_ui=(idea-discovery-collision|skip-design-refinement|skip-design-discipline)$"
+      ],
+      [
+        "no dangling pointer allowed",
+        "^pointer_guard=allow-dangling-pointer$"
+      ],
+      [
+        "no forced global activation across non-visual repos",
+        "^scope=global-all-projects$"
+      ]
+    ],
+    "order": true
   }
 }

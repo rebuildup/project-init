@@ -12,6 +12,15 @@ A reviewer should be able to determine:
 
 The handoff is an index of reviewable evidence, not a replacement for actual evidence or a new implementation/spec source of truth.
 
+## Separate four Quality Floor concerns
+
+For user-visible UI changes, keep these four verification layers explicit and never conflate them (derived from Experiment 0 / 1B baseline & quality-floor trials):
+
+1. **Verification friction reduction**: Prefer a single project-local verification entry point (wrapping the repo's existing server, browser/runtime, viewport captures, and basic DOM/error checks) over ad-hoc per-task shell scripts, which frequently fail or get abandoned. Keep the script project-specific — do not standardize a universal Playwright bundle or generalized runner.
+2. **Final-revision freshness**: Verification evidence must match the **final** post-edit source SHA/build. Never carry over screenshots or DOM checks captured before a final CSS/HTML/JS tweak; re-run verification after the last edit and verify SHA/build freshness.
+3. **Mechanical check scope boundary**: Deterministic page checks (document-level horizontal overflow including below-the-fold, console/page/network errors, broken media, interactive assertions) are reliable for page-level breakage and runtime regressions, but **do not prove** absence of local container clipping (e.g., primary commands cut off inside `overflow-x: auto` boxes on mobile), low-contrast invisible chart bars, or non-proportional visual scales.
+4. **Independent cold visual review**: Even when deterministic checks pass and the generating actor visually inspects its own screenshots, self-inspection has systematic blind spots. Distinguish self-check from independent cold review; reserve independent review (e.g., `visual-review` / `agent review`) for meaningful visual surfaces and release-candidate freezes rather than forcing full-matrix review on trivial fixes.
+
 ## Select the minimum meaningful coverage
 
 Compile the scope from changed UI states, affected user journeys, layout constraints, platform risks and explicit acceptance criteria. Prefer focused regression evidence for changed surfaces and representative critical paths over a full screenshot dump. Cover relevant interactive states (loading, empty, error, input focus, accessibility, transitions), not only the idle default screenshot. Do not infer Windows-native validation from WSL, macOS, CI success or a remote terminal connection. When a project has a canonical design artifact (e.g., a design file with node identities), reference that version and the affected nodes; do not quietly treat an unapproved redesign as a matched implementation.
