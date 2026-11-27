@@ -33,7 +33,7 @@ Project-specific functions may be added by extending this vocabulary and its ope
 
 Each attempt independently determines \`actor_role\`, \`function\`, \`attempt_class\`, \`task_id\`, \`input_sha\`, applicable \`ownership/fencing\`, \`required_resources\` and \`result_contract\`. Two functions can share a visual tab without sharing resource authority. Review and verification can operate concurrently on the same immutable snapshot; code edits that change the SHA invalidate affected evidence. Two mutable attempts cannot both own a singleton GUI instance, database or shared worktree. A fresh Recover attempt must acquire ownership before replacing old execution; a Cleanup attempt cannot infer safety from Herdr \`idle\` or \`done\`.
 
-project-init's existing [parallel-orchestration](../skills/parallel-orchestration/SKILL.md), [agent-recovery](../skills/agent-recovery/SKILL.md), [sandbox-runtime](../skills/sandbox-runtime/SKILL.md) and GitHub delivery contracts remain the authorization/coordination mechanisms. Layout planning is **not** a lease manager and cannot alone prevent cross-process writes.
+aude-skills's existing [parallel-orchestration](../skills/parallel-orchestration/SKILL.md), [agent-recovery](../skills/agent-recovery/SKILL.md), [sandbox-runtime](../skills/sandbox-runtime/SKILL.md) and GitHub delivery contracts remain the authorization/coordination mechanisms. Layout planning is **not** a lease manager and cannot alone prevent cross-process writes.
 
 ## Presentation adapter
 

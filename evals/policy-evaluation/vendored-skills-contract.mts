@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
 
-// Defaults to the project-init checkout; downstream projects can point the same
+// Defaults to the aude-skills checkout; downstream projects can point the same
 // check at their own root, e.g. VENDORED_SKILLS_ROOT=/path/to/project bun vendored-skills-contract.mts
 const root = resolve(process.env.VENDORED_SKILLS_ROOT ?? resolve(import.meta.dirname, '../..'));
 

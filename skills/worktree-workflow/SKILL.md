@@ -135,7 +135,7 @@ teardown = "mise run worktree:teardown"
 - `.worktreeinclude` はliteralなpathだけで書く。globはOrcaが無視する。
 - 全frontendで使える入口がなければ、plain gitで作ったworktreeで手動実行できる形にする。
 
-参照実装はproject-initの `scripts/worktree/`、`mise.toml`、`.config/wt.toml`、`orca.yaml` にある。projectへ写してから、project固有のsetupを入口に足す。Orcaを併用する手順は `orca-frontend` Skillを参照する。
+参照実装はaude-skillsの `scripts/worktree/`、`mise.toml`、`.config/wt.toml`、`orca.yaml` にある。projectへ写してから、project固有のsetupを入口に足す。Orcaを併用する手順は `orca-frontend` Skillを参照する。
 
 ## Rust / Cargo build output and cache
 
@@ -296,7 +296,7 @@ wt switch release-x-y-z
 -> wt remove <issue-number>
 ```
 
-`wt merge`のlocal integration convenienceは、project-initのticket PR lifecycle / release PR / protected main / explicit release authorization boundaryを置き換えない。
+`wt merge`のlocal integration convenienceは、aude-skillsのticket PR lifecycle / release PR / protected main / explicit release authorization boundaryを置き換えない。
 
 ## Fallback and recovery
 

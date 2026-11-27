@@ -1,6 +1,6 @@
 ---
 name: skill-selection
-description: projectの初期化や再整備で、どのAgent Skillを導入するかを決める時に使用する。必要な能力を判定し、project-initの能力一覧と候補記録、さらに外部の探索から候補を評価して、能力ごとに担当を決め、project-localに導入してlockと採否を記録する。
+description: projectの初期化や再整備で、どのAgent Skillを導入するかを決める時に使用する。必要な能力を判定し、aude-skillsの能力一覧と候補記録、さらに外部の探索から候補を評価して、能力ごとに担当を決め、project-localに導入してlockと採否を記録する。
 metadata:
   requires-skills: system-quality
 ---
@@ -17,7 +17,7 @@ Skillは判断と作業を支援する指示であり、遵守や品質を強制
 - 手順の量は、防ぐ失敗の大きさに比例させる。短い作業を長い儀式に変えるSkill（小さな修正にも毎回TDDや対話式のbrainstormingを強制するもの等）は採らないか、条件を絞った起動にする。
 - 良いSkillは、防ぐ失敗の型と、その場面でだけ効く判断基準を短く持つ。一般的な心得の網羅は、agentが既定でできることの繰り返しになりやすい。
 
-project-initには、選定の材料となる2つの表がある。
+aude-skillsには、選定の材料となる2つの表がある。
 
 - `catalog/capabilities.tsv` — 能力の一覧。`scope` が `single` の能力は担当を1つに絞り、`multi` は併用してよい。`needed_when` はその能力が必要になる条件。
 - `catalog/candidates.tsv` — 評価済みの候補記録。許可リストではない。前回までの評価結果をまとめたキャッシュであり、記録にないSkillも探索して評価してよい。
@@ -60,7 +60,7 @@ repositoryの実際の状態から、各能力の `needed_when` が成り立つ�
 
 ## 4. 導入する
 
-frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。project-initの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/project-init --skill engineering-decisions system-quality code-naming --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
+frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認し、推移的な依存も同じ導入で解決する。Skill名だけが一致する未評価の別実装を依存充足とみなさない。aude-skillsの設計・判断・品質・評価・選定Skillにはsystem-qualityが必要。例: `bunx skills add rebuildup/aude-skills --skill engineering-decisions system-quality code-naming --copy`。導入後に実fileと相対参照が揃っていることを検証し、missing dependencyを完了にしない。
 
 - project-localに入れる。`--global` は使わない。
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
@@ -79,11 +79,11 @@ root contractのSkill一覧は、能力ごとの担当表として書く。コ�
 
 ## 6. 知見を還元する
 
-project固有でない評価結果は、project-initの `catalog/` へ戻す。
+project固有でない評価結果は、aude-skillsの `catalog/` へ戻す。
 
 - 新しく評価した候補や、採否を変えた候補は `candidates.tsv` を更新する。`reviewed_rev` と `reviewed_on` は、実際に読んだrevisionと日付にする。
 - 新しい能力が必要になったら `capabilities.tsv` に行を足す。
-- 変更はproject-initへのPRとして出す。採用中のprojectから直接書き換えない。
+- 変更はaude-skillsへのPRとして出す。採用中のprojectから直接書き換えない。
 
 ## 記録の値
 

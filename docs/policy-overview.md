@@ -4,7 +4,7 @@ AI coding agent の `/init` や新規リポジトリ初期化時に追加で渡�
 
 ## Policy hierarchy
 
-project-init のcanonical hierarchyは次です。
+aude-skills のcanonical hierarchyは次です。
 
 1. **Constitution** — tool/provider-independentなorganizational property
 2. **Operating Model** — 現在のrole / planning / delivery / review / release topology

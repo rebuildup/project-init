@@ -218,4 +218,4 @@ active-work messageを送る前に確認する。
 
 This Skill is conceptually informed by [ayghri/i-have-adhd](https://github.com/ayghri/i-have-adhd), especially its work on actionability, bounded steps, progress visibility, tangent suppression, and matter-of-fact error reporting. The upstream project is MIT-licensed.
 
-The project-init policy intentionally does not adopt ADHD-specific framing, mandatory list caps, unconditional state repetition, forced time estimates, or blanket brevity rules.
+The aude-skills policy intentionally does not adopt ADHD-specific framing, mandatory list caps, unconditional state repetition, forced time estimates, or blanket brevity rules.

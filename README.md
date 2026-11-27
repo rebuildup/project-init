@@ -1,4 +1,7 @@
-# project-init — Adaptive AI Development Organization Framework
+# aude-skills — Adaptive AI Development Organization Framework
+
+> [!NOTE]
+> 本リポジトリは 2026-11-27 に `rebuildup/project-init` から `rebuildup/aude-skills` へ改名されました（repository ID `1328121003` は不変、同一履歴・Tag・Release を継承）。新規の参照・導入・clone には `rebuildup/aude-skills` を使用してください。公開済み `v0.14.0` 以前の tag や既存 `skills-lock.json` の互換性・移行状況・関連リポジトリの追従は [Issue #212](https://github.com/rebuildup/aude-skills/issues/212) を正本として管理しています。
 
 人間とAIエージェントが参加するソフトウェア開発について、要求を保存したシステム全体の改善と、その保証・受理を支える開発環境をproject-localに初期化・維持するframeworkです。組織の不変条件とOperating Model / Practiceに加え、コード・Skill・設定・検査を一体で扱います。
 
@@ -32,25 +35,25 @@ Bun を利用している場合は `bunx skills` を推奨します。Node.js / 
 利用可能な Skill を確認:
 
 ```bash
-bunx skills add rebuildup/project-init --list
+bunx skills add rebuildup/aude-skills --list
 # or
-npx skills add rebuildup/project-init --list
+npx skills add rebuildup/aude-skills --list
 ```
 
 対話的に選択して current project へ導入:
 
 ```bash
-bunx skills add rebuildup/project-init
+bunx skills add rebuildup/aude-skills
 # or
-npx skills add rebuildup/project-init
+npx skills add rebuildup/aude-skills
 ```
 
 特定のSkillと、その必須依存を導入:
 
 ```bash
-bunx skills add rebuildup/project-init --skill quality-gate system-quality
+bunx skills add rebuildup/aude-skills --skill quality-gate system-quality
 # or
-npx skills add rebuildup/project-init --skill quality-gate system-quality
+npx skills add rebuildup/aude-skills --skill quality-gate system-quality
 ```
 
 `metadata.requires-skills` に依存があるSkillは、その依存も同時に導入します。設計・判断・品質・評価・選定Skillの共有契約はsystem-qualityです。単独copyだけでは導入完了になりません。
@@ -58,17 +61,17 @@ npx skills add rebuildup/project-init --skill quality-gate system-quality
 Codex を明示して導入:
 
 ```bash
-bunx skills add rebuildup/project-init --agent codex
+bunx skills add rebuildup/aude-skills --agent codex
 # or
-npx skills add rebuildup/project-init --agent codex
+npx skills add rebuildup/aude-skills --agent codex
 ```
 
 全 Skill を Codex に導入:
 
 ```bash
-bunx skills add rebuildup/project-init --skill '*' --agent codex
+bunx skills add rebuildup/aude-skills --skill '*' --agent codex
 # or
-npx skills add rebuildup/project-init --skill '*' --agent codex
+npx skills add rebuildup/aude-skills --skill '*' --agent codex
 ```
 
 `-g` / `--global` を付けると project-local ではなく user scope に導入できます。

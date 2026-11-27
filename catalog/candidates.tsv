@@ -1,25 +1,25 @@
 skill	source	path	capability	status	invocation	license	review_depth	reviewed_rev	reviewed_on	reason
-github-delivery	rebuildup/project-init	skills/github-delivery/SKILL.md	delivery	default	auto	MIT	read	self	2026-10-17	project-initの正本
-agent-recovery	rebuildup/project-init	skills/agent-recovery/SKILL.md	recovery	default	auto	MIT	read	self	2026-10-17	project-initの正本
-parallel-orchestration	rebuildup/project-init	skills/parallel-orchestration/SKILL.md	orchestration	default	auto	MIT	read	self	2026-10-17	project-initの正本
-quality-gate	rebuildup/project-init	skills/quality-gate/SKILL.md	quality-gate	default	auto	MIT	read	self	2026-10-17	project-initの正本
-design-refinement	rebuildup/project-init	skills/design-refinement/SKILL.md	design-before-build	default	auto	MIT	read	self	2026-10-17	project-initの正本
-engineering-decisions	rebuildup/project-init	skills/engineering-decisions/SKILL.md	engineering-decisions	default	auto	MIT	read	self	2026-10-17	project-initの正本
-correctness-assurance	rebuildup/project-init	skills/correctness-assurance/SKILL.md	correctness	default	auto	MIT	read	self	2026-10-17	project-initの正本
+github-delivery	rebuildup/aude-skills	skills/github-delivery/SKILL.md	delivery	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+agent-recovery	rebuildup/aude-skills	skills/agent-recovery/SKILL.md	recovery	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+parallel-orchestration	rebuildup/aude-skills	skills/parallel-orchestration/SKILL.md	orchestration	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+quality-gate	rebuildup/aude-skills	skills/quality-gate/SKILL.md	quality-gate	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+design-refinement	rebuildup/aude-skills	skills/design-refinement/SKILL.md	design-before-build	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+engineering-decisions	rebuildup/aude-skills	skills/engineering-decisions/SKILL.md	engineering-decisions	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+correctness-assurance	rebuildup/aude-skills	skills/correctness-assurance/SKILL.md	correctness	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
 lean-proof	leanprover/skills	skills/lean-proof/SKILL.md	lean4-proof	default	auto	Apache-2.0	read	7d3da028	2026-11-22	Lean 4公式。定理の作成・修正に限定。tactic逐次診断とproof cleanup、最終sorry無しを明記。correctness-assuranceの保証設計を置換しない
 mathlib-build	leanprover/skills	skills/mathlib-build/SKILL.md	mathlib-build	default	auto	Apache-2.0	read	7d3da028	2026-11-22	Lean 4公式。Mathlib本体のcache/targeted build用。Mathlibを依存として使う一般のLean projectへ一律導入しない
-code-naming	rebuildup/project-init	skills/code-naming/SKILL.md	code-naming	default	auto	MIT	read	self	2026-10-23	新規実装とリネームで参照箇所の明確さ・意味の区別・互換性を判断する正本
-security-maintenance	rebuildup/project-init	skills/security-maintenance/SKILL.md	security-advisory	default	auto	MIT	read	self	2026-10-17	project-initの正本
-security-audit	rebuildup/project-init	skills/security-audit/SKILL.md	security-audit	default	auto	MIT	read	self	2026-10-17	project-initの正本
-secrets-management	rebuildup/project-init	skills/secrets-management/SKILL.md	secrets	default	auto	MIT	read	self	2026-10-17	project-initの正本
-agent-delivery-estimation	rebuildup/project-init	skills/agent-delivery-estimation/SKILL.md	estimation	default	auto	MIT	read	self	2026-10-17	project-initの正本
-onboarding	rebuildup/project-init	skills/onboarding/SKILL.md	onboarding	default	auto	MIT	read	self	2026-10-17	project-initの正本
-interaction-discipline	rebuildup/project-init	skills/interaction-discipline/SKILL.md	interaction-style	default	auto	MIT	read	self	2026-10-17	project-initの正本
-policy-evaluation	rebuildup/project-init	skills/policy-evaluation/SKILL.md	policy-evaluation	default	auto	MIT	read	self	2026-10-17	project-initの正本
-herdr-runtime	rebuildup/project-init	skills/herdr-runtime/SKILL.md	supervisor-runtime	default	auto	MIT	read	self	2026-10-17	Herdrを使う場合のSupervisor adapter
-sandbox-runtime	rebuildup/project-init	skills/sandbox-runtime/SKILL.md	execution-isolation	default	auto	MIT	read	self	2026-10-17	workerごとの独立runtimeとhost差の吸収
-worktree-workflow	rebuildup/project-init	skills/worktree-workflow/SKILL.md	workspace-lifecycle	default	auto	MIT	read	self	2026-10-17	Worktrunkを使う場合のworktree lifecycleとRust build cache
-linear-release-control	rebuildup/project-init	skills/linear-release-control/SKILL.md	release-planning	default	auto	MIT	read	self	2026-10-17	Linearでrelease planningをする場合
+code-naming	rebuildup/aude-skills	skills/code-naming/SKILL.md	code-naming	default	auto	MIT	read	self	2026-10-23	新規実装とリネームで参照箇所の明確さ・意味の区別・互換性を判断する正本
+security-maintenance	rebuildup/aude-skills	skills/security-maintenance/SKILL.md	security-advisory	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+security-audit	rebuildup/aude-skills	skills/security-audit/SKILL.md	security-audit	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+secrets-management	rebuildup/aude-skills	skills/secrets-management/SKILL.md	secrets	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+agent-delivery-estimation	rebuildup/aude-skills	skills/agent-delivery-estimation/SKILL.md	estimation	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+onboarding	rebuildup/aude-skills	skills/onboarding/SKILL.md	onboarding	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+interaction-discipline	rebuildup/aude-skills	skills/interaction-discipline/SKILL.md	interaction-style	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+policy-evaluation	rebuildup/aude-skills	skills/policy-evaluation/SKILL.md	policy-evaluation	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
+herdr-runtime	rebuildup/aude-skills	skills/herdr-runtime/SKILL.md	supervisor-runtime	default	auto	MIT	read	self	2026-10-17	Herdrを使う場合のSupervisor adapter
+sandbox-runtime	rebuildup/aude-skills	skills/sandbox-runtime/SKILL.md	execution-isolation	default	auto	MIT	read	self	2026-10-17	workerごとの独立runtimeとhost差の吸収
+worktree-workflow	rebuildup/aude-skills	skills/worktree-workflow/SKILL.md	workspace-lifecycle	default	auto	MIT	read	self	2026-10-17	Worktrunkを使う場合のworktree lifecycleとRust build cache
+linear-release-control	rebuildup/aude-skills	skills/linear-release-control/SKILL.md	release-planning	default	auto	MIT	read	self	2026-10-17	Linearでrelease planningをする場合
 natural-japanese	rebuildup/writing-skills	skills/natural-japanese/SKILL.md	prose-japanese	default	auto	MIT	skimmed	7ba09d1	2026-10-17	writing-disciplineの上に重ねる日本語の自然さ。lintはuvでPythonを実行する。比較評価は未実施
 writing-discipline	rebuildup/writing-skills	skills/writing-discipline/SKILL.md	prose-artifact	default	auto	MIT	read	a11bb3b	2026-10-17	writing-skillsが正本。どのprojectでも必要になる
 skill-authoring	rebuildup/writing-skills	skills/skill-authoring/SKILL.md	skill-authoring	default	auto	MIT	skimmed	7ba09d1	2026-10-17	Skillをprose artifactとして書くための指針
@@ -66,12 +66,12 @@ docx	anthropics/skills	skills/docx/SKILL.md	document-formats	default	auto	Propri
 xlsx	anthropics/skills	skills/xlsx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
 pptx	anthropics/skills	skills/pptx/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
 pdf	anthropics/skills	skills/pdf/SKILL.md	document-formats	default	auto	Proprietary	listed	dbd4588	2026-10-17	office文書とPDFの操作。licenseが独自条項なので再配布しない
-skill-selection	rebuildup/project-init	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	project-initの正本
+skill-selection	rebuildup/aude-skills	skills/skill-selection/SKILL.md	skill-selection	default	auto	MIT	read	self	2026-10-17	aude-skillsの正本
 yomiyasu	nanaism/yomiyasu	skills/yomiyasu/SKILL.md	prose-japanese	reference	auto	MIT	skimmed	1bc21f9	2026-10-17	AIが書いた日本語を構造から推敲する。SKILL.md単体で約110KBあり、起動のたびに重い。意味保持などの考え方はwriting-skillsのnatural-japaneseへ取り込む（writing-skills#30）
-idea-discovery	rebuildup/project-init	skills/idea-discovery/SKILL.md	ideation	default	auto	MIT	read	self	2026-10-17	長い探究から残った仮説にもとづく。発火場面を狭く絞ったガードレール。直接答えた場合との比較評価は未実施
-orca-frontend	rebuildup/project-init	skills/orca-frontend/SKILL.md	workspace-frontend	default	auto	MIT	read	self	2026-10-17	Orcaを使うprojectだけで使う。lifecycle・正本・orchestration stateをOrcaに持たせない
+idea-discovery	rebuildup/aude-skills	skills/idea-discovery/SKILL.md	ideation	default	auto	MIT	read	self	2026-10-17	長い探究から残った仮説にもとづく。発火場面を狭く絞ったガードレール。直接答えた場合との比較評価は未実施
+orca-frontend	rebuildup/aude-skills	skills/orca-frontend/SKILL.md	workspace-frontend	default	auto	MIT	read	self	2026-10-17	Orcaを使うprojectだけで使う。lifecycle・正本・orchestration stateをOrcaに持たせない
 orca-cli	stablyai/orca	skills/orca-cli/SKILL.md	workspace-frontend	watch	auto	MIT	skimmed	38131048	2026-10-17	Orca実行中だけ動くdiscovery stub。Orcaのbuildと版を合わせるため、machine単位でOrcaのupdaterに任せる。projectのlockには入れない
 orchestration	stablyai/orca	skills/orchestration/SKILL.md	supervisor-runtime	alternative	auto	MIT	skimmed	38131048	2026-10-17	OrcaのRun / Task / Dispatch。experimentalで、stateはtelemetryとして扱う。herdr-runtimeと同じworkerを管理させない
 orca-per-workspace-env	stablyai/orca	skills/orca-per-workspace-env/SKILL.md	execution-isolation	alternative	auto	MIT	skimmed	38131048	2026-10-17	workspaceごとのVM / container / SSH hostをOrcaが作る。sandbox-runtimeの担当を置き換えるかは比較してから決める
-supervisor-boundary	rebuildup/project-init	skills/supervisor-boundary/SKILL.md	supervisor-authority	default	auto	MIT	read	self	2026-11-02	専用Supervisorの実行権限を分離する正本（Claude hookは参考実装）
-system-quality	rebuildup/project-init	skills/system-quality/SKILL.md	system-quality	default	auto	MIT	read	self	2026-11-17	要求保存と全体改善を接続し、実成果物challengeを同梱
+supervisor-boundary	rebuildup/aude-skills	skills/supervisor-boundary/SKILL.md	supervisor-authority	default	auto	MIT	read	self	2026-11-02	専用Supervisorの実行権限を分離する正本（Claude hookは参考実装）
+system-quality	rebuildup/aude-skills	skills/system-quality/SKILL.md	system-quality	default	auto	MIT	read	self	2026-11-17	要求保存と全体改善を接続し、実成果物challengeを同梱

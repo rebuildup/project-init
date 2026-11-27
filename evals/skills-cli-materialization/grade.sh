@@ -30,7 +30,7 @@
 # Prints `PASS`, or `FAIL <reason>` and exits non-zero.
 set -uo pipefail
 
-SOURCE_REPO=${SKILLS_SOURCE:-rebuildup/project-init}
+SOURCE_REPO=${SKILLS_SOURCE:-rebuildup/aude-skills}
 
 # Directory holding this script, so the live work directory can be created
 # next to it (see the UNC-path note in --live).

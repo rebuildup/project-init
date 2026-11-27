@@ -16,7 +16,7 @@
 
     bun scripts/adaptive-tests.mts --config quality/adaptive-tests.json --check unit --context integration --force
 
-Node.js 22.18以降なら同じ引数を `node scripts/adaptive-tests.mts` でも実行できる。Node.js 22.17以前での直接実行は標準サポートしない。型チェックは実行時には行われないため、実装を変更する場合はTypeScriptとNode.js型定義を導入し `tsc --noEmit` を別途実行する。project-init本体では `bun install` 後に `bun run typecheck` を使用する。
+Node.js 22.18以降なら同じ引数を `node scripts/adaptive-tests.mts` でも実行できる。Node.js 22.17以前での直接実行は標準サポートしない。型チェックは実行時には行われないため、実装を変更する場合はTypeScriptとNode.js型定義を導入し `tsc --noEmit` を別途実行する。aude-skills本体では `bun install` 後に `bun run typecheck` を使用する。
 
 context=worker、environment識別子、`required: false`、`allowDefer: true` の全てが揃い、CI環境変数が未設定の場合だけ延期を許す。
 

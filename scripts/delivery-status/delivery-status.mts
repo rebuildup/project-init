@@ -39,7 +39,7 @@ import {
 const DEFAULT_REPOS = [
   'rebuildup/pc-setup',
   'rebuildup/dotfiles',
-  'rebuildup/project-init',
+  'rebuildup/aude-skills',
 ] as const;
 
 const REPO_PATTERN = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;

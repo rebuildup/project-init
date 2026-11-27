@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "project-init security-audit coverage ledger",
+  "title": "aude-skills security-audit coverage ledger",
   "type": "object",
   "required": ["schema_version", "run_id", "source_ref", "profile", "scope", "units"],
   "properties": {
