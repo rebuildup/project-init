@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "project-init security-audit findings",
+  "title": "aude-skills security-audit findings",
   "type": "array",
   "$defs": {
     "traceItem": {

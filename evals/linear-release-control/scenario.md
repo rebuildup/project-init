@@ -1,6 +1,6 @@
 # Linear release control cold eval
 
-あなたは、project-initを採用した既存repositoryへLinear profileを導入するfresh agentです。
+あなたは、aude-skillsを採用した既存repositoryへLinear profileを導入するfresh agentです。
 
 Repositoryは次の状態です。
 

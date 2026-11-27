@@ -1,4 +1,6 @@
-# project-init 初期化プロンプト
+# aude-skills 初期化プロンプト
+
+> 移行案内: 本リポジトリの正本名称は `rebuildup/aude-skills`（旧称 `rebuildup/project-init`、repository ID `1328121003` 不変）です。過去の指示や handoff に旧称が現れても同一リポジトリとして再解決してください（移行状況: [Issue #212](https://github.com/rebuildup/aude-skills/issues/212)）。
 
 このリポジトリのAIエージェント開発環境を初期化、または再整備してください。通常の `/init` の代わり、または補強として使います。
 
@@ -47,7 +49,7 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 
 ## 3. 何をどこへ反映するか
 
-profileとSkillを読み、project固有の事情に合わせてmaterializeしてください。下の表は、project-initが持つ領域ごとの正本です。
+profileとSkillを読み、project固有の事情に合わせてmaterializeしてください。下の表は、aude-skillsが持つ領域ごとの正本です。
 
 | 領域 | 正本 |
 | --- | --- |
@@ -83,7 +85,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 
 ### 導入するSkillを選ぶ
 
-上の表はproject-initの自作Skillだけです。debugging、TDD、platform固有の知識、日本語の文章、visual designなどは、外部や別repositoryのSkillが担当する方が良い場合があります。
+上の表はaude-skillsの自作Skillだけです。debugging、TDD、platform固有の知識、日本語の文章、visual designなどは、外部や別repositoryのSkillが担当する方が良い場合があります。
 
 導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
 
@@ -92,7 +94,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 - 外部packの入口（router）は入れず、個別のSkillだけを入れます。
 - project-localに `--copy` で導入し、Skillのfileと `skills-lock.json` をcommitします。
 
-`candidates.tsv` は許可リストではありません。記録にないSkillも評価して構いません。project固有でない評価結果は、project-initへPRとして戻してください。
+`candidates.tsv` は許可リストではありません。記録にないSkillも評価して構いません。project固有でない評価結果は、aude-skillsへPRとして戻してください。
 
 ## 4. root contractを生成する
 
@@ -110,7 +112,7 @@ root contractに書くもの:
 - コードの初回実装・追加・変更では、既存の責務・階層を先に調べ、`code-naming` と `system-quality` に従い影響範囲を同じ変更で整合する、というpointer
 - 復旧の入口: 会話履歴ではなくIssue / PR / branch / checkpointから再開する。詳細は `agent-recovery`
 - top-level agent委譲を行うprojectでは、`templates/agent-routing/` のroute契約と起動CLIをproject-localにmaterializeする。runtime / provider を同じroot contractへ直接hardcodeせず、task roleと設定ファイルへのpointerだけを記す。無断provider fallbackやnative subagent置換を禁止する境界も指す
-- worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。project-initの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
+- worktreeを使うprojectでは、作成・削除時の処理の入口（`mise run worktree:setup` / `worktree:teardown`）。aude-skillsの `scripts/worktree/`、`.config/wt.toml`、`orca.yaml` を写して調整する（`worktree-workflow`）
 - 下のhouse ruleのうち、そのprojectに該当するもの
 - 能力ごとの担当表：採用したSkill（外部Skillを含む）と使う場面。手動起動のSkillはpathも書く
 

@@ -22,15 +22,15 @@ GitHub への Issue / PR review 投稿が権限・rate-limit・validation・own-
 # 1. finding を記録（ファイル未作成時は自動初期化）
 node scripts/review-findings/cli.mts record \
   --ledger .tmp/findings.json \
-  --repo rebuildup/project-init \
-  --finding-id project-init:auth-redaction \
+  --repo rebuildup/aude-skills \
+  --finding-id aude-skills:auth-redaction \
   --file src/logger.ts --line 42 --sha 1111111111111111111111111111111111111111 \
   --severity P1 --category security-logging --evidence "raw token logged"
 
 # 2. 投稿失敗を記録
 node scripts/review-findings/cli.mts fail \
   --ledger .tmp/findings.json \
-  --repo rebuildup/project-init --finding-id project-init:auth-redaction \
+  --repo rebuildup/aude-skills --finding-id aude-skills:auth-redaction \
   --reason own-pr-request-changes
 
 # 3. リトライ・重複・フォールバック・再発コメントを計画（--write で link-existing を反映）
@@ -40,21 +40,21 @@ node scripts/review-findings/cli.mts plan-retry \
 # 4. 投稿完了を記録
 node scripts/review-findings/cli.mts mark-posted \
   --ledger .tmp/findings.json \
-  --repo rebuildup/project-init --finding-id project-init:auth-redaction \
-  --url https://github.com/rebuildup/project-init/issues/999
+  --repo rebuildup/aude-skills --finding-id aude-skills:auth-redaction \
+  --url https://github.com/rebuildup/aude-skills/issues/999
 
 # 5. exact head SHA と検証コマンドで解消
 node scripts/review-findings/cli.mts resolve \
   --ledger .tmp/findings.json \
-  --repo rebuildup/project-init --finding-id project-init:auth-redaction \
+  --repo rebuildup/aude-skills --finding-id aude-skills:auth-redaction \
   --sha 2222222222222222222222222222222222222222 \
   --command "bun test src/logger.test.ts"
 
 # 6. scope 変更のオーナー承認を記録
 node scripts/review-findings/cli.mts approve-scope \
   --ledger .tmp/findings.json \
-  --repo rebuildup/project-init --finding-id scope:retarget-release \
-  --approver rebuildup --evidence-url https://github.com/rebuildup/project-init/issues/141#issuecomment-1
+  --repo rebuildup/aude-skills --finding-id scope:retarget-release \
+  --approver rebuildup --evidence-url https://github.com/rebuildup/aude-skills/issues/141#issuecomment-1
 
 # 7. 台帳サマリを表示
 node scripts/review-findings/cli.mts summary --ledger .tmp/findings.json

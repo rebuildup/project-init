@@ -2,13 +2,13 @@
 
 - Layer: **Practice**; refines [execution functions](execution-functions.md), [release-driven-solo](profiles/release-driven-solo.md), [parallel-orchestration](../skills/parallel-orchestration/SKILL.md), [quality-gate](../skills/quality-gate/SKILL.md), [herdr-runtime](../skills/herdr-runtime/SKILL.md).
 - Scope: choosing **where** to execute Work, Verify, Review, Benchmark, Render, Serve, or a durable agent attempt. Does **not** define who is authorized, how agents are routed, or how SSH/Herdr sessions are synchronized.
-- Status: policy candidate; cross-device operational acceptance is **not complete**. See [project-init #147](https://github.com/rebuildup/project-init/issues/147) and [dotfiles #78](https://github.com/rebuildup/dotfiles/issues/78).
+- Status: policy candidate; cross-device operational acceptance is **not complete**. See [aude-skills #147](https://github.com/rebuildup/aude-skills/issues/147) and [dotfiles #78](https://github.com/rebuildup/dotfiles/issues/78).
 
 ## Separate identities and authorities
 
 | Concept | Meaning / owner |
 | --- | --- |
-| Task, attempt, role, function, fencing | project-init orchestration and GitHub Issue/result contracts; **not** a Herdr tab |
+| Task, attempt, role, function, fencing | aude-skills orchestration and GitHub Issue/result contracts; **not** a Herdr tab |
 | Logical device / SSH endpoint / remote session | dotfiles/Infisical node definition and native SSH/Herdr; not permission to execute arbitrary work |
 | Physical host / shared resource group | real host capacity and contention, observed when needed |
 | OS runtime | Windows native, macOS native, WSL/Linux, or another target environment; not necessarily independent hardware |
@@ -17,7 +17,7 @@
 
 **Windows native and its WSL2 distributions normally share physical CPU, RAM, GPU/VRAM, SSD, power and thermal budgets.** Do not count them as independent capacity when choosing placements. The environments *do* offer separate OS interfaces. A separate Mac is a distinct physical host when this has been verified, but its suitability and available headroom are not assumed.
 
-Do not duplicate live endpoint secrets, private keys, host inventory, model/provider config, or machine state into project-init. Infisical/dotfiles owns connection definitions; `agent` launcher owns model/provider routing; Git and GitHub own source/evidence. Herdr owns terminal/session presentation only.
+Do not duplicate live endpoint secrets, private keys, host inventory, model/provider config, or machine state into aude-skills. Infisical/dotfiles owns connection definitions; `agent` launcher owns model/provider routing; Git and GitHub own source/evidence. Herdr owns terminal/session presentation only.
 
 ## Placement decision: small, explicit, evidence-based
 
@@ -68,7 +68,7 @@ devices check <id>    # Validate one target against pinned SSH/instance identity
 devices herdr <id>    # Attach to its intended remote Herdr session
 ```
 
-These are commands from the *separate* dotfiles Practice, **not** an installation or an implementation of `devices` by project-init. For a remote GUI test, Herdr is the terminal/log/agent channel; use a separately authorized GUI automation/human observation path. Verify actual tool versions, session identity and behavior before using this in unattended operation.
+These are commands from the *separate* dotfiles Practice, **not** an installation or an implementation of `devices` by aude-skills. For a remote GUI test, Herdr is the terminal/log/agent channel; use a separately authorized GUI automation/human observation path. Verify actual tool versions, session identity and behavior before using this in unattended operation.
 
 ## Non-negotiable negative contract
 
