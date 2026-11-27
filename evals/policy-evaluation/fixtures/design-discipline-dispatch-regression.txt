@@ -1,0 +1,6 @@
+case_a_new_ui=design-discipline-after-layout
+case_b_css_fix=trigger-design-discipline
+case_c_writing_only=writing-discipline-only
+case_d_mixed_product_ui=design-refinement-then-design-discipline-then-design-intent
+pointer_guard=installed-file-only
+scope=applicable-2d-visual-projects-only
