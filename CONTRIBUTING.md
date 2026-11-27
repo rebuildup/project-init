@@ -369,7 +369,7 @@ GitHubの保護機能を利用できる場合、`main`をprotected branch/rulese
 
 current release-driven profileではGitHub Pull Requestをmerge commitでlandします。squash merge / rebase mergeは使用しません。
 
-repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、初期化/readiness reviewで実設定を確認・修復します。設定変更権限がない場合は差分をblockerまたは明示的configuration limitationとして報告します。
+repository settingsは `allow_merge_commit=true` / `allow_squash_merge=false` / `allow_rebase_merge=false` を標準とし、初期化/readiness reviewで実設定を確認します。設定の作成・修復と差分の報告は [`github-delivery`](./skills/github-delivery/SKILL.md) の権限条件に従います。
 
 Agent / automationがmerge APIを呼ぶ場合は `merge` methodを明示します。branch-local `git rebase` はPR rebase mergeとは別であり、stack maintenance / conflict解消のため既存policyに従って使用できます。
 

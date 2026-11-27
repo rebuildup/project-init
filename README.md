@@ -51,12 +51,12 @@ npx skills add rebuildup/aude-skills
 特定のSkillと、その必須依存を導入:
 
 ```bash
-bunx skills add rebuildup/aude-skills --skill quality-gate system-quality
+bunx skills add rebuildup/aude-skills --skill quality-gate system-quality code-naming --copy
 # or
-npx skills add rebuildup/aude-skills --skill quality-gate system-quality
+npx skills add rebuildup/aude-skills --skill quality-gate system-quality code-naming --copy
 ```
 
-`metadata.requires-skills` に依存があるSkillは、その依存も同時に導入します。設計・判断・品質・評価・選定Skillの共有契約はsystem-qualityです。単独copyだけでは導入完了になりません。
+`metadata.requires-skills` に記載された推移的な依存も同時に導入します。既存projectの選定・移行手順は [`skill-selection`](./skills/skill-selection/SKILL.md#4-導入する) を参照してください。
 
 Codex を明示して導入:
 

@@ -40,7 +40,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - `skills/orca-frontend/SKILL.md` — Orcaを任意のfrontendとして併用する時の扱い。lifecycleはrepositoryの入口、作業の正本はGitHub、orchestration stateはtelemetry。
 - `skills/skill-selection/SKILL.md` — 能力ごとの担当Skillの選定、外部Skillの個別導入、`skills-lock.json` と採否の記録。
 - `catalog/capabilities.tsv` / `catalog/candidates.tsv` — 能力の一覧と、Skill候補の評価記録。
-- `skills/linear-release-control/SKILL.md` — Linearをoptional release planning / health / portfolio control planeとして使う契約（採用時のみ）。
+- `skills/linear-release-control/SKILL.md` — 標準profileのrelease planning / health / portfolioをLinearで扱う契約。
 - `skills/worktree-workflow/SKILL.md` — WorktrunkをWSL/Linuxのworktree操作layerとして使う契約 / branch base / port allocation / Rust-Cargo build cache lifecycle。
 - `CODEX_ROLES.ja.md` / `CODEX_ROLES.en.md` — 時点依存のCodex logical role policy。
 - `ADR-0001.md` — project-local / progressive disclosure / deterministic verification等の基本判断。
@@ -88,7 +88,7 @@ default practiceへの従属より、上位guaranteeを維持したproject全体
 - Supervisor / subagent integration
 - interruption/recovery protocol
 - macOS / Windows+WSL / Linuxで再現可能なruntime
-- GitHub IssuesとPull Requestsによるweekly planning / adaptive release batching workflow。release planning control planeはLinearのいずれか一方を明示（SoTではない）
+- GitHub Issuesを実装・依存の正本とし、PRに統合と検証の証拠を残す。標準profileでは週次planningとadaptive release batchingをLinearで管理する
 - dependency-aware stacked PR delivery
 - durable branchごとのremote publication + PR state lifecycleとPR metadata management
 - public repositoryのprotected `main` / release-only main integration
@@ -306,7 +306,7 @@ public repositoryでは`main`をbranch protection / rulesetで保護します。
 
 branch protection/rulesetだけでPR head branch patternを制限できない場合も、存在しないrequired CI/status checkを生成しません。merge executor / release automationが `base == main` なら `head == current release-*` を検証し、ticket/arbitrary branchからのmergeを拒否します。
 
-初期化時にrepository visibilityとmain protection/rulesetを実際に確認し、public repositoryで不足していれば作成・修復します。権限不足で変更できない場合は未保護状態をblockerとして報告します。
+初期化時にrepository visibilityとmain protection/rulesetを確認します。設定の作成・修復と差分の報告は [`github-delivery`](../skills/github-delivery/SKILL.md) の権限条件に従います。
 
 ## Engineering decision policy
 
@@ -540,7 +540,7 @@ project固有のarchitecture / UI / release / debugging等は必要に応じて�
 - adaptive quality profile -> project-local commands / Skills / CI workflows
 - engineering decision/security/recovery policy -> dedicated Skills / config / Issues
 - onboarding knowledge -> repository-controlled documentation
-- durable work workflow -> GitHub Issues / PR configuration; release planning control plane -> Linearのいずれか一方を明示
+- durable work workflow -> GitHub Issues / PR configuration。標準profileのrelease planning control plane -> Linear
 - main protection -> Pull Request required / approvals 0 / conversation resolution required / no fixed required status checks by default。GitHub ruleset単体ではPR head patternを制約できないため、release-source policyはmerge executor/release automationでpreflightし、machine-enforced範囲を誇張しない
 
 へ分解します。

@@ -86,7 +86,7 @@ GitHubの標準branch protection/rulesetではPR head branch patternを直接制
 
 readiness reportでは `ruleset enforced` と `merge-executor policy enforced` を区別する。外部guardがない場合、GitHub UIで任意headからのPR mergeを完全に禁止できるとは報告しない。Agentがmerge APIを呼ぶ直前には必ずbase/headを再取得してpreflightする。
 
-初期化時にrepositoryのmain protection/rulesetを実際に確認する。設定変更権限がある場合は上記baselineへ作成・修復し、権限がない場合は差分をblockerとして報告する。
+初期化時にrepositoryのmain protection/rulesetとmerge methodを確認する。今回の依頼に設定変更が含まれ、操作権限がある場合は上記baselineへ作成・修復する。調査・提案では現状と差分を報告する。依頼に含まれる変更が権限不足で行えない場合は、その差分をblockerとして報告する。
 
 ## Weekly planning / adaptive release batching
 

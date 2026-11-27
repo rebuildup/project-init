@@ -44,8 +44,8 @@ profileはdefaultであって目的ではありません。Constitutionのguaran
 
 - 正しい状態を作り直さない。変更不要も成功です。
 - userの未commit変更や、project-localにcustomizeされた内容を上書きしない。差分は統合します。
-- 既存のAgent Skillは、同名で存在するだけでは最新とみなさない。version pinがない限り配布元のcurrent revisionと比較し、差分があればcustomizationを保持して更新します。配布元を確認できない場合も、独断で据え置きにはしません。
-- repository設定（`main` 保護、merge method）が期待と違い、変更権限があれば修復する。権限がなければblockerとして報告します。期待値はprofileと `github-delivery` にあります。
+- 既存のAgent Skillは、固定したrevisionまたは配布元のcurrent revisionと照合します。旧名のlockを移行する場合は、`skill-selection` の導入手順を参照してください。配布元や採用済みrevisionを確かめられない場合は、未確認の範囲を報告してください。
+- repository設定（`main` 保護、merge method）は、今回の依頼に設定変更が含まれ、操作権限がある場合に修復します。調査・提案の依頼では現状と差分を報告してください。期待値は対象projectのprofileと `github-delivery` にあります。
 
 ## 3. 何をどこへ反映するか
 
@@ -56,7 +56,7 @@ profileとSkillを読み、project固有の事情に合わせてmaterializeし�
 | 実装判断の優先順位、userへ返す判断と返さない判断、設計・ADR・tool選定 | `engineering-decisions` |
 | 非自明なfeature / architecture / product designの実装前整理 | `design-refinement` |
 | Issue / ticket branch / PR lifecycle / stacked PR / release PR / `main` 保護 / merge method | `github-delivery`、profile |
-| release planning（Linearを採用する場合） | `linear-release-control` |
+| release planning（標準profileではLinear） | profile、`linear-release-control` |
 | 中長期の見積もり | `agent-delivery-estimation` |
 | subagentの分解・委譲・immutable snapshot / result・並列化 | `parallel-orchestration` |
 | Herdrを使うSupervisor運用 | `herdr-runtime` |
@@ -85,7 +85,7 @@ mise・Cloudflare CLI（`cf`）・secret providerなどのtool defaultはprofile
 
 ### 導入するSkillを選ぶ
 
-上の表はaude-skillsの自作Skillだけです。debugging、TDD、platform固有の知識、日本語の文章、visual designなどは、外部や別repositoryのSkillが担当する方が良い場合があります。
+上の表はaude-skillsの運用判断と、`writing-discipline` など別repositoryが所有するSkillへの入口です。debugging、TDD、platform固有の知識、日本語の文章、visual designなどの候補は能力ごとに評価します。
 
 導入するSkillは `skill-selection` の手順で選んでください。手順の要点は次のとおりです。
 
