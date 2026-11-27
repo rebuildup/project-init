@@ -306,7 +306,7 @@ public repositoryでは`main`をbranch protection / rulesetで保護します。
 
 branch protection/rulesetだけでPR head branch patternを制限できない場合も、存在しないrequired CI/status checkを生成しません。merge executor / release automationが `base == main` なら `head == current release-*` を検証し、ticket/arbitrary branchからのmergeを拒否します。
 
-初期化時にrepository visibilityとmain protection/rulesetを実際に確認し、public repositoryで不足していれば作成・修復します。権限不足で変更できない場合は未保護状態をblockerとして報告します。
+初期化時にrepository visibilityとmain protection/rulesetを確認します。設定の作成・修復と差分の報告は [`github-delivery`](../skills/github-delivery/SKILL.md) の権限条件に従います。
 
 ## Engineering decision policy
 
