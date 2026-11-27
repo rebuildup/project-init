@@ -10,14 +10,17 @@ const sourceRoot=dirname(fileURLToPath(import.meta.url));
 const sha=(s:string)=>createHash('sha256').update(s).digest('hex');
 const markerStart='<!-- project-init:agent-routing:start -->';
 const markerEnd='<!-- project-init:agent-routing:end -->';
+const routingHeading='## Agent delegation route (aude-skills)';
+const legacyRoutingHeading='## Agent delegation route (project-init)';
 const contract=[
   markerStart,
-  '## Agent delegation route (project-init)',
+  routingHeading,
   'Top-level delegated tasks must resolve their role from scripts/agent-routing/agent-routing.json and use scripts/agent-routing/dispatch.mts with Herdr and the specified provider.',
   'Do not silently substitute native subagents or another provider. A missing route, quota/authentication error, or ambiguous attempt blocks delegation.',
   'Review/verification independence and resource leases are separate from Herdr display layout.',
   markerEnd,
 ].join('\n')+'\n';
+const legacyContract=contract.replace(routingHeading,legacyRoutingHeading);
 function isRecord(v:unknown):v is Record<string,unknown> {
   return v!==null && typeof v==='object' && !Array.isArray(v);
 }
@@ -71,7 +74,11 @@ export function materialize(project:string,claudeHook=false,check=false) {
   const start=agents.indexOf(markerStart),end=agents.indexOf(markerEnd);
   if((start>=0)!==(end>=0)) throw new Error('incomplete AGENTS.md routing marker');
   if(start>=0) {
-    if(agents.slice(start,end+markerEnd.length)!==contract.trimEnd())
+    const sectionEnd=end+markerEnd.length;
+    const section=agents.slice(start,sectionEnd);
+    if(section===legacyContract.trimEnd())
+      writes.set(agentsPath,agents.slice(0,start)+contract.trimEnd()+agents.slice(sectionEnd));
+    else if(section!==contract.trimEnd())
       throw new Error('AGENTS.md routing section customized; reconcile manually');
   } else writes.set(agentsPath,(agents && !agents.endsWith('\n')?agents+'\n':agents)+(agents?'\n':'')+contract);
   if(claudeHook) {

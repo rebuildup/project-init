@@ -66,6 +66,7 @@ frontmatterの `metadata.requires-skills`（空白区切りSkill名）を確認�
 - packを丸ごと入れず、`bunx skills add <source> --skill <name>` で個別に入れる。Web向け例: `bunx skills add GoogleChrome/modern-web-guidance --skill modern-web-guidance --copy`（revision・license・ブラウザ対応方針を確認）。
 - `--copy` で導入し、導入されたSkillのfileと `skills-lock.json` を両方commitする。`skills-lock.json` だけでは再現にならないためである。2026-10時点の `skills experimental_install` は、lockの `computedHash` と照合せずに配布元の現在の内容を取得し、導入先も `.agents/skills/` に固定される。
 - 更新は `bunx skills update` で行い、Skill fileのdiffをPRで確認してから取り込む。配布元の変更を、確認せずに取り込まないためである。
+- `rebuildup/project-init` の旧名がlockに残る場合は、[移行記録 #212](https://github.com/rebuildup/aude-skills/issues/212) を参照する。`skills update` でsourceが変わるとは限らない。採用済みのSkillとrevisionを確認し、新URLから対象のSkillを `--copy` で再導入する。同じrevisionを再現できない場合や内容差分が出る場合は、採用判断を記録してから取り込む。
 - 導入した複製は直接編集せず、内容が `skills-lock.json` の `computedHash`（v1 / v2 の仕様は [domain-candidates.md](references/domain-candidates.md)）と一致し続ける状態を `vendored-skills-contract.mts` 同等のgateで検証する。修正は正本へPRを出す。
 - 配布元がtagを付けているなら、`https://github.com/<owner>/<repo>/tree/<tag>` で導入してlockの `ref` をtagに固定する。commit SHAは `ref` に使えない。
 - licenseが再配布を禁じるSkillはcommitしない。`skills-lock.json` にだけ記録し、必要な環境で導入する。
